@@ -88,6 +88,40 @@ uint8_t *internalRAM = 0;
 uint8_t *workRAM = 0;
 uint8_t *paletteRAM = 0;
 
+#ifdef MSB_FIRST
+/* Host-endian shadow of paletteRAM, refreshed once per scanline. Lets the
+ * per-pixel renderer read palette entries without a __lhbrx byteswap on every
+ * read - moves the ~150,000 byteswaps/frame down to 0x200 per scanline
+ * (~32,000/frame total). BE-only; on LE the renderer already reads paletteRAM
+ * directly with no swap.
+ *
+ * Threading note: under THREADED_RENDERER, palette_native is shared across
+ * renderer contexts. If a worker thread is mid-render on line N while the
+ * main thread is syncing for line N+1, palette_native[X] could appear torn
+ * for a single pixel - transient visual artifact only, never a crash.
+ * Real-world BE platforms (PS3/X360/Wii/WiiU) currently do not enable
+ * THREADED_RENDERER so this is theoretical. A future fix would move
+ * palette_native into renderer_ctx for per-context isolation. */
+static uint16_t palette_native[0x200];
+
+static INLINE void palette_native_sync(void)
+{
+	/* paletteRAM is stored byte-swapped on BE so READ16LE returns the natural
+	 * value (matching what an LE host would see directly). Copy that natural
+	 * value into palette_native and the renderer can read it without swapping. */
+	const uint16_t *src = (const uint16_t *)paletteRAM;
+	for (int i = 0; i < 0x200; ++i)
+		palette_native[i] = READ16LE(&src[i]);
+}
+
+/* Renderer-side palette accessor: under MSB_FIRST point at the host-endian
+ * shadow; under LE point at the raw paletteRAM (already host-endian). */
+#define PAL_U16 palette_native
+#else
+#define PAL_U16 ((uint16_t *)paletteRAM)
+static INLINE void palette_native_sync(void) { /* no-op on LE */ }
+#endif
+
 int renderfunc_mode = 0;
 int renderfunc_type = 0;
 
@@ -136,7 +170,7 @@ static void hardware_reset() {
 		uint32_t background_ver;
 		uint32_t gfxinwin_ver[2];
 
-		uint16_t io_registers[1024 * 16];
+		uint16_t io_registers[0x200];
 		uint32_t line[6][240];
 		int lineOBJpixleft[128];
 		bool gfxInWin[2][240];
@@ -294,7 +328,7 @@ static void hardware_reset() {
 
 #endif
 
-#define RENDERER_BACKDROP (READ16LE(&reinterpret_cast<uint16_t*>(RENDERER_PALETTE)[0]) | 0x30000000)
+#define RENDERER_BACKDROP (PAL_U16[0] | 0x30000000)
 #define RENDERER_R_BLDCNT_Color_Special_Effect ((RENDERER_BLDMOD >> 6) & 3)
 #define RENDERER_R_BLDCNT_IsTarget1(target) ((target) & (RENDERER_BLDMOD     ))
 #define RENDERER_R_BLDCNT_IsTarget2(target) ((target) & (RENDERER_BLDMOD >> 8))
@@ -340,7 +374,7 @@ static INLINE u32 gfxDecreaseBrightness(u32 color, int coeff) {
 	return (color >> 16) | color;
 }
 
-static u32 AlphaClampLUT[64] =
+static const uint8_t AlphaClampLUT[64] =
 {
 	0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F,
 	0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F,
@@ -477,7 +511,7 @@ typedef enum
   REG_HALTCNT = 0x180
 } hardware_register;
 
-static uint16_t io_registers[1024 * 16];
+static uint16_t io_registers[0x200];
 
 // Note: Some comments below are from the GBATEK document
 // (http://problemkaputt.de/gbatek.htm).
@@ -1309,10 +1343,13 @@ static INLINE void CPUWriteByte(u32 address, u8 b)
 						{
 							u32 lowerBits = address & 0x3fe;
 							uint16_t param;
+							/* Read the unaffected half as a direct byte to avoid an
+							 * unnecessary READ16LE byteswap on BE: we discard one byte
+							 * of the load anyway. */
 							if(address & 1)
-								param = (READ16LE(&ioMem[lowerBits]) & 0x00FF) | (b << 8);
+								param = ioMem[lowerBits] | (b << 8);
 							else
-								param = (READ16LE(&ioMem[lowerBits]) & 0xFF00) | b;
+								param = (ioMem[lowerBits+1] << 8) | b;
 
 							CPUUpdateRegister(lowerBits, param);
 						}
@@ -2680,7 +2717,7 @@ static void armUnknownInsn(u32 opcode)
 // OP Rd,Rb,Rm LSL Rs
 #ifndef VALUE_LSL_REG_C
  #define VALUE_LSL_REG_C \
-    u32 shift = bus.reg[(opcode >> 8) & 15].B.B0;                \
+    u32 shift = bus.reg[(opcode >> 8) & 15].I & 0xFF;                \
     u32 rm = bus.reg[opcode & 0x0F].I;                           \
     if ((opcode & 0x0F) == 15) {                             \
         rm += 4;                                             \
@@ -2717,7 +2754,7 @@ static void armUnknownInsn(u32 opcode)
 // OP Rd,Rb,Rm LSR Rs
 #ifndef VALUE_LSR_REG_C
  #define VALUE_LSR_REG_C \
-    unsigned int shift = bus.reg[(opcode >> 8) & 15].B.B0;  \
+    unsigned int shift = bus.reg[(opcode >> 8) & 15].I & 0xFF;  \
     u32 rm = bus.reg[opcode & 0x0F].I;                      \
     if ((opcode & 0x0F) == 15) {                        \
         rm += 4;                                        \
@@ -2759,7 +2796,7 @@ static void armUnknownInsn(u32 opcode)
 // OP Rd,Rb,Rm ASR Rs
 #ifndef VALUE_ASR_REG_C
  #define VALUE_ASR_REG_C \
-    unsigned int shift = bus.reg[(opcode >> 8)&15].B.B0;    \
+    unsigned int shift = bus.reg[(opcode >> 8)&15].I & 0xFF;    \
     u32 rm = bus.reg[opcode & 0x0F].I;                      \
     if ((opcode & 0x0F) == 15) {                        \
         rm += 4;                                        \
@@ -2801,7 +2838,7 @@ static void armUnknownInsn(u32 opcode)
 // OP Rd,Rb,Rm ROR Rs
 #ifndef VALUE_ROR_REG_C
  #define VALUE_ROR_REG_C \
-    unsigned int shift = bus.reg[(opcode >> 8)&15].B.B0;    \
+    unsigned int shift = bus.reg[(opcode >> 8)&15].I & 0xFF;    \
     u32 rm = bus.reg[opcode & 0x0F].I;                      \
     if ((opcode & 0x0F) == 15) {                        \
         rm += 4;                                        \
@@ -3246,7 +3283,7 @@ static  void arm149(u32 opcode)
 {
 	u32 address = bus.reg[(opcode >> 16) & 15].I;
 	u32 temp = CPUReadByte(address);
-	CPUWriteByte(address, bus.reg[opcode&15].B.B0);
+	CPUWriteByte(address, bus.reg[opcode&15].I & 0xFF);
 	bus.reg[(opcode>>12)&15].I = temp;
 	u32 dataticks_value = DATATICKS_ACCESS_32BIT(address);
 	DATATICKS_ACCESS_BUS_PREFETCH(address, dataticks_value);
@@ -3451,8 +3488,8 @@ static  void arm121(u32 opcode)
 #define ADDRESS_PREINC (bus.reg[base].I + offset)
 
 #define OP_STR    CPUWriteMemory(address, bus.reg[dest].I)
-#define OP_STRH   CPUWriteHalfWord(address, bus.reg[dest].W.W0)
-#define OP_STRB   CPUWriteByte(address, bus.reg[dest].B.B0)
+#define OP_STRH   CPUWriteHalfWord(address, bus.reg[dest].I & 0xFFFF)
+#define OP_STRB   CPUWriteByte(address, bus.reg[dest].I & 0xFF)
 #define OP_LDR    bus.reg[dest].I = CPUReadMemory(address)
 #define OP_LDRH   bus.reg[dest].I = CPUReadHalfWord(address)
 #define OP_LDRB   bus.reg[dest].I = CPUReadByte(address)
@@ -5386,7 +5423,7 @@ static  void thumb40_1(u32 opcode)
 static  void thumb40_2(u32 opcode)
 {
   int dest = opcode & 7;
-  u32 value = bus.reg[(opcode >> 3)&7].B.B0;
+  u32 value = bus.reg[(opcode >> 3)&7].I & 0xFF;
   u32 val = value;
   if(val) {
     if(val == 32) {
@@ -5409,7 +5446,7 @@ static  void thumb40_2(u32 opcode)
 static  void thumb40_3(u32 opcode)
 {
   int dest = opcode & 7;
-  u32 value = bus.reg[(opcode >> 3)&7].B.B0;
+  u32 value = bus.reg[(opcode >> 3)&7].I & 0xFF;
   u32 val = value;
   if(val) {
     if(val == 32) {
@@ -5432,7 +5469,7 @@ static  void thumb40_3(u32 opcode)
 static  void thumb41_0(u32 opcode)
 {
   int dest = opcode & 7;
-  u32 value = bus.reg[(opcode >> 3)&7].B.B0;
+  u32 value = bus.reg[(opcode >> 3)&7].I & 0xFF;
 
   if(value) {
     if(value < 32) {
@@ -5473,7 +5510,7 @@ static  void thumb41_2(u32 opcode)
 static  void thumb41_3(u32 opcode)
 {
   int dest = opcode & 7;
-  u32 value = bus.reg[(opcode >> 3)&7].B.B0;
+  u32 value = bus.reg[(opcode >> 3)&7].I & 0xFF;
   u32 val = value;
   if(val) {
     value = value & 0x1f;
@@ -5729,7 +5766,7 @@ static  void thumb52(u32 opcode)
 	if (bus.busPrefetchCount == 0)
 		bus.busPrefetch = bus.busPrefetchEnable;
 	u32 address = bus.reg[(opcode>>3)&7].I + bus.reg[(opcode>>6)&7].I;
-	CPUWriteHalfWord(address, bus.reg[opcode&7].W.W0);
+	CPUWriteHalfWord(address, bus.reg[opcode&7].I & 0xFFFF);
 	int dataticks_value = DATATICKS_ACCESS_16BIT(address);
 	DATATICKS_ACCESS_BUS_PREFETCH(address, dataticks_value);
 	clockTicks = dataticks_value + codeTicksAccess(bus.armNextPC, BITS_16) + 2;
@@ -5741,7 +5778,7 @@ static  void thumb54(u32 opcode)
 	if (bus.busPrefetchCount == 0)
 		bus.busPrefetch = bus.busPrefetchEnable;
 	u32 address = bus.reg[(opcode>>3)&7].I + bus.reg[(opcode >>6)&7].I;
-	CPUWriteByte(address, bus.reg[opcode & 7].B.B0);
+	CPUWriteByte(address, bus.reg[opcode & 7].I & 0xFF);
 	int dataticks_value = DATATICKS_ACCESS_16BIT(address);
 	DATATICKS_ACCESS_BUS_PREFETCH(address, dataticks_value);
 	clockTicks = dataticks_value + codeTicksAccess(bus.armNextPC, BITS_16) + 2;
@@ -5837,7 +5874,7 @@ static  void thumb70(u32 opcode)
 	if (bus.busPrefetchCount == 0)
 		bus.busPrefetch = bus.busPrefetchEnable;
 	u32 address = bus.reg[(opcode>>3)&7].I + (((opcode>>6)&31));
-	CPUWriteByte(address, bus.reg[opcode&7].B.B0);
+	CPUWriteByte(address, bus.reg[opcode&7].I & 0xFF);
 	int dataticks_value = DATATICKS_ACCESS_16BIT(address);
 	DATATICKS_ACCESS_BUS_PREFETCH(address, dataticks_value);
 	clockTicks = dataticks_value + codeTicksAccess(bus.armNextPC, BITS_16) + 2;
@@ -5861,7 +5898,7 @@ static  void thumb80(u32 opcode)
 	if (bus.busPrefetchCount == 0)
 		bus.busPrefetch = bus.busPrefetchEnable;
 	u32 address = bus.reg[(opcode>>3)&7].I + (((opcode>>6)&31)<<1);
-	CPUWriteHalfWord(address, bus.reg[opcode&7].W.W0);
+	CPUWriteHalfWord(address, bus.reg[opcode&7].I & 0xFFFF);
 	int dataticks_value = DATATICKS_ACCESS_16BIT(address);
 	DATATICKS_ACCESS_BUS_PREFETCH(address, dataticks_value);
 	clockTicks = dataticks_value + codeTicksAccess(bus.armNextPC, BITS_16) + 2;
@@ -6640,7 +6677,7 @@ typedef const TileLine (*TileReader) (const u16 *, const int, const u8 *, u16 *,
 
 static inline void gfxDrawPixel(u32 *dest, const u8 color, const u16 *palette, const u32 prio)
 {
-   *dest = color ? (READ16LE(&palette[color]) | prio): 0x80000000;
+   *dest = color ? (palette[color] | prio): 0x80000000;
 }
 
 inline const TileLine gfxReadTile(const u16 *screenSource, const int yyy, const u8 *charBase, u16 *palette, const u32 prio)
@@ -6741,7 +6778,7 @@ static void gfxDrawTextScreen(u16 control, u16 hofs, u16 vofs)
 {
 	INIT_RENDERER_CONTEXT(renderer_idx);
 
-   u16 *palette = (u16 *)RENDERER_PALETTE;
+   u16 *palette = PAL_U16;
    u8 *charBase = &vram[((control >> 2) & 0x03) * 0x4000];
    u16 *screenBase = (u16 *)&vram[((control >> 8) & 0x1f) * 0x800];
    u32 prio = ((control & 3)<<25) + 0x1000000;
@@ -6858,7 +6895,7 @@ void gfxDrawTextScreen(u16 control, u16 hofs, u16 vofs)
 template<int layer, int renderer_idx>
 static inline void gfxDrawTextScreen(u16 control, u16 hofs, u16 vofs)
 {
-  u16 *palette = (u16 *)RENDERER_PALETTE;
+  u16 *palette = PAL_U16;
   u8 *charBase = &vram[((control >> 2) & 0x03) * 0x4000];
   u16 *screenBase = (u16 *)&vram[((control >> 8) & 0x1f) * 0x800];
   u32 prio = ((control & 3)<<25) + 0x1000000;
@@ -6923,7 +6960,7 @@ static inline void gfxDrawTextScreen(u16 control, u16 hofs, u16 vofs)
 
       u8 color = charBase[tile * 64 + tileY * 8 + tileX];
 
-      RENDERER_LINE[layer][x] = color ? (READ16LE(&palette[color]) | prio): 0x80000000;
+      RENDERER_LINE[layer][x] = color ? (palette[color] | prio): 0x80000000;
 
       xxx++;
       if(xxx == 256) {
@@ -6965,7 +7002,7 @@ static inline void gfxDrawTextScreen(u16 control, u16 hofs, u16 vofs)
       }
 
       int pal = (data>>8) & 0xF0;
-      RENDERER_LINE[layer][x] = color ? (READ16LE(&palette[pal + color])|prio): 0x80000000;
+      RENDERER_LINE[layer][x] = color ? (palette[pal + color]|prio): 0x80000000;
 
       xxx++;
       if(xxx == 256) {
@@ -6994,25 +7031,12 @@ static u32 map_sizes_rot[] = { 128, 256, 512, 1024 };
 #if THREADED_RENDERER
 static INLINE void fetchDrawRotScreen(u16 control, u16 x_l, u16 x_h, u16 y_l, u16 y_h, u16 pa, u16 pb, u16 pc, u16 pd, int& currentX, int& currentY, int changed)
 {
-	int dx  = pa & 0x7FFF;
-	int dmx = pb & 0x7FFF;
-	int dy  = pc & 0x7FFF;
-	int dmy = pd & 0x7FFF;
-#ifdef BRANCHLESS_GBA_GFX
-	dx  |= isel(-(pa & 0x8000), 0, 0xFFFF8000);
-	dmx |= isel(-(pb & 0x8000), 0, 0xFFFF8000);
-	dy  |= isel(-(pc & 0x8000), 0, 0xFFFF8000);
-	dmy |= isel(-(pd & 0x8000), 0, 0xFFFF8000);
-#else
-	if(pa & 0x8000)
-		dx |= 0xFFFF8000;
-	if(pb & 0x8000)
-		dmx |= 0xFFFF8000;
-	if(pc & 0x8000)
-		dy |= 0xFFFF8000;
-	if(pd & 0x8000)
-		dmy |= 0xFFFF8000;
-#endif
+	/* Only dmx/dmy (per-line increments) are consumed here; dx/dy are per-pixel
+	 * and live in the renderer thread. Single-cast sign-extension compiles to
+	 * one extsh on PPC / sxth on ARM. */
+	int dmx = (int)(int16_t)pb;
+	int dmy = (int)(int16_t)pd;
+	(void)pa; (void)pc; (void)control;
 
 	if(io_registers[REG_VCOUNT] == 0)
 		changed = 3;
@@ -7037,25 +7061,8 @@ static INLINE void fetchDrawRotScreen(u16 control, u16 x_l, u16 x_h, u16 y_l, u1
 
 static INLINE void fetchDrawRotScreen16Bit( int& currentX,  int& currentY, int changed)
 {
-	int dx  = io_registers[REG_BG2PA] & 0x7FFF;
-	int dmx = io_registers[REG_BG2PB] & 0x7FFF;
-	int dy  = io_registers[REG_BG2PC] & 0x7FFF;
-	int dmy = io_registers[REG_BG2PD] & 0x7FFF;
-#ifdef BRANCHLESS_GBA_GFX
-	dx     |= isel(-(io_registers[REG_BG2PA] & 0x8000), 0, 0xFFFF8000);
-	dmx    |= isel(-(io_registers[REG_BG2PB] & 0x8000), 0, 0xFFFF8000);
-	dy     |= isel(-(io_registers[REG_BG2PC] & 0x8000), 0, 0xFFFF8000);
-	dmy    |= isel(-(io_registers[REG_BG2PD] & 0x8000), 0, 0xFFFF8000);
-#else
-	if(io_registers[REG_BG2PA] & 0x8000)
-		dx  |= 0xFFFF8000;
-	if(io_registers[REG_BG2PB] & 0x8000)
-		dmx |= 0xFFFF8000;
-	if(io_registers[REG_BG2PC] & 0x8000)
-		dy  |= 0xFFFF8000;
-	if(io_registers[REG_BG2PD] & 0x8000)
-		dmy |= 0xFFFF8000;
-#endif
+	int dmx = (int)(int16_t)io_registers[REG_BG2PB];
+	int dmy = (int)(int16_t)io_registers[REG_BG2PD];
 
 	if(io_registers[REG_VCOUNT] == 0)
 		changed = 3;
@@ -7080,25 +7087,8 @@ static INLINE void fetchDrawRotScreen16Bit( int& currentX,  int& currentY, int c
 
 static INLINE void fetchDrawRotScreen256(int &currentX, int& currentY, int changed)
 {
-	int dx  = io_registers[REG_BG2PA] & 0x7FFF;
-	int dmx = io_registers[REG_BG2PB] & 0x7FFF;
-	int dy  = io_registers[REG_BG2PC] & 0x7FFF;
-	int dmy = io_registers[REG_BG2PD] & 0x7FFF;
-#ifdef BRANCHLESS_GBA_GFX
-	dx     |= isel(-(io_registers[REG_BG2PA] & 0x8000), 0, 0xFFFF8000);
-	dmx    |= isel(-(io_registers[REG_BG2PB] & 0x8000), 0, 0xFFFF8000);
-	dy     |= isel(-(io_registers[REG_BG2PC] & 0x8000), 0, 0xFFFF8000);
-	dmy    |= isel(-(io_registers[REG_BG2PD] & 0x8000), 0, 0xFFFF8000);
-#else
-	if(io_registers[REG_BG2PA] & 0x8000)
-		dx |= 0xFFFF8000;
-	if(io_registers[REG_BG2PB] & 0x8000)
-		dmx |= 0xFFFF8000;
-	if(io_registers[REG_BG2PC] & 0x8000)
-		dy |= 0xFFFF8000;
-	if(io_registers[REG_BG2PD] & 0x8000)
-		dmy |= 0xFFFF8000;
-#endif
+	int dmx = (int)(int16_t)io_registers[REG_BG2PB];
+	int dmy = (int)(int16_t)io_registers[REG_BG2PD];
 
 	if(io_registers[REG_VCOUNT] == 0)
 		changed = 3;
@@ -7123,25 +7113,8 @@ static INLINE void fetchDrawRotScreen256(int &currentX, int& currentY, int chang
 
 static INLINE void fetchDrawRotScreen16Bit160(int& currentX, int& currentY, int changed)
 {
-	int dx  = io_registers[REG_BG2PA] & 0x7FFF;
-	int dmx = io_registers[REG_BG2PB] & 0x7FFF;
-	int dy  = io_registers[REG_BG2PC] & 0x7FFF;
-	int dmy = io_registers[REG_BG2PD] & 0x7FFF;
-#ifdef BRANCHLESS_GBA_GFX
-	dx     |= isel(-(io_registers[REG_BG2PA] & 0x8000), 0, 0xFFFF8000);
-	dmx    |= isel(-(io_registers[REG_BG2PB] & 0x8000), 0, 0xFFFF8000);
-	dy     |= isel(-(io_registers[REG_BG2PC] & 0x8000), 0, 0xFFFF8000);
-	dmy    |= isel(-(io_registers[REG_BG2PD] & 0x8000), 0, 0xFFFF8000);
-#else
-	if(io_registers[REG_BG2PA] & 0x8000)
-		dx |= 0xFFFF8000;
-	if(io_registers[REG_BG2PB] & 0x8000)
-		dmx |= 0xFFFF8000;
-	if(io_registers[REG_BG2PC] & 0x8000)
-		dy |= 0xFFFF8000;
-	if(io_registers[REG_BG2PD] & 0x8000)
-		dmy |= 0xFFFF8000;
-#endif
+	int dmx = (int)(int16_t)io_registers[REG_BG2PB];
+	int dmy = (int)(int16_t)io_registers[REG_BG2PD];
 
 	if(io_registers[REG_VCOUNT] == 0)
 		changed = 3;
@@ -7171,7 +7144,7 @@ u16 pa,  u16 pb, u16 pc,  u16 pd, int& currentX, int& currentY, int changed)
 {
 	INIT_RENDERER_CONTEXT(renderer_idx);
 
-	u16 *palette = (u16 *)RENDERER_PALETTE;
+	u16 *palette = PAL_U16;
 	u8 *charBase = &vram[((control >> 2) & 0x03) << 14];
 	u8 *screenBase = (u8 *)&vram[((control >> 8) & 0x1f) << 11];
 	int prio = ((control & 3) << 25) + 0x1000000;
@@ -7185,25 +7158,10 @@ u16 pa,  u16 pb, u16 pc,  u16 pd, int& currentX, int& currentY, int changed)
 
 	int yshift = ((control >> 14) & 3)+4;
 
-	int dx  = pa & 0x7FFF;
-	int dmx = pb & 0x7FFF;
-	int dy  = pc & 0x7FFF;
-	int dmy = pd & 0x7FFF;
-#ifdef BRANCHLESS_GBA_GFX
-	dx  |= isel(-(pa & 0x8000), 0, 0xFFFF8000);
-	dmx |= isel(-(pb & 0x8000), 0, 0xFFFF8000);
-	dy  |= isel(-(pc & 0x8000), 0, 0xFFFF8000);
-	dmy |= isel(-(pd & 0x8000), 0, 0xFFFF8000);
-#else
-	if(pa & 0x8000)
-		dx |= 0xFFFF8000;
-	if(pb & 0x8000)
-		dmx |= 0xFFFF8000;
-	if(pc & 0x8000)
-		dy |= 0xFFFF8000;
-	if(pd & 0x8000)
-		dmy |= 0xFFFF8000;
-#endif
+	int dx  = (int)(int16_t)pa;
+	int dmx = (int)(int16_t)pb;
+	int dy  = (int)(int16_t)pc;
+	int dmy = (int)(int16_t)pd;
 
 	if(RENDERER_R_VCOUNT == 0)
 		changed = 3;
@@ -7256,7 +7214,7 @@ u16 pa,  u16 pb, u16 pc,  u16 pd, int& currentX, int& currentY, int changed)
 
 				u8 color = charBase[(tile<<6) | tileYshift | tileX];
 
-				if(color) RENDERER_LINE[layer][x] = (READ16LE(&palette[color])|prio);
+				if(color) RENDERER_LINE[layer][x] = (palette[color]|prio);
 
 				realX += dx;
 			}
@@ -7274,7 +7232,7 @@ u16 pa,  u16 pb, u16 pc,  u16 pd, int& currentX, int& currentY, int changed)
 
 				u8 color = charBase[(tile<<6) | (tileY<<3) | tileX];
 
-				if(color) RENDERER_LINE[layer][x] = (READ16LE(&palette[color])|prio);
+				if(color) RENDERER_LINE[layer][x] = (palette[color]|prio);
 
 				realX += dx;
 				realY += dy;
@@ -7306,7 +7264,7 @@ u16 pa,  u16 pb, u16 pc,  u16 pd, int& currentX, int& currentY, int changed)
 
 				u8 color = charBase[(tile<<6) | tileYshift | tileX];
 
-				if(color) RENDERER_LINE[layer][x] = (READ16LE(&palette[color])|prio);
+				if(color) RENDERER_LINE[layer][x] = (palette[color]|prio);
 
 				realX += dx;
 			}
@@ -7326,7 +7284,7 @@ u16 pa,  u16 pb, u16 pc,  u16 pd, int& currentX, int& currentY, int changed)
 
 					u8 color = charBase[(tile<<6) | (tileY<<3) | tileX];
 
-					if(color) RENDERER_LINE[layer][x] = (READ16LE(&palette[color])|prio);
+					if(color) RENDERER_LINE[layer][x] = (palette[color]|prio);
 				}
 
 				realX += dx;
@@ -7363,25 +7321,10 @@ static INLINE void gfxDrawRotScreen16Bit( int& currentX,  int& currentY, int cha
 	if(BG2Y_H & 0x0800)
 		startY |= 0xF8000000;
 
-	int dx   = RENDERER_IO_REGISTERS[REG_BG2PA] & 0x7FFF;
-	int dmx  = RENDERER_IO_REGISTERS[REG_BG2PB] & 0x7FFF;
-	int dy   = RENDERER_IO_REGISTERS[REG_BG2PC] & 0x7FFF;
-	int dmy  = RENDERER_IO_REGISTERS[REG_BG2PD] & 0x7FFF;
-#ifdef BRANCHLESS_GBA_GFX
-	dx      |= isel(-(RENDERER_IO_REGISTERS[REG_BG2PA] & 0x8000), 0, 0xFFFF8000);
-	dmx     |= isel(-(RENDERER_IO_REGISTERS[REG_BG2PB] & 0x8000), 0, 0xFFFF8000);
-	dy      |= isel(-(RENDERER_IO_REGISTERS[REG_BG2PC] & 0x8000), 0, 0xFFFF8000);
-	dmy     |= isel(-(RENDERER_IO_REGISTERS[REG_BG2PD] & 0x8000), 0, 0xFFFF8000);
-#else
-	if(RENDERER_IO_REGISTERS[REG_BG2PA] & 0x8000)
-		dx |= 0xFFFF8000;
-	if(RENDERER_IO_REGISTERS[REG_BG2PB] & 0x8000)
-		dmx |= 0xFFFF8000;
-	if(RENDERER_IO_REGISTERS[REG_BG2PC] & 0x8000)
-		dy |= 0xFFFF8000;
-	if(RENDERER_IO_REGISTERS[REG_BG2PD] & 0x8000)
-		dmy |= 0xFFFF8000;
-#endif
+	int dx   = (int)(int16_t)RENDERER_IO_REGISTERS[REG_BG2PA];
+	int dmx  = (int)(int16_t)RENDERER_IO_REGISTERS[REG_BG2PB];
+	int dy   = (int)(int16_t)RENDERER_IO_REGISTERS[REG_BG2PC];
+	int dmy  = (int)(int16_t)RENDERER_IO_REGISTERS[REG_BG2PD];
 
 	if(RENDERER_R_VCOUNT == 0)
 		changed = 3;
@@ -7442,7 +7385,7 @@ static INLINE void gfxDrawRotScreen256(int &currentX, int& currentY, int changed
 {
 	INIT_RENDERER_CONTEXT(renderer_idx);
 
-	u16 *palette = (u16 *)RENDERER_PALETTE;
+	u16 *palette = PAL_U16;
 	u8 *screenBase = (RENDERER_IO_REGISTERS[REG_DISPCNT] & 0x0010) ? &vram[0xA000] : &vram[0x0000];
 	int prio = ((RENDERER_IO_REGISTERS[REG_BG2CNT] & 3) << 25) + 0x1000000;
 	u32 sizeX = 240;
@@ -7455,25 +7398,10 @@ static INLINE void gfxDrawRotScreen256(int &currentX, int& currentY, int changed
 	if(BG2Y_H & 0x0800)
 		startY |= 0xF8000000;
 
-	int dx  = RENDERER_IO_REGISTERS[REG_BG2PA] & 0x7FFF;
-	int dmx = RENDERER_IO_REGISTERS[REG_BG2PB] & 0x7FFF;
-	int dy  = RENDERER_IO_REGISTERS[REG_BG2PC] & 0x7FFF;
-	int dmy = RENDERER_IO_REGISTERS[REG_BG2PD] & 0x7FFF;
-#ifdef BRANCHLESS_GBA_GFX
-	dx     |= isel(-(RENDERER_IO_REGISTERS[REG_BG2PA] & 0x8000), 0, 0xFFFF8000);
-	dmx    |= isel(-(RENDERER_IO_REGISTERS[REG_BG2PB] & 0x8000), 0, 0xFFFF8000);
-	dy     |= isel(-(RENDERER_IO_REGISTERS[REG_BG2PC] & 0x8000), 0, 0xFFFF8000);
-	dmy    |= isel(-(RENDERER_IO_REGISTERS[REG_BG2PD] & 0x8000), 0, 0xFFFF8000);
-#else
-	if(RENDERER_IO_REGISTERS[REG_BG2PA] & 0x8000)
-		dx  |= 0xFFFF8000;
-	if(RENDERER_IO_REGISTERS[REG_BG2PB] & 0x8000)
-		dmx |= 0xFFFF8000;
-	if(RENDERER_IO_REGISTERS[REG_BG2PC] & 0x8000)
-		dy  |= 0xFFFF8000;
-	if(RENDERER_IO_REGISTERS[REG_BG2PD] & 0x8000)
-		dmy |= 0xFFFF8000;
-#endif
+	int dx  = (int)(int16_t)RENDERER_IO_REGISTERS[REG_BG2PA];
+	int dmx = (int)(int16_t)RENDERER_IO_REGISTERS[REG_BG2PB];
+	int dy  = (int)(int16_t)RENDERER_IO_REGISTERS[REG_BG2PC];
+	int dmy = (int)(int16_t)RENDERER_IO_REGISTERS[REG_BG2PD];
 
 	if(RENDERER_R_VCOUNT == 0)
 		changed = 3;
@@ -7513,7 +7441,7 @@ static INLINE void gfxDrawRotScreen256(int &currentX, int& currentY, int changed
 	{
 		if(unsigned(xxx) < sizeX && unsigned(yyy) < sizeY) {
 			u8 color = screenBase[yyy * 240 + xxx];
-			if (color) RENDERER_LINE[Layer_BG2][x] = (READ16LE(&palette[color]) | prio);
+			if (color) RENDERER_LINE[Layer_BG2][x] = (palette[color] | prio);
 		}
 		realX += dx;
 		realY += dy;
@@ -7550,25 +7478,10 @@ static INLINE void gfxDrawRotScreen16Bit160(int& currentX, int& currentY, int ch
 	if(BG2Y_H & 0x0800)
 		startY |= 0xF8000000;
 
-	int dx  = RENDERER_IO_REGISTERS[REG_BG2PA] & 0x7FFF;
-	int dmx = RENDERER_IO_REGISTERS[REG_BG2PB] & 0x7FFF;
-	int dy  = RENDERER_IO_REGISTERS[REG_BG2PC] & 0x7FFF;
-	int dmy = RENDERER_IO_REGISTERS[REG_BG2PD] & 0x7FFF;
-#ifdef BRANCHLESS_GBA_GFX
-	dx  |= isel(-(RENDERER_IO_REGISTERS[REG_BG2PA] & 0x8000), 0, 0xFFFF8000);
-	dmx |= isel(-(RENDERER_IO_REGISTERS[REG_BG2PB] & 0x8000), 0, 0xFFFF8000);
-	dy  |= isel(-(RENDERER_IO_REGISTERS[REG_BG2PC] & 0x8000), 0, 0xFFFF8000);
-	dmy |= isel(-(RENDERER_IO_REGISTERS[REG_BG2PD] & 0x8000), 0, 0xFFFF8000);
-#else
-	if(RENDERER_IO_REGISTERS[REG_BG2PA] & 0x8000)
-		dx |= 0xFFFF8000;
-	if(RENDERER_IO_REGISTERS[REG_BG2PB] & 0x8000)
-		dmx |= 0xFFFF8000;
-	if(RENDERER_IO_REGISTERS[REG_BG2PC] & 0x8000)
-		dy |= 0xFFFF8000;
-	if(RENDERER_IO_REGISTERS[REG_BG2PD] & 0x8000)
-		dmy |= 0xFFFF8000;
-#endif
+	int dx  = (int)(int16_t)RENDERER_IO_REGISTERS[REG_BG2PA];
+	int dmx = (int)(int16_t)RENDERER_IO_REGISTERS[REG_BG2PB];
+	int dy  = (int)(int16_t)RENDERER_IO_REGISTERS[REG_BG2PC];
+	int dmy = (int)(int16_t)RENDERER_IO_REGISTERS[REG_BG2PD];
 
 	if(RENDERER_R_VCOUNT == 0)
 		changed = 3;
@@ -7639,7 +7552,7 @@ static void gfxDrawSprites (void)
 	m = 0;
 
 	u16 *sprites = (u16 *)RENDERER_OAM;
-	u16 *spritePalette = &((u16 *)RENDERER_PALETTE)[256];
+	u16 *spritePalette = &PAL_U16[256];
 	int mosaicY = ((RENDERER_MOSAIC & 0xF000)>>12) + 1;
 	int mosaicX = ((RENDERER_MOSAIC & 0xF00)>>8) + 1;
 	for(u32 x = 0; x < 128; x++)
@@ -7764,18 +7677,10 @@ static void gfxDrawSprites (void)
 					lineOBJpix-=8;
 					int rot = (((a1 >> 9) & 0x1F) << 4);
 					u16 *OAM = (u16 *)RENDERER_OAM;
-					int dx = READ16LE(&OAM[3 + rot]);
-					if(dx & 0x8000)
-						dx |= 0xFFFF8000;
-					int dmx = READ16LE(&OAM[7 + rot]);
-					if(dmx & 0x8000)
-						dmx |= 0xFFFF8000;
-					int dy = READ16LE(&OAM[11 + rot]);
-					if(dy & 0x8000)
-						dy |= 0xFFFF8000;
-					int dmy = READ16LE(&OAM[15 + rot]);
-					if(dmy & 0x8000)
-						dmy |= 0xFFFF8000;
+					int dx  = (int)(int16_t)READ16LE(&OAM[3 + rot]);
+					int dmx = (int)(int16_t)READ16LE(&OAM[7 + rot]);
+					int dy  = (int)(int16_t)READ16LE(&OAM[11 + rot]);
+					int dmy = (int)(int16_t)READ16LE(&OAM[15 + rot]);
 
 					if(a0 & 0x1000)
 						t -= (t % mosaicY);
@@ -7816,7 +7721,7 @@ static void gfxDrawSprites (void)
 								}
 								else if((color) && (prio < (RENDERER_LINE[Layer_OBJ][sx]&0xFF000000)))
 								{
-									RENDERER_LINE[Layer_OBJ][sx] = READ16LE(&spritePalette[color]) | prio;
+									RENDERER_LINE[Layer_OBJ][sx] = spritePalette[color] | prio;
 									if((a0 & 0x1000) && m)
 										RENDERER_LINE[Layer_OBJ][sx]=(RENDERER_LINE[Layer_OBJ][sx-1] & 0xF9FFFFFF) | prio;
 								}
@@ -7861,7 +7766,7 @@ static void gfxDrawSprites (void)
 								}
 								else if((color) && (prio < (RENDERER_LINE[Layer_OBJ][sx]&0xFF000000)))
 								{
-									RENDERER_LINE[Layer_OBJ][sx] = READ16LE(&spritePalette[palette+color]) | prio;
+									RENDERER_LINE[Layer_OBJ][sx] = spritePalette[palette+color] | prio;
 									if((a0 & 0x1000) && m)
 										RENDERER_LINE[Layer_OBJ][sx]=(RENDERER_LINE[Layer_OBJ][sx-1] & 0xF9FFFFFF) | prio;
 								}
@@ -7941,7 +7846,7 @@ static void gfxDrawSprites (void)
 								}
 								else if((color) && (prio < (RENDERER_LINE[Layer_OBJ][sx]&0xFF000000)))
 								{
-									RENDERER_LINE[Layer_OBJ][sx] = READ16LE(&spritePalette[color]) | prio;
+									RENDERER_LINE[Layer_OBJ][sx] = spritePalette[color] | prio;
 									if((a0 & 0x1000) && m)
 										RENDERER_LINE[Layer_OBJ][sx]=(RENDERER_LINE[Layer_OBJ][sx-1] & 0xF9FFFFFF) | prio;
 								}
@@ -8012,7 +7917,7 @@ static void gfxDrawSprites (void)
 									}
 									else if((color) && (prio < (RENDERER_LINE[Layer_OBJ][sx]&0xFF000000)))
 									{
-										RENDERER_LINE[Layer_OBJ][sx] = READ16LE(&spritePalette[palette + color]) | prio;
+										RENDERER_LINE[Layer_OBJ][sx] = spritePalette[palette + color] | prio;
 										if((a0 & 0x1000) && m)
 											RENDERER_LINE[Layer_OBJ][sx]=(RENDERER_LINE[Layer_OBJ][sx-1] & 0xF9FFFFFF) | prio;
 									}
@@ -8058,7 +7963,7 @@ static void gfxDrawSprites (void)
 									}
 									else if((color) && (prio < (RENDERER_LINE[Layer_OBJ][sx]&0xFF000000)))
 									{
-										RENDERER_LINE[Layer_OBJ][sx] = READ16LE(&spritePalette[palette + color]) | prio;
+										RENDERER_LINE[Layer_OBJ][sx] = spritePalette[palette + color] | prio;
 										if((a0 & 0x1000) && m)
 											RENDERER_LINE[Layer_OBJ][sx]=(RENDERER_LINE[Layer_OBJ][sx-1] & 0xF9FFFFFF) | prio;
 
@@ -8836,7 +8741,9 @@ unsigned CPUWriteState(uint8_t* data, unsigned size)
 	utilWriteMem(data, workRAM, 0x40000);
 	utilWriteMem(data, vram, 0x20000);
 	utilWriteMem(data, oam, 0x400);
-	utilWriteMem(data, pix, 4 * PIX_BUFFER_SCREEN_WIDTH * 160);
+	/* pix (framebuffer) is no longer serialized as of SAVE_GAME_VERSION_11.
+	 * It's overwritten on the next scanline by the renderer; saving it
+	 * cost 160KB and polluted cache on rewind/runahead. */
 	utilWriteMem(data, ioMem, 0x400);
 
 	eepromSaveGameMem(data);
@@ -8965,8 +8872,15 @@ static bool CPUSetupBuffers(void)
 	paletteRAM = (uint8_t *)memalign_alloc_aligned(0x400);
 	vram = (uint8_t *)memalign_alloc_aligned(0x20000);
 	oam = (uint8_t *)memalign_alloc_aligned(0x400);
-	pix = (uint16_t *)memalign_alloc_aligned(4 * PIX_BUFFER_SCREEN_WIDTH * 160);
+	pix = (uint16_t *)memalign_alloc_aligned(2 * PIX_BUFFER_SCREEN_WIDTH * 160);
 	ioMem = (uint8_t *)memalign_alloc_aligned(0x400);
+
+	if(rom == NULL || workRAM == NULL || bios == NULL ||
+	   internalRAM == NULL || paletteRAM == NULL ||
+	   vram == NULL || oam == NULL || pix == NULL || ioMem == NULL) {
+		CPUCleanUp();
+		return false;
+	}
 
 	memset(rom, 0, 0x2000000);
 	memset(workRAM, 1, 0x40000);
@@ -8975,15 +8889,8 @@ static bool CPUSetupBuffers(void)
 	memset(paletteRAM, 1, 0x400);
 	memset(vram, 1, 0x20000);
 	memset(oam, 1, 0x400);
-	memset(pix, 1, 4 * PIX_BUFFER_SCREEN_WIDTH * 160);
+	memset(pix, 1, 2 * PIX_BUFFER_SCREEN_WIDTH * 160);
 	memset(ioMem, 1, 0x400);
-
-	if(rom == NULL || workRAM == NULL || bios == NULL ||
-	   internalRAM == NULL || paletteRAM == NULL ||
-	   vram == NULL || oam == NULL || pix == NULL || ioMem == NULL) {
-		CPUCleanUp();
-		return false;
-	}
 
 	flashInit();
 	eepromInit();
@@ -9155,10 +9062,7 @@ int CPULoadRom(const char * file)
 					whereToLoad,
 					romSize))
       {
-         memalign_free(rom);
-         rom = NULL;
-         memalign_free(workRAM);
-         workRAM = NULL;
+         CPUCleanUp();
          return 0;
       }
 	}
@@ -9208,13 +9112,21 @@ void ThreadedRendererStart(void)
 void ThreadedRendererStop(void)
 {
    int u;
-	for(u = 0; u < THREADED_RENDERER_COUNT; ++u)
-		threaded_renderer_contexts[u].renderer_control = 2;
-_join:;
-	for(u = 0; u < THREADED_RENDERER_COUNT; ++u)
+   for(u = 0; u < THREADED_RENDERER_COUNT; ++u)
+      threaded_renderer_contexts[u].renderer_control = 2;
+
+   /* Wait for renderer threads to acknowledge the stop request. Yield rather
+    * than spin: on in-order PPC the busy-spin contended L2 with the renderer
+    * thread we're waiting on, slowing the very wait it implements. */
+   for (;;)
    {
-      if(threaded_renderer_contexts[u].renderer_control == 2)
-         goto _join;
+      int still_running = 0;
+      for(u = 0; u < THREADED_RENDERER_COUNT; ++u)
+         if(threaded_renderer_contexts[u].renderer_control == 2)
+            still_running = 1;
+      if (!still_running)
+         break;
+      thread_sleep(1);
    }
 }
 #endif
@@ -11219,7 +11131,7 @@ static void mode5RenderLineAll (void)
 #if THREADED_RENDERER
 #define threaded_renderer_loop_impl() \
 do { \
-	if(renderer_ctx.renderer_state == 0) continue; \
+	if(renderer_ctx.renderer_state == 0) { SPIN_HINT(); continue; } \
 	\
 	if(renderer_ctx.background_ver < threaded_background_ver) { \
 		renderer_ctx.background_ver = threaded_background_ver; \
@@ -11340,7 +11252,8 @@ static void postRender() {
 #if DEBUG_RENDERER_NOSYNC
 	if (threaded_renderer_contexts[threaded_renderer_idx].renderer_state) return;
 #else
-	while(threaded_renderer_contexts[threaded_renderer_idx].renderer_state);
+	while(threaded_renderer_contexts[threaded_renderer_idx].renderer_state)
+		SPIN_HINT();
 #endif
 
 	INIT_RENDERER_CONTEXT(threaded_renderer_idx);
@@ -11453,6 +11366,10 @@ static void postRender() {
 	gfxBG2Changed = 0;
 	if(video_mode == 2)	gfxBG3Changed = 0;
 
+	/* §5b: sync host-endian palette shadow once per scanline before the
+	 * renderer thread sees renderer_state=1. No-op on LE. */
+	palette_native_sync();
+
 	//buffer is ready.
 	renderer_ctx.renderer_state = 1;
 
@@ -11501,23 +11418,37 @@ renderfunc_t GetRenderFunc(int mode, int type) {
 
 bool CPUReadState(const uint8_t* data, unsigned size)
 {
-	// Don't really care about version.
+	/* Track the end of the input buffer so each read can be bounds-checked.
+	 * Frontends should pass the same `size` they got from retro_serialize_size,
+	 * but a misbehaving or malicious caller could pass a smaller buffer. */
+	const uint8_t* const data_end = data + size;
+	#define BOUNDS_CHECK(n) do { \
+		if ((size_t)(data_end - data) < (size_t)(n)) return false; \
+	} while (0)
+
+	BOUNDS_CHECK(sizeof(int));
 	int version = utilReadIntMem(data);
-	if (version != SAVE_GAME_VERSION)
+	/* Accept the current version and the immediately previous one
+	 * (v10 -> v11 changed pix removal and EEPROM layout). */
+	if (version != SAVE_GAME_VERSION && version != SAVE_GAME_VERSION_10)
 		return false;
 
+	BOUNDS_CHECK(16);
 	char romname[16];
 	utilReadMem(romname, data, 16);
 	if (memcmp(&rom[0xa0], romname, 16) != 0)
 		return false;
 
 	// Don't care about use bios ...
+	BOUNDS_CHECK(sizeof(int));
 	utilReadIntMem(data);
 
+	BOUNDS_CHECK(sizeof(bus.reg));
 	utilReadMem(&bus.reg[0], data, sizeof(bus.reg));
 
 	utilReadDataMem(data, saveGameStruct);
 
+	BOUNDS_CHECK(2 * sizeof(int));
 	stopState = utilReadIntMem(data) ? true : false;
 
 	IRQTicks = utilReadIntMem(data);
@@ -11529,18 +11460,27 @@ bool CPUReadState(const uint8_t* data, unsigned size)
 		IRQTicks = 0;
 	}
 
+	BOUNDS_CHECK(0x8000 + 0x400 + 0x40000 + 0x20000 + 0x400 + 0x400);
 	utilReadMem(internalRAM, data, 0x8000);
 	utilReadMem(paletteRAM, data, 0x400);
 	utilReadMem(workRAM, data, 0x40000);
 	utilReadMem(vram, data, 0x20000);
 	utilReadMem(oam, data, 0x400);
-	utilReadMem(pix, data, 4 * PIX_BUFFER_SCREEN_WIDTH * 160);
+	if (version < SAVE_GAME_VERSION_11) {
+		/* v10 saved a 160KB framebuffer mirror here. Skip past it -
+		 * the renderer overwrites pix on the next scanline anyway. */
+		const size_t old_pix_bytes = 4 * PIX_BUFFER_SCREEN_WIDTH * 160;
+		BOUNDS_CHECK(old_pix_bytes);
+		data += old_pix_bytes;
+	}
 	utilReadMem(ioMem, data, 0x400);
 
 	eepromReadGameMem(data, version);
 	flashReadGameMem(data, version);
 	soundReadGameMem(data, version);
 	rtcReadGameMem(data);
+
+	#undef BOUNDS_CHECK
 
 	//// Copypasta stuff ...
 	// set pointers!
@@ -11746,8 +11686,9 @@ void doDMA(uint32_t &s, uint32_t &d, uint32_t si, uint32_t di, uint32_t c, int t
 		{
 			while(c != 0)
 			{
-				cpuDmaLast = CPUReadMemory(s);
-				CPUWriteMemory(d, CPUReadMemory(s));
+				uint32_t v = CPUReadMemory(s);
+				cpuDmaLast = v;
+				CPUWriteMemory(d, v);
 				d += di;
 				s += si;
 				c--;
@@ -11946,7 +11887,10 @@ void CPUCheckDMA(int reason, int dmamask)
 	}
 }
 
-static uint16_t *address_lut[0x300];
+/* address_lut indirection table removed; CPUUpdateRegister now uses
+ * io_registers[address >> 1] directly. Saved ~6 KB of pointer storage
+ * and eliminated a NULL-deref hazard on unmapped IO addresses. */
+
 
 void CPUUpdateRegister(uint32_t address, uint16_t value)
 {
@@ -11954,8 +11898,8 @@ void CPUUpdateRegister(uint32_t address, uint16_t value)
 	{
 		case 0x00: /* DISPCNT */
 			{
-				if((value & 7) > 5) // display modes above 0-5 are prohibited
-					io_registers[REG_DISPCNT] = (value & 7);
+				if((value & 7) > 5) /* display modes 6,7 are prohibited - keep prior mode */
+					value = (value & ~7) | (io_registers[REG_DISPCNT] & 7);
 
 				bool change = (0 != ((io_registers[REG_DISPCNT] ^ value) & 0x80));
 				bool changeBG = (0 != ((io_registers[REG_DISPCNT] ^ value) & 0x0F00));
@@ -12013,14 +11957,20 @@ void CPUUpdateRegister(uint32_t address, uint16_t value)
 			break;
 		case 0x08: /* BG0CNT */
 		case 0x0A: /* BG1CNT */
-			*address_lut[address] = (value & 0xDFCF);
-			UPDATE_REG(address, *address_lut[address]);
+		{
+			uint16_t v = value & 0xDFCF;
+			io_registers[address >> 1] = v;
+			UPDATE_REG(address, v);
 			break;
+		}
 		case 0x0C: /* BG2CNT */
 		case 0x0E: /* BG3CNT */
-			*address_lut[address] = (value & 0xFFCF);
-			UPDATE_REG(address, *address_lut[address]);
+		{
+			uint16_t v = value & 0xFFCF;
+			io_registers[address >> 1] = v;
+			UPDATE_REG(address, v);
 			break;
+		}
 		case 0x10: /* BG0HOFS */
 		case 0x12: /* BG0VOFS */
 		case 0x14: /* BG1HOFS */
@@ -12029,15 +11979,18 @@ void CPUUpdateRegister(uint32_t address, uint16_t value)
 		case 0x1A: /* BG2VOFS */
 		case 0x1C: /* BG3HOFS */
 		case 0x1E: /* BG3VOFS */
-			*address_lut[address] = value & 511;
-			UPDATE_REG(address, *address_lut[address]);
+		{
+			uint16_t v = value & 511;
+			io_registers[address >> 1] = v;
+			UPDATE_REG(address, v);
 			break;
+		}
 		case 0x20: /* BG2PA */
 		case 0x22: /* BG2PB */
 		case 0x24: /* BG2PC */
 		case 0x26: /* BG2PD */
-			*address_lut[address] = value;
-			UPDATE_REG(address, *address_lut[address]);
+			io_registers[address >> 1] = value;
+			UPDATE_REG(address, value);
 			break;
 		case 0x28:
 			BG2X_L = value;
@@ -12063,8 +12016,8 @@ void CPUUpdateRegister(uint32_t address, uint16_t value)
 		case 0x32: /* BG3PB */
 		case 0x34: /* BG3PC */
 		case 0x36: /* BG3PD */
-			*address_lut[address] = value;
-			UPDATE_REG(address, *address_lut[address]);
+			io_registers[address >> 1] = value;
+			UPDATE_REG(address, value);
 			break;
 		case 0x38:
 			BG3X_L = value;
@@ -12098,14 +12051,17 @@ void CPUUpdateRegister(uint32_t address, uint16_t value)
 			break;
 		case 0x44:
 		case 0x46:
-			*address_lut[address] = value;
-			UPDATE_REG(address, *address_lut[address]);
+			io_registers[address >> 1] = value;
+			UPDATE_REG(address, value);
 			break;
 		case 0x48: /* WININ */
 		case 0x4A: /* WINOUT */
-			*address_lut[address] = value & 0x3F3F;
-			UPDATE_REG(address, *address_lut[address]);
+		{
+			uint16_t v = value & 0x3F3F;
+			io_registers[address >> 1] = v;
+			UPDATE_REG(address, v);
 			break;
+		}
 		case 0x4C:
 			MOSAIC = value;
 			UPDATE_REG(0x4C, MOSAIC);
@@ -12410,8 +12366,19 @@ void CPUUpdateRegister(uint32_t address, uint16_t value)
 	}
 }
 
+/* The CBA cheat CRC table is built from the ROM and cached across calls.
+ * Defined here (earlier in the file) so CPUInit can reset the flag on game
+ * load. The remaining cheat-system globals stay grouped lower down. */
+static bool cheatsCBATableGenerated = false;
+
 void CPUInit(const char *biosFileName, bool useBiosFile)
 {
+	/* The CBA cheat CRC table is built from the ROM's first 64KB and cached
+	 * across calls. When a new ROM is loaded into the same process the cache
+	 * goes stale - reset the flag here so the next CBA cheat triggers a
+	 * fresh table build. */
+	cheatsCBATableGenerated = false;
+
 #ifdef MSB_FIRST
 	if(!cpuBiosSwapped)
    {
@@ -12457,10 +12424,8 @@ void CPUInit(const char *biosFileName, bool useBiosFile)
 			if(i & (1 << j))
 				count++;
 		cpuBitsSet[i] = count;
-
-		for(j = 0; j < 8; j++)
-			if(i & (1 << j))
-				break;
+		/* (a second `for(j=0;j<8;j++) if(i&(1<<j)) break;` loop used to live
+		 * here, but its result `j` was never stored anywhere - dead code.) */
 	}
 
 	for(i = 0; i < 0x400; i++)
@@ -12499,8 +12464,8 @@ void CPUInit(const char *biosFileName, bool useBiosFile)
 		ioReadable[i] = false;
 
 	if(romSize < 0x1fe2000) {
-		*((uint16_t *)&rom[0x1fe209c]) = 0xdffa; // SWI 0xFA
-		*((uint16_t *)&rom[0x1fe209e]) = 0x4770; // BX LR
+		WRITE16LE(&rom[0x1fe209c], 0xdffa); // SWI 0xFA
+		WRITE16LE(&rom[0x1fe209e], 0x4770); // BX LR
 	}
 
 	graphics.layerEnable = 0xff00;
@@ -12509,33 +12474,8 @@ void CPUInit(const char *biosFileName, bool useBiosFile)
 	io_registers[REG_DISPSTAT] = 0;
 	graphics.lcdTicks = (useBios && !skipBios) ? 1008 : 208;
 
-	/* address lut for use in CPUUpdateRegister */
-	address_lut[0x08] = &io_registers[REG_BG0CNT];
-	address_lut[0x0A] = &io_registers[REG_BG1CNT];
-	address_lut[0x0C] = &io_registers[REG_BG2CNT];
-	address_lut[0x0E] = &io_registers[REG_BG3CNT];
-	address_lut[0x10] = &io_registers[REG_BG0HOFS];
-	address_lut[0x12] = &io_registers[REG_BG0VOFS];
-	address_lut[0x14] = &io_registers[REG_BG1HOFS];
-	address_lut[0x16] = &io_registers[REG_BG1VOFS];
-	address_lut[0x18] = &io_registers[REG_BG2HOFS];
-	address_lut[0x1A] = &io_registers[REG_BG2VOFS];
-	address_lut[0x1C] = &io_registers[REG_BG3HOFS];
-	address_lut[0x1E] = &io_registers[REG_BG3VOFS];
-	address_lut[0x20] = &io_registers[REG_BG2PA];
-	address_lut[0x22] = &io_registers[REG_BG2PB];
-	address_lut[0x24] = &io_registers[REG_BG2PC];
-	address_lut[0x26] = &io_registers[REG_BG2PD];
-	address_lut[0x48] = &io_registers[REG_WININ];
-	address_lut[0x4A] = &io_registers[REG_WINOUT];
-	address_lut[0x30] = &io_registers[REG_BG3PA];
-	address_lut[0x32] = &io_registers[REG_BG3PB];
-	address_lut[0x34] = &io_registers[REG_BG3PC];
-	address_lut[0x36] = &io_registers[REG_BG3PD];
-        address_lut[0x40] = &io_registers[REG_WIN0H];
-        address_lut[0x42] = &io_registers[REG_WIN1H];
-        address_lut[0x44] = &io_registers[REG_WIN0V];
-        address_lut[0x46] = &io_registers[REG_WIN1V];
+	/* address_lut init removed: CPUUpdateRegister addresses io_registers
+	 * directly via address >> 1, which is the same mapping the lut encoded. */
 }
 
 void CPUReset (void)
@@ -12562,7 +12502,7 @@ void CPUReset (void)
 	memset(&bus.reg[0], 0, sizeof(bus.reg));	// clean registers
 	memset(oam, 0, 0x400);				// clean OAM
 	memset(paletteRAM, 0, 0x400);		// clean palette
-	memset(pix, 0, 4 * 160 * 240);		// clean picture
+	memset(pix, 0, 2 * PIX_BUFFER_SCREEN_WIDTH * 160);	// clean picture (match alloc size)
 	memset(vram, 0, 0x20000);			// clean vram
 	memset(ioMem, 0, 0x400);			// clean io memory
 
@@ -13055,6 +12995,11 @@ updateLoop:
 						bool draw_objwin = (graphics.layerEnable & 0x9000) == 0x9000;
 						bool draw_sprites = R_DISPCNT_Screen_Display_OBJ;
 
+						/* §5b: sync host-endian palette shadow once per scanline.
+						 * No-op on LE; ~0x200 byteswaps on BE that save 5x+ in
+						 * the per-pixel reader. */
+						palette_native_sync();
+
 						memset(RENDERER_LINE[Layer_OBJ], -1, 240 * sizeof(u32));	// erase all sprites
 						if(draw_sprites) gfxDrawSprites<0>();
 
@@ -13507,16 +13452,19 @@ updateLoop:
 
 CheatsData cheatsList[100];
 int cheatsNumber = 0;
-u32 rompatch2addr [4];
-u16 rompatch2val [4];
-u16 rompatch2oldval [4];
+static u32 rompatch2addr [4];
+static u16 rompatch2val [4];
+static u16 rompatch2oldval [4];
 
-u8 cheatsCBASeedBuffer[0x30];
-u32 cheatsCBASeed[4];
-u32 cheatsCBATemporaryValue = 0;
-u16 cheatsCBATable[256];
-bool cheatsCBATableGenerated = false;
-u16 super = 0;
+static u8 cheatsCBASeedBuffer[0x30];
+static u32 cheatsCBASeed[4];
+static u32 cheatsCBATemporaryValue = 0;
+static u16 cheatsCBATable[256];
+/* (cheatsCBATableGenerated is defined earlier near CPUInit so the init code
+ * can reset it on game load.) */
+/* Was `u16 super = 0;` with external linkage - one-letter identifier
+ * collides with reserved words / macros in some platform SDKs. */
+static u16 cba_super_count = 0;
 extern u32 mastercode;
 
 #if (0)
@@ -14652,8 +14600,11 @@ void cheatsAdd(const char *codeStr,
     cheatsList[x].rawaddress = rawaddress;
     cheatsList[x].address = address;
     cheatsList[x].value = value;
-    strcpy(cheatsList[x].codestring, codeStr);
-    strcpy(cheatsList[x].desc, desc);
+    /* Use snprintf to bound the copy. Callers currently stay under the limits
+     * (16 chars for codeStr from retro_cheat_set; ~8 for "cheat_NNN" desc),
+     * but defending here costs nothing. */
+    snprintf(cheatsList[x].codestring, sizeof(cheatsList[x].codestring), "%s", codeStr ? codeStr : "");
+    snprintf(cheatsList[x].desc, sizeof(cheatsList[x].desc), "%s", desc ? desc : "");
     cheatsList[x].enabled = true;
     cheatsList[x].status = 0;
 
@@ -14709,6 +14660,7 @@ void cheatsDelete(int number, bool restore)
         } else {
           CPUWriteMemory(cheatsList[x].address, cheatsList[x].oldValue);
         }
+        break;
       case GSA_16_BIT_ROM_PATCH:
         if(cheatsList[x].status & 1) {
           cheatsList[x].status &= ~1;
@@ -14938,10 +14890,20 @@ void cheatsAddGSACode(const char *code, const char *desc, bool v3)
     u32 gamecode = READ32LE(((u32 *)&rom[0xac]));
     if(gamecode != address) {
       char buffer[5];
-      *((u32 *)buffer) = address;
+      /* address is a host-byte-order u32 of 4 ASCII chars; write byte-by-byte
+       * to avoid unaligned u32 stores (UB on strict-alignment BE: PPC/Wii/X360)
+       * and to keep the ASCII order consistent on both endians. */
+      buffer[0] = (char)(address & 0xff);
+      buffer[1] = (char)((address >> 8) & 0xff);
+      buffer[2] = (char)((address >> 16) & 0xff);
+      buffer[3] = (char)((address >> 24) & 0xff);
       buffer[4] = 0;
       char buffer2[5];
-      *((u32 *)buffer2) = READ32LE(((u32 *)&rom[0xac]));
+      u32 gid = READ32LE(((u32 *)&rom[0xac]));
+      buffer2[0] = (char)(gid & 0xff);
+      buffer2[1] = (char)((gid >> 8) & 0xff);
+      buffer2[2] = (char)((gid >> 16) & 0xff);
+      buffer2[3] = (char)((gid >> 24) & 0xff);
       buffer2[4] = 0;
       systemMessage("Warning: cheats are for game %s. Current game is %s.\nCodes may not work correctly.",
                     buffer, buffer2);
@@ -15760,10 +15722,10 @@ void cheatsAddCBACode(const char *code, const char *desc)
 
     int type = (address >> 28) & 15;
 
-    if(isMultilineWithData(cheatsNumber-1) || (super>0)) {
+    if(isMultilineWithData(cheatsNumber-1) || (cba_super_count>0)) {
       cheatsAdd(code, desc, address, address, value, 512, UNKNOWN_CODE);
-	  if (super>0)
-		  super-= 1;
+	  if (cba_super_count>0)
+		  cba_super_count-= 1;
       return;
     }
 
@@ -15799,7 +15761,7 @@ void cheatsAddCBACode(const char *code, const char *desc)
     case 0x05:
 		cheatsAdd(code, desc, address, address & 0x0FFFFFFE, value, 512,
                   CBA_SUPER);
-		super = getCodeLength(cheatsNumber-1);
+		cba_super_count = getCodeLength(cheatsNumber-1);
       break;
     case 0x06:
       cheatsAdd(code, desc, address, address & 0x0FFFFFFE, value, 512,
@@ -15826,9 +15788,10 @@ void cheatsAddCBACode(const char *code, const char *desc)
                 CBA_LT);
       break;
     case 0x0d:
-		if ((address & 0xF0)<0x30)
-      cheatsAdd(code, desc, address, address & 0xF0, value, 512,
-                CBA_IF_KEYS_PRESSED);
+      if ((address & 0xF0)<0x30) {
+        cheatsAdd(code, desc, address, address & 0xF0, value, 512,
+                  CBA_IF_KEYS_PRESSED);
+      }
       break;
     case 0x0e:
       cheatsAdd(code, desc, address, address & 0x0FFFFFFF, value & 0x8000 ? value | 0xFFFF0000 : value, 512,

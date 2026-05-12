@@ -13,6 +13,21 @@
 
 #include "types.h"
 
+/* Inside short spin-wait loops, hint the core to back off (lower SMT priority
+ * on PPE/Cell, micro-throttle on x86, yield on ARM). Crucial on in-order
+ * PPC where a tight spin starves the sibling SMT thread that's producing
+ * the value the spinner is waiting on. */
+#if defined(__PS3__) || defined(__POWERPC__) || defined(__powerpc__) || defined(__ppc__) || defined(_XBOX360)
+/* `or 27,27,27` is the PPC low-priority SMT hint (Power ISA Book II) */
+#define SPIN_HINT() __asm__ volatile("or 27,27,27" ::: "memory")
+#elif defined(__x86_64__) || defined(__i386__) || defined(_M_IX86) || defined(_M_X64)
+#define SPIN_HINT() __asm__ volatile("pause" ::: "memory")
+#elif defined(__aarch64__) || defined(__arm__)
+#define SPIN_HINT() __asm__ volatile("yield" ::: "memory")
+#else
+#define SPIN_HINT() ((void)0)
+#endif
+
 /* if a >= 0 return x else y*/
 #define isel(a, x, y) ((x & (~(a >> 31))) + (y & (a >> 31)))
 
@@ -49,7 +64,10 @@
 
 #ifdef USE_CACHE_PREFETCH
 #if defined(__ANDROID__)
-#define CACHE_PREFETCH(prefetch) prefetch(&prefetch);
+/* Android: arg is the lvalue to prefetch. __builtin_prefetch is gcc/clang.
+ * The previous form expanded to "prefetch(&prefetch)" (a function call on
+ * the parameter itself) which never compiled. */
+#define CACHE_PREFETCH(prefetch) __builtin_prefetch(&(prefetch));
 #elif defined(_XBOX)
 #define CACHE_PREFETCH(prefetch) __dcbt(0, &prefetch);
 #else
@@ -76,10 +94,19 @@
 #define WRITE16LE(base, value) *((u16 *)(base)) = _byteswap_ushort((value))
 #define WRITE32LE(base, value) *((u32 *)(base)) = _byteswap_ulong((value))
 #else
-#define READ16LE(x) (*((u16 *)(x))<<8)|(*((u16 *)(x))>>8);
-#define READ32LE(x) (*((u32 *)(x))<<24)|((*((u32 *)(x))<<8)&0xff0000)|((((*((u32 *)(x))(x)>>8)&0xff00)|(*((u32 *)(x))>>24);
-#define WRITE16LE(x,v) *((u16 *)(x)) = (*((u16 *)(v))<<8)|(*((u16 *)(v))>>8);
-#define WRITE32LE(x,v) *((u32 *)(x)) = ((v)<<24)|(((v)<<8)&0xff0000)|(((v)>>8)&0xff00)|((v)>>24);
+/* Generic portable fallback: byte-swap via masked shifts.
+ * The original generic fallback had a syntax error in READ32LE and was missing
+ * byte masks. Reach this only on a BE target without ppc/xbox360 intrinsics. */
+#define READ16LE(x) ((((*((u16 *)(x))) >> 8) & 0x00FF) | (((*((u16 *)(x))) << 8) & 0xFF00))
+#define READ32LE(x) ((((*((u32 *)(x))) >> 24) & 0x000000FF) | \
+                     (((*((u32 *)(x))) >>  8) & 0x0000FF00) | \
+                     (((*((u32 *)(x))) <<  8) & 0x00FF0000) | \
+                     (((*((u32 *)(x))) << 24) & 0xFF000000))
+#define WRITE16LE(x,v) (*((u16 *)(x)) = (u16)((((v) >> 8) & 0x00FF) | (((v) << 8) & 0xFF00)))
+#define WRITE32LE(x,v) (*((u32 *)(x)) = ((((u32)(v)) >> 24) & 0x000000FF) | \
+                                        ((((u32)(v)) >>  8) & 0x0000FF00) | \
+                                        ((((u32)(v)) <<  8) & 0x00FF0000) | \
+                                        ((((u32)(v)) << 24) & 0xFF000000))
 #endif
 #else
 #define READ16LE(x) *((u16 *)(x))

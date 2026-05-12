@@ -50,23 +50,34 @@ void thread_set_priority(thread_t id, int priority) { sceKernelChangeThreadPrior
 
 #else //non-vita
 
+#include <stdlib.h>
 #include <rthreads/rthreads.h>
 
 static void _thread_func(void* p)
 {
    void** argp       = (void**)(p);
    threadfunc_t func = (threadfunc_t)(argp[0]);
-   (*func)(argp[1]);
+   void* user_arg    = argp[1];
+   free(argp); /* free the heap-allocated arg pair before the user fn takes over */
+   (*func)(user_arg);
 }
 
 thread_t thread_run(threadfunc_t func, void* p, int priority)
 {
-   void* argp[2];
    sthread_t *thid = NULL;
+   /* argp must outlive this stack frame: the new thread reads it asynchronously.
+    * heap-allocate, transfer ownership to _thread_func which frees it. */
+   void** argp = (void**)malloc(2 * sizeof(void*));
+   if (!argp)
+      return NULL;
    argp[0] = (void*)(func);
    argp[1] = p;
 
-   thid = sthread_create(_thread_func, &argp);
+   thid = sthread_create(_thread_func, argp);
+   if (!thid) {
+      free(argp);
+      return NULL;
+   }
    sthread_detach(thid);
 
    return thid;	

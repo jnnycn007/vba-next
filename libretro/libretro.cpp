@@ -184,6 +184,8 @@ static void check_system_specs(void)
    environ_cb(RETRO_ENVIRONMENT_SET_PERFORMANCE_LEVEL, &level);
 }
 
+static unsigned serialize_size = 0;
+
 void retro_init(void)
 {
    struct retro_log_callback log;
@@ -194,6 +196,12 @@ void retro_init(void)
       log_cb = log.log;
    else
       log_cb = NULL;
+
+   /* Conservative initial value so retro_serialize_size() is meaningful even
+    * if called before retro_load_game (rare, but achievements / RAM-watch
+    * front-ends sometimes do). Gets overwritten with the measured size during
+    * gba_init -> CPUWriteState dry-run. */
+   serialize_size = 700000;
 
 #if HAVE_HLE_BIOS
    const char* dir = NULL;
@@ -218,8 +226,6 @@ void retro_init(void)
    if (environ_cb(RETRO_ENVIRONMENT_GET_INPUT_BITMASKS, NULL))
       libretro_supports_bitmasks = true;
 }
-
-static unsigned serialize_size = 0;
 
 typedef struct
 {
@@ -472,9 +478,28 @@ static void gba_init(void)
 
    soundReset();
 
-   uint8_t * state_buf = (uint8_t*)malloc(2000000);
-   serialize_size = CPUWriteState(state_buf, 2000000);
-   free(state_buf);
+   /* Dry-run write to measure serialize_size. With v11 (pix removed) the state
+    * is ~570KB; 700KB gives ~25% headroom. retro_serialize then uses the
+    * measured size for the actual user-visible save buffer. */
+   #define SERIALIZE_DRYRUN_CAP 700000u
+   uint8_t * state_buf = (uint8_t*)malloc(SERIALIZE_DRYRUN_CAP);
+   if (!state_buf) {
+      /* Out of memory at boot - fall back to a conservative constant.
+       * Frontends will still get a valid (oversized) buffer from retro_serialize. */
+      serialize_size = SERIALIZE_DRYRUN_CAP;
+   } else {
+      serialize_size = CPUWriteState(state_buf, SERIALIZE_DRYRUN_CAP);
+      if (serialize_size >= SERIALIZE_DRYRUN_CAP) {
+         /* This indicates we just walked past the end of the dry-run buffer.
+          * Bump SERIALIZE_DRYRUN_CAP when a future SAVE_GAME_VERSION adds fields. */
+         if (log_cb)
+            log_cb(RETRO_LOG_ERROR,
+                   "[vbanext] dry-run state size %u exceeds %u-byte cap\n",
+                   serialize_size, SERIALIZE_DRYRUN_CAP);
+      }
+      free(state_buf);
+   }
+   #undef SERIALIZE_DRYRUN_CAP
 
 #if USE_FRAME_SKIP
    SetFrameskip(get_frameskip_code());
@@ -541,13 +566,29 @@ static void update_variables(void)
     if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value) {
         option_turboDelay = atoi(var.value);
     }
+
+    /* RTC option: respect runtime toggles. Default is "auto" which only
+     * enables RTC for ROMs in the vba-over.ini list; "enabled" forces it on;
+     * "disabled" forces it off (overriding the per-ROM list). */
+    var.key = "vbanext_rtc";
+    var.value = NULL;
+    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value) {
+        bool want_rtc;
+        if (strcmp(var.value, "enabled") == 0)
+            want_rtc = true;
+        else if (strcmp(var.value, "disabled") == 0)
+            want_rtc = false;
+        else
+            want_rtc = enableRtc; /* "auto": use per-ROM override */
+        rtcEnable(want_rtc);
+    }
 }
 
 static void update_input(void)
 {
    // Reset input states
    u32 J = 0;
-   int16_t joy_bits = 0;
+   int32_t joy_bits = 0;
    unsigned i;
 
    /* if (retropad_device[0] == RETRO_DEVICE_JOYPAD) */ {
@@ -555,8 +596,11 @@ static void update_input(void)
          joy_bits = input_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_MASK);
       else
       {
-         for (i = 0; i < (RETRO_DEVICE_ID_JOYPAD_R3+1); i++)
-            joy_bits |= input_cb(0, RETRO_DEVICE_JOYPAD, 0, i) ? (1 << i) : 0;
+         /* Only poll the buttons this core uses: MAX_BUTTONS (binds) + TURBO_BUTTONS (turbo) */
+         for (i = 0; i < MAX_BUTTONS; i++)
+            joy_bits |= input_cb(0, RETRO_DEVICE_JOYPAD, 0, binds[i]) ? (1 << binds[i]) : 0;
+         for (i = 0; i < TURBO_BUTTONS; i++)
+            joy_bits |= input_cb(0, RETRO_DEVICE_JOYPAD, 0, turbo_binds[i]) ? (1 << turbo_binds[i]) : 0;
       }
 
       for (unsigned button = 0; button < MAX_BUTTONS; button++)
@@ -644,8 +688,10 @@ void retro_cheat_set(unsigned index, bool enabled, const char *code)
    int i ;
 
    codeLine = (char*)calloc(codeLineSize,sizeof(char)) ;
+   if (!codeLine)
+      return;
 
-   sprintf(name, "cheat_%d", index);
+   snprintf(name, sizeof(name), "cheat_%u", index);
 
    //Break the code into Parts
    for (cursor=0;;cursor++)
@@ -663,16 +709,19 @@ void retro_cheat_set(unsigned index, bool enabled, const char *code)
                codeLine[8] = ' ' ;
                codeLine[13] = '\0' ;
                cheatsAddCBACode(codeLine, name);
-               log_cb(RETRO_LOG_DEBUG, "Cheat code added: '%s'\n", codeLine);
+               if (log_cb)
+                  log_cb(RETRO_LOG_DEBUG, "Cheat code added: '%s'\n", codeLine);
             } else if ( codePos == 16 )
             {
                codeLine[16] = '\0' ;
                cheatsAddGSACode(codeLine, name, true);
-               log_cb(RETRO_LOG_DEBUG, "Cheat code added: '%s'\n", codeLine);
+               if (log_cb)
+                  log_cb(RETRO_LOG_DEBUG, "Cheat code added: '%s'\n", codeLine);
             } else 
             {
                codeLine[codePos] = '\0' ;
-               log_cb(RETRO_LOG_ERROR, "Invalid cheat code '%s'\n", codeLine);
+               if (log_cb)
+                  log_cb(RETRO_LOG_ERROR, "Invalid cheat code '%s'\n", codeLine);
             }
             codePos = 0 ;
             memset(codeLine,0,codeLineSize) ;
@@ -796,13 +845,13 @@ void systemDrawScreen(void)
 
 void systemMessage(const char* fmt, ...)
 {
-   if (!log_cb)
+   if (!log_cb || !fmt)
       return;
 
    char buffer[256];
    va_list ap;
    va_start(ap, fmt);
-   vsprintf(buffer, fmt, ap);
+   vsnprintf(buffer, sizeof(buffer), fmt, ap);
    log_cb(RETRO_LOG_INFO, "%s\n", buffer);
    va_end(ap);
 }

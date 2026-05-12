@@ -279,7 +279,7 @@ INLINE void Gb_Wave::write( unsigned addr, int data )
 	unsigned char * wave_bank = &wave_ram[(~regs[0] & BANK40_MASK) >> 2 & agb_mask];
 
 	if ( index >= 0 )
-		wave_bank[index] = data;;
+		wave_bank[index] = data;
 }
 
 static int16_t   soundFinalWave [1600];
@@ -1958,7 +1958,11 @@ void process_sound_tick_fn (void)
 
 	// dump all the samples available
 	// VBA will only ever store 1 frame worth of samples
-	int numSamples = stereo_buffer_read_samples( (int16_t*) soundFinalWave, stereo_buffer_samples_avail());
+	long avail = stereo_buffer_samples_avail();
+	const long max_samples = (long)(sizeof(soundFinalWave) / sizeof(soundFinalWave[0]));
+	if (avail > max_samples)
+		avail = max_samples;
+	int numSamples = stereo_buffer_read_samples( (int16_t*) soundFinalWave, avail);
 	systemOnWriteDataToSoundBuffer(soundFinalWave, numSamples);
 }
 

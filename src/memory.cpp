@@ -304,7 +304,22 @@ u8 eepromBuffer[16];
 bool eepromInUse = false;
 int eepromSize = 512;
 
+/* v11 layout: eepromData is only saved by the explicit utilWriteMem call
+ * below; the embedded {&eepromData[0], 512} field from the old layout was
+ * redundant — it duplicated the first 512 bytes that the 0x2000-byte
+ * trailing write already covered. */
 variable_desc eepromSaveData[] = {
+  { &eepromMode, sizeof(int) },
+  { &eepromByte, sizeof(int) },
+  { &eepromBits , sizeof(int) },
+  { &eepromAddress , sizeof(int) },
+  { &eepromInUse, sizeof(bool) },
+  { &eepromBuffer[0], 16 },
+  { NULL, 0 }
+};
+
+/* v10 layout: kept for backward-compatible loading of older save states. */
+static variable_desc eepromSaveData_v10[] = {
   { &eepromMode, sizeof(int) },
   { &eepromByte, sizeof(int) },
   { &eepromBits , sizeof(int) },
@@ -339,7 +354,10 @@ void eepromSaveGameMem(uint8_t *& data)
 
 void eepromReadGameMem(const uint8_t *& data, int version)
 {
-	utilReadDataMem(data, eepromSaveData);
+	if (version < SAVE_GAME_VERSION_11)
+		utilReadDataMem(data, eepromSaveData_v10);
+	else
+		utilReadDataMem(data, eepromSaveData);
 	eepromSize = utilReadIntMem(data);
 	utilReadMem(eepromData, data, 0x2000);
 }
@@ -710,7 +728,7 @@ bool rtcWrite(u32 address, u16 value)
                            }
                            break;
                         default:
-                           systemMessage(0, "Unknown RTC command %02x", rtcClockData.command);
+                           systemMessage("Unknown RTC command %02x", rtcClockData.command);
                            rtcClockData.state = IDLE;
                            break;
                      }

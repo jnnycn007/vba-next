@@ -83,12 +83,10 @@ struct blip_buffer_state_t
         name##_reader_accum += *(int32_t const*) ((char const*) name##_reader_buf + (idx)); \
 }
 
-#if defined (_M_IX86) || defined (_M_IA64) || defined (__i486__) || \
-                defined (__x86_64__) || defined (__ia64__) || defined (__i386__)
-        #define BLIP_CLAMP_( in ) in < -0x8000 || 0x7FFF < in
-#else
-        #define BLIP_CLAMP_( in ) (int16_t) in != in
-#endif
+/* Portable on all targets. The previous non-x86 form `(int16_t)in != in`
+ * relied on implementation-defined narrowing semantics; modern gcc/clang
+ * compile both forms to the same code on every supported target. */
+#define BLIP_CLAMP_( in ) ((in) < -0x8000 || 0x7FFF < (in))
 
 /* Clamp sample to int16_t range */
 #define BLIP_CLAMP( sample, out ) { if ( BLIP_CLAMP_( (sample) ) ) (out) = ((sample) >> 24) ^ 0x7FFF; }
