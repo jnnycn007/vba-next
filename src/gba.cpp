@@ -725,6 +725,7 @@ static int gbaSaveType = 0; /* used to remember the save type on reset */
 /* Waitstates when accessing data */
 
 #define DATATICKS_ACCESS_BUS_PREFETCH(address, value) \
+do { \
 	int addr = (address >> 24) & 15; \
 	if ((addr>=0x08) || (addr < 0x02)) \
 	{ \
@@ -736,7 +737,8 @@ static int gbaSaveType = 0; /* used to remember the save type on reset */
 		int waitState = value; \
 		waitState = (1 & ~waitState) | (waitState & waitState); \
 		bus.busPrefetchCount = ((bus.busPrefetchCount+1)<<waitState) - 1; \
-	}
+	} \
+} while (0)
 
 /* Waitstates when accessing data */
 
@@ -3661,25 +3663,26 @@ static  void arm121(uint32_t opcode)
 #define WRITEBACK_POSTINC  bus.reg[base].I = address + offset
 
 #define LDRSTR_INIT(CALC_OFFSET, CALC_ADDRESS) \
-    if (bus.busPrefetchCount == 0)                          \
-        bus.busPrefetch = bus.busPrefetchEnable;                \
     int dest = (opcode >> 12) & 15;                     \
     int base = (opcode >> 16) & 15;                     \
+    int dataticks_value;                                \
+    uint32_t address;                                   \
+    if (bus.busPrefetchCount == 0)                          \
+        bus.busPrefetch = bus.busPrefetchEnable;                \
     CALC_OFFSET;                                        \
-    uint32_t address = CALC_ADDRESS;
+    address = CALC_ADDRESS;
 
 #define STR(CALC_OFFSET, CALC_ADDRESS, STORE_DATA, WRITEBACK1, WRITEBACK2, SIZE) \
     LDRSTR_INIT(CALC_OFFSET, CALC_ADDRESS);             \
     WRITEBACK1;                                         \
     STORE_DATA;                                         \
     WRITEBACK2;                                         \
-    int dataticks_val;					\
     if(SIZE == 32) \
-       dataticks_val = DATATICKS_ACCESS_32BIT(address);	\
+       dataticks_value = DATATICKS_ACCESS_32BIT(address);	\
     else \
-       dataticks_val = DATATICKS_ACCESS_16BIT(address); \
-    DATATICKS_ACCESS_BUS_PREFETCH(address, dataticks_val); \
-    clockTicks = 2 + dataticks_val + codeTicksAccess(bus.armNextPC, BITS_32);
+       dataticks_value = DATATICKS_ACCESS_16BIT(address); \
+    DATATICKS_ACCESS_BUS_PREFETCH(address, dataticks_value); \
+    clockTicks = 2 + dataticks_value + codeTicksAccess(bus.armNextPC, BITS_32);
 
 #define LDR(CALC_OFFSET, CALC_ADDRESS, LOAD_DATA, WRITEBACK, SIZE) \
     LDRSTR_INIT(CALC_OFFSET, CALC_ADDRESS);             \
@@ -3689,7 +3692,6 @@ static  void arm121(uint32_t opcode)
         WRITEBACK;                                      \
     }                                                   \
     clockTicks = 0;                                     \
-    int dataticks_value; \
     if (dest == 15) {                                   \
         bus.reg[15].I &= 0xFFFFFFFC;                        \
         bus.armNextPC = bus.reg[15].I;                          \
@@ -4077,8 +4079,9 @@ static  void arm7F6(uint32_t opcode) { LDR_PREINC_WB(OFFSET_ROR, OP_LDRB, 16); }
 
 #define STM_REG(bit,num) \
     if (opcode & (1U<<(bit))) {                         \
+        int dataticks_value;                            \
         CPUWriteMemory(address, bus.reg[(num)].I);          \
-	int dataticks_value = count ? DATATICKS_ACCESS_32BIT_SEQ(address) : DATATICKS_ACCESS_32BIT(address); \
+	dataticks_value = count ? DATATICKS_ACCESS_32BIT_SEQ(address) : DATATICKS_ACCESS_32BIT(address); \
 	DATATICKS_ACCESS_BUS_PREFETCH(address, dataticks_value); \
 	clockTicks += 1 + dataticks_value; \
         count++;                                        \
@@ -4086,8 +4089,9 @@ static  void arm7F6(uint32_t opcode) { LDR_PREINC_WB(OFFSET_ROR, OP_LDRB, 16); }
     }
 #define STMW_REG(bit,num) \
     if (opcode & (1U<<(bit))) {                         \
+        int dataticks_value;                            \
         CPUWriteMemory(address, bus.reg[(num)].I);          \
-	int dataticks_value = count ? DATATICKS_ACCESS_32BIT_SEQ(address) : DATATICKS_ACCESS_32BIT(address); \
+	dataticks_value = count ? DATATICKS_ACCESS_32BIT_SEQ(address) : DATATICKS_ACCESS_32BIT(address); \
 	DATATICKS_ACCESS_BUS_PREFETCH(address, dataticks_value); \
 	clockTicks += 1 + dataticks_value; \
         bus.reg[base].I = temp;                             \
@@ -4144,16 +4148,18 @@ static  void arm7F6(uint32_t opcode) { LDR_PREINC_WB(OFFSET_ROR, OP_LDRB, 16); }
     }
 #define STM_PC \
     if (opcode & (1U<<15)) {                            \
+        int dataticks_value;                            \
         CPUWriteMemory(address, bus.reg[15].I+4);           \
-	int dataticks_value = count ? DATATICKS_ACCESS_32BIT_SEQ(address) : DATATICKS_ACCESS_32BIT(address); \
+	dataticks_value = count ? DATATICKS_ACCESS_32BIT_SEQ(address) : DATATICKS_ACCESS_32BIT(address); \
 	DATATICKS_ACCESS_BUS_PREFETCH(address, dataticks_value); \
 	clockTicks += 1 + dataticks_value; \
         count++;                                        \
     }
 #define STMW_PC \
     if (opcode & (1U<<15)) {                            \
+        int dataticks_value;                            \
         CPUWriteMemory(address, bus.reg[15].I+4);           \
-	int dataticks_value = count ? DATATICKS_ACCESS_32BIT_SEQ(address) : DATATICKS_ACCESS_32BIT(address); \
+	dataticks_value = count ? DATATICKS_ACCESS_32BIT_SEQ(address) : DATATICKS_ACCESS_32BIT(address); \
 	DATATICKS_ACCESS_BUS_PREFETCH(address, dataticks_value); \
 	clockTicks += 1 + dataticks_value; \
         bus.reg[base].I = temp;                             \
@@ -4209,8 +4215,9 @@ static  void arm7F6(uint32_t opcode) { LDR_PREINC_WB(OFFSET_ROR, OP_LDRB, 16); }
     LDM_LOW;                                            \
     LDM_HIGH;                                           \
     if (opcode & (1U<<15)) {                            \
+        int dataticks_value;                            \
         bus.reg[15].I = CPUReadMemory(address);             \
-	int dataticks_value = count ? DATATICKS_ACCESS_32BIT_SEQ(address) : DATATICKS_ACCESS_32BIT(address); \
+	dataticks_value = count ? DATATICKS_ACCESS_32BIT_SEQ(address) : DATATICKS_ACCESS_32BIT(address); \
 	DATATICKS_ACCESS_BUS_PREFETCH(address, dataticks_value); \
 	clockTicks += 1 + dataticks_value; \
         count++;                                        \
@@ -4233,8 +4240,9 @@ static  void arm7F6(uint32_t opcode) { LDR_PREINC_WB(OFFSET_ROR, OP_LDRB, 16); }
     LDM_LOW;                                            \
     if (opcode & (1U<<15)) {                            \
         LDM_HIGH;                                       \
+        int dataticks_value;                            \
         bus.reg[15].I = CPUReadMemory(address);             \
-	int dataticks_value = count ? DATATICKS_ACCESS_32BIT_SEQ(address) : DATATICKS_ACCESS_32BIT(address); \
+	dataticks_value = count ? DATATICKS_ACCESS_32BIT_SEQ(address) : DATATICKS_ACCESS_32BIT(address); \
 	DATATICKS_ACCESS_BUS_PREFETCH(address, dataticks_value); \
 	clockTicks += 1 + dataticks_value; \
         count++;                                        \
@@ -6294,8 +6302,9 @@ static  void thumbB0(uint32_t opcode)
 
 #define PUSH_REG(val, r)                                    \
   if (opcode & (val)) {                                     \
+    int dataticks_value;                                    \
     CPUWriteMemory(address, bus.reg[(r)].I);                    \
-    int dataticks_value = count ? DATATICKS_ACCESS_32BIT_SEQ(address) : DATATICKS_ACCESS_32BIT(address); \
+    dataticks_value = count ? DATATICKS_ACCESS_32BIT_SEQ(address) : DATATICKS_ACCESS_32BIT(address); \
     DATATICKS_ACCESS_BUS_PREFETCH(address, dataticks_value); \
     clockTicks += 1 + dataticks_value;				\
     count++;                                                \
@@ -6304,8 +6313,9 @@ static  void thumbB0(uint32_t opcode)
 
 #define POP_REG(val, r)                                     \
   if (opcode & (val)) {                                     \
+    int dataticks_value;                                    \
     bus.reg[(r)].I = CPUReadMemory(address);                    \
-    int dataticks_value = count ? DATATICKS_ACCESS_32BIT_SEQ(address) : DATATICKS_ACCESS_32BIT(address); \
+    dataticks_value = count ? DATATICKS_ACCESS_32BIT_SEQ(address) : DATATICKS_ACCESS_32BIT(address); \
     DATATICKS_ACCESS_BUS_PREFETCH(address, dataticks_value); \
     clockTicks += 1 + dataticks_value; \
     count++;                                                \
@@ -6419,9 +6429,10 @@ static  void thumbBD(uint32_t opcode)
 
 #define THUMB_STM_REG(val,r,b)                              \
   if(opcode & (val)) {                                      \
+    int dataticks_val;                                      \
     CPUWriteMemory(address, bus.reg[(r)].I);                    \
     bus.reg[(b)].I = temp;                                      \
-    int dataticks_val = count ? DATATICKS_ACCESS_32BIT_SEQ(address) : DATATICKS_ACCESS_32BIT(address); \
+    dataticks_val = count ? DATATICKS_ACCESS_32BIT_SEQ(address) : DATATICKS_ACCESS_32BIT(address); \
     DATATICKS_ACCESS_BUS_PREFETCH(address, dataticks_val); \
     clockTicks += 1 + dataticks_val; \
     count++;                                                \
@@ -6430,8 +6441,9 @@ static  void thumbBD(uint32_t opcode)
 
 #define THUMB_LDM_REG(val,r)                                \
   if(opcode & (val)) {                                      \
+    int dataticks_val;                                      \
     bus.reg[(r)].I = CPUReadMemory(address);                    \
-    int dataticks_val = count ? DATATICKS_ACCESS_32BIT_SEQ(address) : DATATICKS_ACCESS_32BIT(address); \
+    dataticks_val = count ? DATATICKS_ACCESS_32BIT_SEQ(address) : DATATICKS_ACCESS_32BIT(address); \
     DATATICKS_ACCESS_BUS_PREFETCH(address, dataticks_val); \
     clockTicks += 1 + dataticks_val; \
     count++;                                                \
