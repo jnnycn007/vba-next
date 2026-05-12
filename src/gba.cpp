@@ -3616,28 +3616,27 @@ static  void arm121(uint32_t opcode)
 /* Load/store ///////////////////////////////////////////////////////////// */
 
 #define OFFSET_IMM \
-    int offset = opcode & 0xFFF;
+    offset = opcode & 0xFFF;
 #define OFFSET_IMM8 \
-    int offset = ((opcode & 0x0F) | ((opcode>>4) & 0xF0));
+    offset = ((opcode & 0x0F) | ((opcode>>4) & 0xF0));
 #define OFFSET_REG \
-    int offset = bus.reg[opcode & 15].I;
+    offset = bus.reg[opcode & 15].I;
 #define OFFSET_LSL \
-    int offset = bus.reg[opcode & 15].I << ((opcode>>7) & 31);
+    offset = bus.reg[opcode & 15].I << ((opcode>>7) & 31);
 #define OFFSET_LSR \
-    int shift = (opcode >> 7) & 31;                     \
-    int offset = shift ? bus.reg[opcode & 15].I >> shift : 0;
+    shift = (opcode >> 7) & 31;                         \
+    offset = shift ? bus.reg[opcode & 15].I >> shift : 0;
 #define OFFSET_ASR \
-    int shift = (opcode >> 7) & 31;                     \
-    int offset;                                         \
+    shift = (opcode >> 7) & 31;                         \
     if (shift)                                          \
-        offset = (int)((int32_t)bus.reg[opcode & 15].I >> shift);\
+        offset = (uint32_t)((int32_t)bus.reg[opcode & 15].I >> shift);\
     else if (bus.reg[opcode & 15].I & 0x80000000)           \
         offset = 0xFFFFFFFF;                            \
     else                                                \
         offset = 0;
 #define OFFSET_ROR \
-    int shift = (opcode >> 7) & 31;                     \
-    uint32_t offset = bus.reg[opcode & 15].I;                    \
+    shift = (opcode >> 7) & 31;                         \
+    offset = bus.reg[opcode & 15].I;                    \
     if (shift) {                                        \
         ROR_OFFSET;                                     \
     } else {                                            \
@@ -3666,6 +3665,8 @@ static  void arm121(uint32_t opcode)
     int dest = (opcode >> 12) & 15;                     \
     int base = (opcode >> 16) & 15;                     \
     int dataticks_value;                                \
+    int shift;                                          \
+    uint32_t offset;                                    \
     uint32_t address;                                   \
     if (bus.busPrefetchCount == 0)                          \
         bus.busPrefetch = bus.busPrefetchEnable;                \
