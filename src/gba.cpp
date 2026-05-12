@@ -15388,7 +15388,7 @@ void cheatsCBAParseSeedCode(u32 address, u32 value, u32 *array)
   array[7] = value;
 }
 
-u32 cheatsCBAEncWorker()
+u32 cheatsCBAEncWorker(void)
 {
   u32 x = (cheatsCBATemporaryValue * 0x41c64e6d) + 0x3039;
   u32 y = (x * 0x41c64e6d) + 0x3039;
@@ -15400,12 +15400,12 @@ u32 cheatsCBAEncWorker()
   return z | ((x >> 0x10) & 0x7fff);
 }
 
-#define ROR(v, s) \
-  (((v) >> (s)) | (((v) & ((1 << (s))-1)) << (32 - (s))))
+#define ROR(v, s) (((v) >> (s)) | (((v) & ((1 << (s))-1)) << (32 - (s))))
 
 u32 cheatsCBACalcIndex(u32 x, u32 y)
 {
-  if(y != 0) {
+  if(y != 0)
+  {
     if(y == 1)
       x = 0;
     else if(x == y)
@@ -15472,7 +15472,6 @@ u32 cheatsCBACalcIndex(u32 x, u32 y)
     if((z & ROR(temp, 1)) != 0)
       x += y >> 1;
     return x;
-  } else {
   }
   // should not happen in the current code
   return 0;
@@ -15500,17 +15499,15 @@ void cheatsCBAChangeEncryption(u32 *seed)
   cheatsCBAUpdateSeedBuffer(0x50, cheatsCBASeedBuffer, 0x30);
   cheatsCBATemporaryValue = 0x4efad1c3;
 
-  for(i = 0; (u32)i < seed[4]; i++) {
+  for(i = 0; (u32)i < seed[4]; i++)
     cheatsCBATemporaryValue = cheatsCBAEncWorker();
-  }
   cheatsCBASeed[2] = cheatsCBAEncWorker();
   cheatsCBASeed[3] = cheatsCBAEncWorker();
 
   cheatsCBATemporaryValue = seed[3] ^ 0xf254;
 
-  for(i = 0; (u32)i < seed[3]; i++) {
+  for(i = 0; (u32)i < seed[3]; i++)
     cheatsCBATemporaryValue = cheatsCBAEncWorker();
-  }
 
   cheatsCBASeed[0] = cheatsCBAEncWorker();
   cheatsCBASeed[1] = cheatsCBAEncWorker();
@@ -15530,9 +15527,8 @@ u16 cheatsCBAGenValue(u32 x, u32 y, u32 z)
   x = (int)x >> 0x10;
   for(int i = 0; i < 8; i++) {
     u32 temp = z ^ x;
-    if ((int)temp >= 0) {
+    if ((int)temp >= 0)
       temp = z << 0x11;
-    }
     else {
       temp = z << 0x01;
       temp ^= x0;
@@ -15545,10 +15541,10 @@ u16 cheatsCBAGenValue(u32 x, u32 y, u32 z)
   return z & 0xffff;
 }
 
-void cheatsCBAGenTable() {
-  for (int i = 0; i < 0x100; i++) {
+void cheatsCBAGenTable(void)
+{
+  for (int i = 0; i < 0x100; i++)
     cheatsCBATable[i] = cheatsCBAGenValue(i, 0x1021, 0);
-  }
   cheatsCBATableGenerated = true;
 }
 
@@ -15584,9 +15580,8 @@ void cheatsCBADecrypt(u8 *decrypt)
 
   cheatsCBAReverseArray(decrypt, array);
 
-  for(int count = 0x2f; count >= 0; count--) {
+  for(int count = 0x2f; count >= 0; count--)
     chatsCBAScramble(array, count, cheatsCBASeedBuffer[count]);
-  }
   cheatsCBAArrayToValue(array, decrypt);
   *((u32 *)decrypt) = cheatsCBAGetValue(decrypt) ^
     cheatsCBASeed[0];
@@ -15596,15 +15591,13 @@ void cheatsCBADecrypt(u8 *decrypt)
   cheatsCBAReverseArray(decrypt, array);
 
   u32 cs = cheatsCBAGetValue(cheatsCBACurrentSeed);
-  for(int i = 0; i <= 4; i++) {
+  for(int i = 0; i <= 4; i++)
     array[i] = ((cs >> 8) ^ array[i+1]) ^ array[i] ;
-  }
 
   array[5] = (cs >> 8) ^ array[5];
 
-  for(int j = 5; j >=0; j--) {
+  for(int j = 5; j >=0; j--)
     array[j] = (cs ^ array[j-1]) ^ array[j];
-  }
 
   cheatsCBAArrayToValue(array, decrypt);
 
@@ -15614,22 +15607,23 @@ void cheatsCBADecrypt(u8 *decrypt)
                            ^ cheatsCBASeed[3]) & 0xffff;
 }
 
-int cheatsCBAGetCount()
+int cheatsCBAGetCount(void)
 {
   int count = 0;
-  for(int i = 0; i < cheatsNumber; i++) {
+  for(int i = 0; i < cheatsNumber; i++)
+  {
     if(cheatsList[i].code == 512)
       count++;
   }
   return count;
 }
 
-bool cheatsCBAShouldDecrypt()
+bool cheatsCBAShouldDecrypt(void)
 {
-  for(int i = 0; i < cheatsNumber; i++) {
-    if(cheatsList[i].code == 512) {
+  for(int i = 0; i < cheatsNumber; i++)
+  {
+    if(cheatsList[i].code == 512)
       return (cheatsList[i].codestring[0] == '9');
-    }
   }
   return false;
 }
@@ -15786,85 +15780,4 @@ void cheatsAddCBACode(const char *code, const char *desc)
       break;
     }
   }
-}
-
-extern int cpuNextEvent;
-
-extern void debuggerBreakOnWrite(u32 , u32, u32, int, int);
-
-#ifdef BKPT_SUPPORT
-static u8 cheatsGetType(u32 address)
-{
-  switch(address >> 24) {
-  case 2:
-    return freezeWorkRAM[address & 0x3FFFF];
-  case 3:
-    return freezeInternalRAM[address & 0x7FFF];
-  case 5:
-    return freezePRAM[address & 0x3FC];
-  case 6:
-    if (address > 0x06010000)
-      return freezeVRAM[address & 0x17FFF];
-    else
-      return freezeVRAM[address & 0x1FFFF];
-  case 7:
-    return freezeOAM[address & 0x3FC];
-  }
-  return 0;
-}
-#endif
-
-void cheatsWriteMemory(u32 address, u32 value)
-{
-#ifdef BKPT_SUPPORT
-#ifdef SDL
-  if(cheatsNumber == 0) {
-    int type = cheatsGetType(address);
-    u32 oldValue = debuggerReadMemory(address);
-    if(type == 1 || (type == 2 && oldValue != value)) {
-      debuggerBreakOnWrite(address, oldValue, value, 2, type);
-      cpuNextEvent = 0;
-    }
-    debuggerWriteMemory(address, value);
-  }
-#endif
-#endif
-}
-
-void cheatsWriteHalfWord(u32 address, u16 value)
-{
-#ifdef BKPT_SUPPORT
-#ifdef SDL
-  if(cheatsNumber == 0) {
-    int type = cheatsGetType(address);
-    u16 oldValue = debuggerReadHalfWord(address);
-    if(type == 1 || (type == 2 && oldValue != value)) {
-      debuggerBreakOnWrite(address, oldValue, value, 1, type);
-      cpuNextEvent = 0;
-    }
-    debuggerWriteHalfWord(address, value);
-  }
-#endif
-#endif
-}
-
-#if defined BKPT_SUPPORT && defined SDL
-void cheatsWriteByte(u32 address, u8 value)
-#else
-void cheatsWriteByte(u32, u8)
-#endif
-{
-#ifdef BKPT_SUPPORT
-#ifdef SDL
-  if(cheatsNumber == 0) {
-    int type = cheatsGetType(address);
-    u8 oldValue = debuggerReadByte(address);
-    if(type == 1 || (type == 2 && oldValue != value)) {
-      debuggerBreakOnWrite(address, oldValue, value, 0, type);
-      cpuNextEvent = 0;
-    }
-    debuggerWriteByte(address, value);
-  }
-#endif
-#endif
 }

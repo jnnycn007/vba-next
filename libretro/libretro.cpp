@@ -682,14 +682,12 @@ void retro_cheat_reset(void)
 
 void retro_cheat_set(unsigned index, bool enabled, const char *code)
 {
+   int i ;
    char name[128];
    unsigned cursor;
-   char *codeLine = NULL ;
+   int codePos      = 0;
    int codeLineSize = strlen(code)+5 ;
-   int codePos = 0 ;
-   int i ;
-
-   codeLine = (char*)calloc(codeLineSize,sizeof(char)) ;
+   char *codeLine   = (char*)calloc(codeLineSize,sizeof(char)) ;
    if (!codeLine)
       return;
 
@@ -732,7 +730,6 @@ void retro_cheat_set(unsigned index, bool enabled, const char *code)
       if (!code[cursor])
          break;
    }
-
 
    free(codeLine) ;
 }
@@ -847,11 +844,11 @@ void systemDrawScreen(void)
 
 void systemMessage(const char* fmt, ...)
 {
+   va_list ap;
+   char buffer[256];
    if (!log_cb || !fmt)
       return;
 
-   char buffer[256];
-   va_list ap;
    va_start(ap, fmt);
    vsnprintf(buffer, sizeof(buffer), fmt, ap);
    log_cb(RETRO_LOG_INFO, "%s\n", buffer);

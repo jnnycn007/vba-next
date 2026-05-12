@@ -27,18 +27,21 @@ static int _thread_map_priority(int priority)
       case THREAD_PRIORITY_HIGH:
       case THREAD_PRIORITY_HIGHEST:
       default:
-         return 0x10000100;
+         break;
    }		
+   return 0x10000100;
 }
 
 thread_t thread_run(threadfunc_t func, void* p, int priority)
 {
+   SceUID thid;
    void* argp[2];
    argp[0] = (void*)(func);
    argp[1] = p;
 
-   SceUID thid = sceKernelCreateThread("my_thread", (SceKernelThreadEntry)_thread_func, _thread_map_priority(priority), 0x10000, 0, 0, NULL);
-   if (thid >= 0) sceKernelStartThread(thid, sizeof(argp), &argp);
+   thid = sceKernelCreateThread("my_thread", (SceKernelThreadEntry)_thread_func, _thread_map_priority(priority), 0x10000, 0, 0, NULL);
+   if (thid >= 0)
+	   sceKernelStartThread(thid, sizeof(argp), &argp);
 
    return thid;
 }
@@ -48,7 +51,7 @@ void thread_sleep(int ms) { sceKernelDelayThread(ms * 1000); } /* retro_sleep
 causes crash */
 void thread_set_priority(thread_t id, int priority) { sceKernelChangeThreadPriority(id, 0xFF & _thread_map_priority(priority)); }
 
-#else //non-vita
+#else /* non-vita */
 
 #include <stdlib.h>
 #include <rthreads/rthreads.h>

@@ -101,9 +101,7 @@ struct blip_buffer_state_t
         if ( !sweep_delay ) \
                 sweep_delay = 8;
 
-
-
-void soundSetVolume( float );
+void soundSetVolume(float unused);
 
 // Manages muting bitmask. The bits control the following channels:
 // 0x001 Pulse 1
