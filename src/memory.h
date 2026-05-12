@@ -30,8 +30,8 @@ extern int eepromSize;
 extern uint8_t *flashSaveMemory;
 extern uint8_t *eepromData;
 
-extern void eepromReadGameMem(const uint8_t *&data, int version);
-extern void eepromSaveGameMem(uint8_t *&data);
+extern void eepromReadGameMem(const uint8_t **data, int version);
+extern void eepromSaveGameMem(uint8_t **data);
 
 extern int eepromRead(void);
 extern void eepromWrite(uint8_t value);
@@ -41,8 +41,8 @@ extern void eepromReset(void);
 extern uint8_t sramRead(uint32_t address);
 extern void sramWrite(uint32_t address, uint8_t byte);
 extern void sramDelayedWrite(uint32_t address, uint8_t byte);
-extern void flashSaveGameMem(uint8_t *& data);
-extern void flashReadGameMem(const uint8_t *& data, int version);
+extern void flashSaveGameMem(uint8_t **data);
+extern void flashReadGameMem(const uint8_t **data, int version);
 
 extern uint8_t flashRead(uint32_t address);
 extern void flashWrite(uint32_t address, uint8_t byte);
@@ -57,18 +57,18 @@ extern bool rtcWrite(uint32_t address, uint16_t value);
 extern void rtcEnable(bool);
 extern bool rtcIsEnabled (void);
 extern void rtcReset (void);
-extern void rtcReadGameMem(const uint8_t *& data);
-extern void rtcSaveGameMem(uint8_t *& data);
+extern void rtcReadGameMem(const uint8_t **data);
+extern void rtcSaveGameMem(uint8_t **data);
 
 extern uint16_t gyroRead(uint32_t address);
 extern bool gyroWrite(uint32_t address, uint16_t value);
 
-void utilWriteIntMem(uint8_t *& data, int);
-void utilWriteMem(uint8_t *& data, const void *in_data, unsigned size);
-void utilWriteDataMem(uint8_t *& data, variable_desc *);
+void utilWriteIntMem(uint8_t **data, int);
+void utilWriteMem(uint8_t **data, const void *in_data, unsigned size);
+void utilWriteDataMem(uint8_t **data, variable_desc *);
 
-int utilReadIntMem(const uint8_t *& data);
-void utilReadMem(void *buf, const uint8_t *& data, unsigned size);
-void utilReadDataMem(const uint8_t *& data, variable_desc *);
+int utilReadIntMem(const uint8_t **data);
+void utilReadMem(void *buf, const uint8_t **data, unsigned size);
+void utilReadDataMem(const uint8_t **data, variable_desc *);
 
 #endif /* GBA_MEMORY_H */

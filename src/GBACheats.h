@@ -13,6 +13,7 @@ struct CheatsData {
   char codestring[20];
   char desc[32];
 };
+typedef struct CheatsData CheatsData;
 
 void cheatsAdd(const char *codeStr, const char *desc, uint32_t rawaddress, uint32_t address, uint32_t value, int code, int size);
 void cheatsAddCheatCode(const char *code, const char *desc);

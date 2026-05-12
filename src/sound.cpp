@@ -2161,14 +2161,14 @@ static variable_desc gba_state [] =
 	{ NULL, 0 }
 };
 
-void soundSaveGameMem(uint8_t *& data)
+void soundSaveGameMem(uint8_t **data)
 {
 	gb_apu_save_state(&state.apu);
 	memset(dummy_state, 0, sizeof dummy_state);
 	utilWriteDataMem(data, gba_state);
 }
 
-void soundReadGameMem(const uint8_t *& in_data, int)
+void soundReadGameMem(const uint8_t **in_data, int)
 {
 	int data;
 	/* Prepare APU and default state */

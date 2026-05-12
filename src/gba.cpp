@@ -76,8 +76,8 @@ typedef void (*renderfunc_t)(int renderer_idx);
 
 renderfunc_t GetRenderFunc(int renderer_idx, int mode, int type);
 
-inline static long max(int p, int q) { return p > q ? p : q; }
-inline static long min(int p, int q) { return p < q ? p : q; }
+INLINE static long max(int p, int q) { return p > q ? p : q; }
+INLINE static long min(int p, int q) { return p < q ? p : q; }
 
 uint8_t *rom = 0;
 uint8_t *bios = 0;
@@ -108,18 +108,20 @@ uint8_t *paletteRAM = 0;
  *    with no shared state and no race against subsequent scanline setup. */
 static INLINE void palette_native_sync(uint16_t *dst)
 {
+	int i;
 	/* paletteRAM is stored byte-swapped on BE so READ16LE returns the natural
 	 * (LE-host-equivalent) value; copy that into dst and the renderer reads
 	 * it without swapping. */
 	const uint16_t *src = (const uint16_t *)paletteRAM;
-	for (int i = 0; i < 0x200; ++i)
+	for(i = 0; i < 0x200; ++i)
 		dst[i] = READ16LE(&src[i]);
 }
 
 static INLINE void oam_native_sync(uint16_t *dst)
 {
+	int i;
 	const uint16_t *src = (const uint16_t *)oam;
-	for (int i = 0; i < 0x200; ++i)
+	for(i = 0; i < 0x200; ++i)
 		dst[i] = READ16LE(&src[i]);
 }
 
@@ -752,7 +754,7 @@ static INLINE int codeTicksAccess(uint32_t address, uint8_t bit32) /* THUMB NON 
 {
 	int addr = (address>>24) & 15;
 
-	if (unsigned(addr - 0x08) <= 5)
+	if ((unsigned)(addr - 0x08) <= 5)
 	{
 		if (bus.busPrefetchCount&0x1)
 		{
@@ -777,7 +779,7 @@ static INLINE int codeTicksAccessSeq16(uint32_t address) /* THUMB SEQ */
 {
 	int addr = (address>>24) & 15;
 
-	if (unsigned(addr - 0x08) <= 5)
+	if ((unsigned)(addr - 0x08) <= 5)
 	{
 		if (bus.busPrefetchCount&0x1)
 		{
@@ -800,7 +802,7 @@ static INLINE int codeTicksAccessSeq32(uint32_t address) /* ARM SEQ */
 {
 	int addr = (address>>24)&15;
 
-	if (unsigned(addr - 0x08) <= 5)
+	if ((unsigned)(addr - 0x08) <= 5)
 	{
 		if (bus.busPrefetchCount&0x1)
 		{
@@ -1437,14 +1439,14 @@ static INLINE void CPUWriteByte(uint32_t address, uint8_t b)
 /*============================================================
 	BIOS
 ============================================================ */
-static inline int16_t fast_sin(uint8_t val)
+static INLINE int16_t fast_sin(uint8_t val)
 {
 	uint8_t p = 0x7F & val;
 	int16_t q = 1 - ((0x80 & val) >> 6);
 	return ((p << 9) + (-4 * p * p)) * q;
 }
 
-static inline int16_t fast_cos(uint8_t val)
+static INLINE int16_t fast_cos(uint8_t val)
 {
 	return fast_sin(val + 0x40);
 }
@@ -1767,7 +1769,8 @@ static void BIOS_CpuFastSet (void)
 #if USE_TWEAK_MEMFUNC
 		if(source > 0x0EFFFFFF) {
 			while(count > 0) {
-				for(int i = 0; i < 8; i++) {
+				int i;
+				for(i = 0; i < 8; i++) {
 					CPUWriteMemory(dest, 0xBAFFFFFB);
 					dest += 4;
 				}
@@ -1775,7 +1778,8 @@ static void BIOS_CpuFastSet (void)
 			}
 		} else {
 			while(count > 0) {
-				for(int i = 0; i < 8; i++) {
+				int i;
+				for(i = 0; i < 8; i++) {
 					CPUWriteMemory(dest, CPUReadMemory(source));
 					source += 4;
 					dest += 4;
@@ -4240,8 +4244,8 @@ static  void arm7F6(uint32_t opcode) { LDR_PREINC_WB(OFFSET_ROR, OP_LDRB, 16); }
 #define LDM_ALL_2 \
     LDM_LOW;                                            \
     if (opcode & (1U<<15)) {                            \
-        LDM_HIGH;                                       \
         int dataticks_value;                            \
+        LDM_HIGH;                                       \
         bus.reg[15].I = CPUReadMemory(address);             \
 	dataticks_value = count ? DATATICKS_ACCESS_32BIT_SEQ(address) : DATATICKS_ACCESS_32BIT(address); \
 	DATATICKS_ACCESS_BUS_PREFETCH(address, dataticks_value); \
@@ -7002,6 +7006,7 @@ union u8h
    uint8_t val;
 };
 #endif
+typedef union u8h u8h;
 
 union TileEntry
 {
@@ -7021,20 +7026,22 @@ union TileEntry
    };
    uint16_t val;
 };
+typedef union TileEntry TileEntry;
 
 struct TileLine
 {
    uint32_t pixels[8];
 };
+typedef struct TileLine TileLine;
 
 typedef const TileLine (*TileReader) (const uint16_t *, const int, const uint8_t *, uint16_t *, const uint32_t);
 
-static inline void gfxDrawPixel(uint32_t *dest, const uint8_t color, const uint16_t *palette, const uint32_t prio)
+static INLINE void gfxDrawPixel(uint32_t *dest, const uint8_t color, const uint16_t *palette, const uint32_t prio)
 {
    *dest = color ? (palette[color] | prio): 0x80000000;
 }
 
-inline const TileLine gfxReadTile(const uint16_t *screenSource, const int yyy, const uint8_t *charBase, uint16_t *palette, const uint32_t prio)
+INLINE const TileLine gfxReadTile(const uint16_t *screenSource, const int yyy, const uint8_t *charBase, uint16_t *palette, const uint32_t prio)
 {
    int tileY;
    TileLine tileLine;
@@ -7073,7 +7080,7 @@ inline const TileLine gfxReadTile(const uint16_t *screenSource, const int yyy, c
    return tileLine;
 }
 
-inline const TileLine gfxReadTilePal(const uint16_t *screenSource, const int yyy, const uint8_t *charBase, uint16_t *palette, const uint32_t prio)
+INLINE const TileLine gfxReadTilePal(const uint16_t *screenSource, const int yyy, const uint8_t *charBase, uint16_t *palette, const uint32_t prio)
 {
    int tileY;
    TileLine tileLine;
@@ -7113,7 +7120,7 @@ inline const TileLine gfxReadTilePal(const uint16_t *screenSource, const int yyy
    return tileLine;
 }
 
-static inline void gfxDrawTile(const TileLine &tileLine, uint32_t* _line)
+static INLINE void gfxDrawTile(TileLine tileLine, uint32_t* _line)
 {
 #if HAVE_NEON
    neon_memcpy(_line, tileLine.pixels, sizeof(tileLine.pixels));
@@ -7122,7 +7129,7 @@ static inline void gfxDrawTile(const TileLine &tileLine, uint32_t* _line)
 #endif
 }
 
-static inline void gfxDrawTileClipped(const TileLine &tileLine, uint32_t* _line, const int start, int w)
+static INLINE void gfxDrawTileClipped(TileLine tileLine, uint32_t* _line, const int start, int w)
 {
 #if HAVE_NEON
    neon_memcpy(_line, tileLine.pixels + start, w * sizeof(uint32_t));
@@ -7131,7 +7138,7 @@ static inline void gfxDrawTileClipped(const TileLine &tileLine, uint32_t* _line,
 #endif
 }
 
-static void gfxDrawTextScreen(TileReader readTile, int layer, int renderer_idx, uint16_t control, uint16_t hofs, uint16_t vofs)
+static void gfxDrawTextScreenImpl(TileReader readTile, int layer, int renderer_idx, uint16_t control, uint16_t hofs, uint16_t vofs)
 {
 	uint16_t * palette;
 	uint8_t * charBase;
@@ -7258,13 +7265,13 @@ static void gfxDrawTextScreen(TileReader readTile, int layer, int renderer_idx, 
 void gfxDrawTextScreen(int layer, int renderer_idx, uint16_t control, uint16_t hofs, uint16_t vofs)
 {
    if (control & 0x80) /* 1 pal / 256 col */
-      gfxDrawTextScreen(gfxReadTile, layer, renderer_idx, control, hofs, vofs);
+      gfxDrawTextScreenImpl(gfxReadTile, layer, renderer_idx, control, hofs, vofs);
    else /* 16 pal / 16 col */
-      gfxDrawTextScreen(gfxReadTilePal, layer, renderer_idx, control, hofs, vofs);
+      gfxDrawTextScreenImpl(gfxReadTilePal, layer, renderer_idx, control, hofs, vofs);
 }
 #else
 
-static inline void gfxDrawTextScreen(int layer, int renderer_idx, uint16_t control, uint16_t hofs, uint16_t vofs)
+static INLINE void gfxDrawTextScreen(int layer, int renderer_idx, uint16_t control, uint16_t hofs, uint16_t vofs)
 {
   uint16_t *palette = PAL_U16;
   uint8_t *charBase = &vram[((control >> 2) & 0x03) * 0x4000];
@@ -7313,8 +7320,9 @@ static inline void gfxDrawTextScreen(int layer, int renderer_idx, uint16_t contr
 
   int yshift = ((yyy>>3)<<5);
   if((control) & 0x80) {
+    int x;
     uint16_t *screenSource = screenBase + 0x400 * (xxx>>8) + ((xxx & 255)>>3) + yshift;
-    for(int x = 0; x < 240; x++) {
+    for(x = 0; x < 240; x++) {
       uint16_t data = READ16LE(screenSource);
 
       int tile = data & 0x3FF;
@@ -7349,7 +7357,7 @@ static inline void gfxDrawTextScreen(int layer, int renderer_idx, uint16_t contr
   } else {
     uint16_t *screenSource = screenBase + 0x400*(xxx>>8)+((xxx&255)>>3) +
       yshift;
-    for(int x = 0; x < 240; x++) {
+    for(x = 0; x < 240; x++) {
       uint16_t data = READ16LE(screenSource);
 
       int tile = data & 0x3FF;
@@ -7900,7 +7908,7 @@ static INLINE void gfxDrawRotScreen256(int renderer_idx, int *p_currentX, int *p
 		uint32_t x;
 		for(x = 0; x < 240; ++x)
 	{
-		if(unsigned(xxx) < sizeX && unsigned(yyy) < sizeY) {
+		if((unsigned)(xxx) < sizeX && (unsigned)(yyy) < sizeY) {
 			uint8_t color = screenBase[yyy * 240 + xxx];
 			if (color) RENDERER_LINE[Layer_BG2][x] = (palette[color] | prio);
 		}
@@ -8001,7 +8009,7 @@ static INLINE void gfxDrawRotScreen16Bit160(int renderer_idx, int *p_currentX, i
 		uint32_t x;
 		for(x = 0; x < 240u; ++x)
 	{
-		if(unsigned(xxx) < sizeX && unsigned(yyy) < sizeY)
+		if((unsigned)(xxx) < sizeX && (unsigned)(yyy) < sizeY)
 			RENDERER_LINE[Layer_BG2][x] = (READ16LE(&screenBase[yyy * sizeX + xxx]) | prio);
 
 		realX += dx;
@@ -8162,7 +8170,7 @@ static void gfxDrawSprites (int renderer_idx)
 			if((sy+fieldY) > 256)
 				sy -= 256;
 			t = RENDERER_R_VCOUNT - sy;
-			if(unsigned(t) < fieldY)
+			if((unsigned)(t) < fieldY)
 			{
 				uint32_t startpix = 0;
 				if ((sx+fieldX)> 512)
@@ -8309,7 +8317,7 @@ static void gfxDrawSprites (int renderer_idx)
 			if(sy+sizeY > 256)
 				sy -= 256;
 			t = RENDERER_R_VCOUNT - sy;
-			if(unsigned(t) < sizeY)
+			if((unsigned)(t) < sizeY)
 			{
 				uint32_t startpix = 0;
 				if ((sx+sizeX)> 512)
@@ -9254,19 +9262,21 @@ static INLINE int CPUUpdateTicks (void)
 
 	#define CPUUpdateWindow0() \
 	{ \
+	  int i; \
 	  int x00_window0 = R_WIN_Window0_X1; \
 	  int x01_window0 = R_WIN_Window0_X2; \
 	  int x00_lte_x01 = x00_window0 <= x01_window0; \
-	  for(int i = 0; i < 240; i++) \
+	  for(i = 0; i < 240; i++) \
 		  gfxInWin[0][i] = ((i >= x00_window0 && i < x01_window0) & x00_lte_x01) | ((i >= x00_window0 || i < x01_window0) & ~x00_lte_x01); \
 	}
 
 	#define CPUUpdateWindow1() \
 	{ \
+	  int i; \
 	  int x00_window1 = R_WIN_Window1_X1; \
 	  int x01_window1 = R_WIN_Window1_X2; \
 	  int x00_lte_x01 = x00_window1 <= x01_window1; \
-	  for(int i = 0; i < 240; i++) \
+	  for(i = 0; i < 240; i++) \
 	   gfxInWin[1][i] = ((i >= x00_window1 && i < x01_window1) & x00_lte_x01) | ((i >= x00_window1 || i < x01_window1) & ~x00_lte_x01); \
 	}
 
@@ -9296,30 +9306,30 @@ unsigned CPUWriteState(uint8_t* data, unsigned size)
 {
 	uint8_t *orig = data;
 
-	utilWriteIntMem(data, SAVE_GAME_VERSION);
-	utilWriteMem(data, &rom[0xa0], 16);
-	utilWriteIntMem(data, useBios);
-	utilWriteMem(data, &bus.reg[0], sizeof(bus.reg));
+	utilWriteIntMem(&data, SAVE_GAME_VERSION);
+	utilWriteMem(&data, &rom[0xa0], 16);
+	utilWriteIntMem(&data, useBios);
+	utilWriteMem(&data, &bus.reg[0], sizeof(bus.reg));
 
-	utilWriteDataMem(data, saveGameStruct);
+	utilWriteDataMem(&data, saveGameStruct);
 
-	utilWriteIntMem(data, stopState);
-	utilWriteIntMem(data, IRQTicks);
+	utilWriteIntMem(&data, stopState);
+	utilWriteIntMem(&data, IRQTicks);
 
-	utilWriteMem(data, internalRAM, 0x8000);
-	utilWriteMem(data, paletteRAM, 0x400);
-	utilWriteMem(data, workRAM, 0x40000);
-	utilWriteMem(data, vram, 0x20000);
-	utilWriteMem(data, oam, 0x400);
+	utilWriteMem(&data, internalRAM, 0x8000);
+	utilWriteMem(&data, paletteRAM, 0x400);
+	utilWriteMem(&data, workRAM, 0x40000);
+	utilWriteMem(&data, vram, 0x20000);
+	utilWriteMem(&data, oam, 0x400);
 	/* pix (framebuffer) is no longer serialized as of SAVE_GAME_VERSION_11.
 	 * It's overwritten on the next scanline by the renderer; saving it
 	 * cost 160KB and polluted cache on rewind/runahead. */
-	utilWriteMem(data, ioMem, 0x400);
+	utilWriteMem(&data, ioMem, 0x400);
 
-	eepromSaveGameMem(data);
-	flashSaveGameMem(data);
-	soundSaveGameMem(data);
-	rtcSaveGameMem(data);
+	eepromSaveGameMem(&data);
+	flashSaveGameMem(&data);
+	soundSaveGameMem(&data);
+	rtcSaveGameMem(&data);
 
 	return (ptrdiff_t)data - (ptrdiff_t)orig;
 }
@@ -11913,6 +11923,7 @@ static void fetchBackgroundOffset(int video_mode) {
 }
 
 static void postRender() {
+	int u;
 
 	int video_mode = R_DISPCNT_Video_Mode;
 	bool draw_objwin = (graphics.layerEnable & 0x9000) == 0x9000;
@@ -12019,7 +12030,7 @@ static void postRender() {
 		renderer_ctx.bg3y_h = BG3Y_H;
 	}
 
-	for(int u = 0; u < 2; ++u) {
+	for(u = 0; u < 2; ++u) {
 		if(renderer_ctx.gfxinwin_ver[u] < threaded_gfxinwin_ver[u]) {
 			renderer_ctx.gfxinwin_ver[u] = threaded_gfxinwin_ver[u];
 #if HAVE_NEON
@@ -12100,7 +12111,7 @@ bool CPUReadState(const uint8_t* data, unsigned size)
 	} while (0)
 
 	BOUNDS_CHECK(sizeof(int));
-	int version = utilReadIntMem(data);
+	int version = utilReadIntMem(&data);
 	/* Accept the current version and the immediately previous one
 	 * (v10 -> v11 changed pix removal and EEPROM layout). */
 	if (version != SAVE_GAME_VERSION && version != SAVE_GAME_VERSION_10)
@@ -12108,23 +12119,23 @@ bool CPUReadState(const uint8_t* data, unsigned size)
 
 	BOUNDS_CHECK(16);
 	char romname[16];
-	utilReadMem(romname, data, 16);
+	utilReadMem(romname, &data, 16);
 	if (memcmp(&rom[0xa0], romname, 16) != 0)
 		return false;
 
 	/* Don't care about use bios ... */
 	BOUNDS_CHECK(sizeof(int));
-	utilReadIntMem(data);
+	utilReadIntMem(&data);
 
 	BOUNDS_CHECK(sizeof(bus.reg));
-	utilReadMem(&bus.reg[0], data, sizeof(bus.reg));
+	utilReadMem(&bus.reg[0], &data, sizeof(bus.reg));
 
-	utilReadDataMem(data, saveGameStruct);
+	utilReadDataMem(&data, saveGameStruct);
 
 	BOUNDS_CHECK(2 * sizeof(int));
-	stopState = utilReadIntMem(data) ? true : false;
+	stopState = utilReadIntMem(&data) ? true : false;
 
-	IRQTicks = utilReadIntMem(data);
+	IRQTicks = utilReadIntMem(&data);
 	if (IRQTicks > 0)
 		intState = true;
 	else
@@ -12134,11 +12145,11 @@ bool CPUReadState(const uint8_t* data, unsigned size)
 	}
 
 	BOUNDS_CHECK(0x8000 + 0x400 + 0x40000 + 0x20000 + 0x400 + 0x400);
-	utilReadMem(internalRAM, data, 0x8000);
-	utilReadMem(paletteRAM, data, 0x400);
-	utilReadMem(workRAM, data, 0x40000);
-	utilReadMem(vram, data, 0x20000);
-	utilReadMem(oam, data, 0x400);
+	utilReadMem(internalRAM, &data, 0x8000);
+	utilReadMem(paletteRAM, &data, 0x400);
+	utilReadMem(workRAM, &data, 0x40000);
+	utilReadMem(vram, &data, 0x20000);
+	utilReadMem(oam, &data, 0x400);
 	if (version < SAVE_GAME_VERSION_11) {
 		/* v10 saved a 160KB framebuffer mirror here. Skip past it -
 		 * the renderer overwrites pix on the next scanline anyway. */
@@ -12146,12 +12157,12 @@ bool CPUReadState(const uint8_t* data, unsigned size)
 		BOUNDS_CHECK(old_pix_bytes);
 		data += old_pix_bytes;
 	}
-	utilReadMem(ioMem, data, 0x400);
+	utilReadMem(ioMem, &data, 0x400);
 
-	eepromReadGameMem(data, version);
-	flashReadGameMem(data, version);
-	soundReadGameMem(data, version);
-	rtcReadGameMem(data);
+	eepromReadGameMem(&data, version);
+	flashReadGameMem(&data, version);
+	soundReadGameMem(&data, version);
+	rtcReadGameMem(&data);
 
 	#undef BOUNDS_CHECK
 
@@ -13108,6 +13119,7 @@ void CPUInit(const char *biosFileName, bool useBiosFile)
 
 void CPUReset (void)
 {
+	int i;
 	if(gbaSaveType == 0)
 	{
 		if(eepromInUse)
@@ -13308,7 +13320,7 @@ void CPUReset (void)
 	memset(line[Layer_BG3], -1, 240 * sizeof(uint32_t));
 #endif
 
-	for(int i = 0; i < 256; i++) {
+	for(i = 0; i < 256; i++) {
 		map[i].address = 0;
 		map[i].mask = 0;
 	}
@@ -14672,10 +14684,11 @@ int cheatsCheckKeys(uint32_t keys, uint32_t extended)
           uint16_t value = cheatsList[i].value;
           i++;
           if(i < cheatsNumber) {
+            int x;
             int count = ((cheatsList[i].address - 1) & 0xFFFF);
             uint16_t vinc = (cheatsList[i].address >> 16) & 0xFFFF;
             int inc = cheatsList[i].value;
-            for(int x = 0; x <= count ; x++) {
+            for(x = 0; x <= count ; x++) {
               CPUWriteHalfWord(address, value);
               address += inc;
               value += vinc;
@@ -14793,9 +14806,10 @@ int cheatsCheckKeys(uint32_t keys, uint32_t extended)
         break;
       case CBA_SUPER:
 		{
+          int x;
           int count = 2*((cheatsList[i].value -1) & 0xFFFF)+1;
           uint32_t address = cheatsList[i].address;
-          for(int x = 0; x <= count; x++) {
+          for(x = 0; x <= count; x++) {
             uint8_t b;
             int res = x % 6;
 		    if (res==0)
@@ -15127,12 +15141,13 @@ int cheatsCheckKeys(uint32_t keys, uint32_t extended)
         break;
       case GSA_GROUP_WRITE:
       	{
+          int x;
           int count = ((cheatsList[i].address) & 0xFFFE) +1;
           uint32_t value = cheatsList[i].value;
 		  if (count==0)
 			  i++;
 		  else
-            for (int x = 1; x <= count; x++) {
+            for(x = 1; x <= count; x++) {
 				if ((x % 2) ==0){
 					if (x<count)
 						i++;
@@ -15312,7 +15327,8 @@ void cheatsDelete(int number, bool restore)
 
 void cheatsDeleteAll(bool restore)
 {
-  for(int i = cheatsNumber-1; i >= 0; i--) {
+  int i;
+  for(i = cheatsNumber-1; i >= 0; i--) {
     cheatsDelete(i, restore);
   }
 }
@@ -15427,7 +15443,8 @@ void cheatsAddCheatCode(const char *code, const char *desc)
 
 uint16_t cheatsGSAGetDeadface(bool v3)
 {
-  for(int i = cheatsNumber-1; i >= 0; i--)
+  int i;
+  for(i = cheatsNumber-1; i >= 0; i--)
     if ((cheatsList[i].address == 0xDEADFACE) && (cheatsList[i].code == (v3 ? 257 : 256)))
       return cheatsList[i].value & 0xFFFF;
 	return 0;
@@ -15462,17 +15479,17 @@ uint32_t seed_gen(uint8_t upper, uint8_t seed, uint8_t *deadtable1, uint8_t *dea
 	return newseed;
 }
 
-void cheatsDecryptGSACode(uint32_t& address, uint32_t& value, bool v3)
+void cheatsDecryptGSACode(uint32_t *address, uint32_t *value, bool v3)
 {
   uint32_t rollingseed = 0xC6EF3720;
   uint32_t *seeds = v3 ? seeds_v3 : seeds_v1;
 
   int bitsleft = 32;
   while (bitsleft > 0) {
-    value -= ((((address << 4) + seeds[2]) ^ (address + rollingseed)) ^
-              ((address >> 5) + seeds[3]));
-    address -= ((((value << 4) + seeds[0]) ^ (value + rollingseed)) ^
-                ((value >> 5) + seeds[1]));
+    *value -= ((((*address << 4) + seeds[2]) ^ (*address + rollingseed)) ^
+              ((*address >> 5) + seeds[3]));
+    *address -= ((((*value << 4) + seeds[0]) ^ (*value + rollingseed)) ^
+                ((*value >> 5) + seeds[1]));
     rollingseed -= 0x9E3779B9;
     bitsleft--;
   }
@@ -15505,7 +15522,7 @@ void cheatsAddGSACode(const char *code, const char *desc, bool v3)
   uint32_t value;
   sscanf(buffer, "%x", &value);
   cheatsGSAChangeEncryption(cheatsGSAGetDeadface (v3), v3);
-  cheatsDecryptGSACode(address, value, v3);
+  cheatsDecryptGSACode(&address, &value, v3);
 
   if(value == 0x1DC0DE) {
     uint32_t gamecode = READ32LE(((uint32_t *)&rom[0xac]));
@@ -16162,13 +16179,14 @@ void cheatsCBAChangeEncryption(uint32_t *seed)
 
 uint16_t cheatsCBAGenValue(uint32_t x, uint32_t y, uint32_t z)
 {
+  int i;
   y <<= 0x10;
   z <<= 0x10;
   x <<= 0x18;
   uint32_t x0 = (int)y >> 0x10;
   z = (int)z >> 0x10;
   x = (int)x >> 0x10;
-  for(int i = 0; i < 8; i++) {
+  for(i = 0; i < 8; i++) {
     uint32_t temp = z ^ x;
     if ((int)temp >= 0)
       temp = z << 0x11;
@@ -16186,7 +16204,8 @@ uint16_t cheatsCBAGenValue(uint32_t x, uint32_t y, uint32_t z)
 
 void cheatsCBAGenTable(void)
 {
-  for (int i = 0; i < 0x100; i++)
+  int i;
+  for(i = 0; i < 0x100; i++)
     cheatsCBATable[i] = cheatsCBAGenValue(i, 0x1021, 0);
   cheatsCBATableGenerated = true;
 }
@@ -16218,12 +16237,13 @@ uint16_t cheatsCBACalcCRC(uint8_t *rom, int count)
 
 void cheatsCBADecrypt(uint8_t *decrypt)
 {
+  int count, i, j;
   uint8_t buffer[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
   uint8_t *array = &buffer[1];
 
   cheatsCBAReverseArray(decrypt, array);
 
-  for(int count = 0x2f; count >= 0; count--)
+  for(count = 0x2f; count >= 0; count--)
     chatsCBAScramble(array, count, cheatsCBASeedBuffer[count]);
   cheatsCBAArrayToValue(array, decrypt);
   *((uint32_t *)decrypt) = cheatsCBAGetValue(decrypt) ^
@@ -16234,12 +16254,12 @@ void cheatsCBADecrypt(uint8_t *decrypt)
   cheatsCBAReverseArray(decrypt, array);
 
   uint32_t cs = cheatsCBAGetValue(cheatsCBACurrentSeed);
-  for(int i = 0; i <= 4; i++)
+  for(i = 0; i <= 4; i++)
     array[i] = ((cs >> 8) ^ array[i+1]) ^ array[i] ;
 
   array[5] = (cs >> 8) ^ array[5];
 
-  for(int j = 5; j >=0; j--)
+  for(j = 5; j >=0; j--)
     array[j] = (cs ^ array[j-1]) ^ array[j];
 
   cheatsCBAArrayToValue(array, decrypt);
@@ -16252,8 +16272,9 @@ void cheatsCBADecrypt(uint8_t *decrypt)
 
 int cheatsCBAGetCount(void)
 {
+  int i;
   int count = 0;
-  for(int i = 0; i < cheatsNumber; i++)
+  for(i = 0; i < cheatsNumber; i++)
   {
     if(cheatsList[i].code == 512)
       count++;
@@ -16263,7 +16284,8 @@ int cheatsCBAGetCount(void)
 
 bool cheatsCBAShouldDecrypt(void)
 {
-  for(int i = 0; i < cheatsNumber; i++)
+  int i;
+  for(i = 0; i < cheatsNumber; i++)
   {
     if(cheatsList[i].code == 512)
       return (cheatsList[i].codestring[0] == '9');

@@ -14,19 +14,19 @@
 ============================================================ */
 
 /* Not endian safe, but VBA itself doesn't seem to care */
-void utilWriteIntMem(uint8_t *& data, int val)
+void utilWriteIntMem(uint8_t **data, int val)
 {
-	memcpy(data, &val, sizeof(int));
-	data += sizeof(int);
+	memcpy(*data, &val, sizeof(int));
+	*data += sizeof(int);
 }
 
-void utilWriteMem(uint8_t *& data, const void *in_data, unsigned size)
+void utilWriteMem(uint8_t **data, const void *in_data, unsigned size)
 {
-	memcpy(data, in_data, size);
-	data += size;
+	memcpy(*data, in_data, size);
+	*data += size;
 }
 
-void utilWriteDataMem(uint8_t *& data, variable_desc *desc)
+void utilWriteDataMem(uint8_t **data, variable_desc *desc)
 {
 	while (desc->address) 
 	{
@@ -35,22 +35,22 @@ void utilWriteDataMem(uint8_t *& data, variable_desc *desc)
 	}
 }
 
-int utilReadIntMem(const uint8_t *& data)
+int utilReadIntMem(const uint8_t **data)
 {
 	int res;
 
-	memcpy(&res, data, sizeof(int));
-	data += sizeof(int);
+	memcpy(&res, *data, sizeof(int));
+	*data += sizeof(int);
 	return res;
 }
 
-void utilReadMem(void *buf, const uint8_t *& data, unsigned size)
+void utilReadMem(void *buf, const uint8_t **data, unsigned size)
 {
-	memcpy(buf, data, size);
-	data += size;
+	memcpy(buf, *data, size);
+	*data += size;
 }
 
-void utilReadDataMem(const uint8_t *& data, variable_desc *desc)
+void utilReadDataMem(const uint8_t **data, variable_desc *desc)
 {
 	while (desc->address)
 	{
@@ -106,12 +106,12 @@ void flashReset(void)
 	flashBank = 0;
 }
 
-void flashSaveGameMem(uint8_t *& data)
+void flashSaveGameMem(uint8_t **data)
 {
 	utilWriteDataMem(data, flashSaveData3);
 }
 
-void flashReadGameMem(const uint8_t *& data, int)
+void flashReadGameMem(const uint8_t **data, int)
 {
 	utilReadDataMem(data, flashSaveData3);
 }
@@ -345,14 +345,14 @@ void eepromReset (void)
 	eepromSize = 512;
 }
 
-void eepromSaveGameMem(uint8_t *& data)
+void eepromSaveGameMem(uint8_t **data)
 {
 	utilWriteDataMem(data, eepromSaveData);
 	utilWriteIntMem(data, eepromSize);
 	utilWriteMem(data, eepromData, 0x2000);
 }
 
-void eepromReadGameMem(const uint8_t *& data, int version)
+void eepromReadGameMem(const uint8_t **data, int version)
 {
 	if (version < SAVE_GAME_VERSION_11)
 		utilReadDataMem(data, eepromSaveData_v10);
@@ -789,12 +789,12 @@ void rtcReset (void)
 	rtcClockData.state = IDLE;
 }
 
-void rtcSaveGameMem(uint8_t *& data)
+void rtcSaveGameMem(uint8_t **data)
 {
 	utilWriteMem(data, &rtcClockData, sizeof(rtcClockData));
 }
 
-void rtcReadGameMem(const uint8_t *& data)
+void rtcReadGameMem(const uint8_t **data)
 {
 	utilReadMem(&rtcClockData, data, sizeof(rtcClockData));
 }
