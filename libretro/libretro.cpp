@@ -4,6 +4,8 @@
 #include <string.h>
 #include <ctype.h>
 
+#include <compat/msvc.h>
+
 #include <libretro.h>
 #include <vfs/vfs.h>
 #include <streams/file_stream.h>
