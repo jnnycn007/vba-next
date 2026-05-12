@@ -6,6 +6,8 @@
 #include <memalign.h>
 #include <time.h>
 
+#include <compat/msvc.h>
+
 #include <streams/file_stream.h>
 
 #include "system.h"
