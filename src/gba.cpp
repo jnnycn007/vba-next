@@ -89,53 +89,57 @@ uint8_t *workRAM = 0;
 uint8_t *paletteRAM = 0;
 
 #ifdef MSB_FIRST
-/* Host-endian shadow of paletteRAM, refreshed once per scanline. Lets the
- * per-pixel renderer read palette entries without a __lhbrx byteswap on every
- * read - moves the ~150,000 byteswaps/frame down to 0x200 per scanline
- * (~32,000/frame total). BE-only; on LE the renderer already reads paletteRAM
- * directly with no swap.
+/* Host-endian shadows of paletteRAM and OAM, refreshed once per scanline.
+ * The renderer reads palette/OAM entries millions of times per frame via
+ * READ16LE in the per-pixel and per-sprite loops; on BE that's a __lhbrx
+ * byteswap on every access.  By snapshotting the byteswapped form into a
+ * host-endian shadow once per scanline (0x200+0x200 swaps), the per-pixel
+ * reads become plain `*ptr` loads with no swap.  Net ~210k byteswaps/frame
+ * eliminated for the cost of ~64k sync swaps - ~3x reduction.
  *
- * Threading note: under THREADED_RENDERER, palette_native is shared across
- * renderer contexts. If a worker thread is mid-render on line N while the
- * main thread is syncing for line N+1, palette_native[X] could appear torn
- * for a single pixel - transient visual artifact only, never a crash.
- * Real-world BE platforms (PS3/X360/Wii/WiiU) currently do not enable
- * THREADED_RENDERER so this is theoretical. A future fix would move
- * palette_native into renderer_ctx for per-context isolation. */
-static uint16_t palette_native[0x200];
-
-/* Same idea for OAM. gfxDrawSprites reads 3 attribute u16s per sprite (a0/a1/a2)
- * for all 128 sprites every scanline, plus 4 affine-matrix u16s per rotated
- * sprite - ~60,000 byteswaps/frame on BE that the shadow eliminates. The sync
- * cost is one wholesale 1KB swap per scanline (~32k swaps/frame). */
-static uint16_t oam_native[0x200];
-
-static INLINE void palette_native_sync(void)
+ * Storage strategy:
+ *  - !THREADED_RENDERER: a pair of file-scope shadows shared by the single
+ *    render thread.  Main thread is the only writer; worker is the same
+ *    thread, so no synchronization needed.
+ *  - THREADED_RENDERER:  one pair of shadows per renderer_context (see the
+ *    struct below).  Main thread syncs into the destination context's buffer
+ *    BEFORE setting renderer_state=1, so each worker reads its own snapshot
+ *    with no shared state and no race against subsequent scanline setup. */
+static INLINE void palette_native_sync(uint16_t *dst)
 {
 	/* paletteRAM is stored byte-swapped on BE so READ16LE returns the natural
-	 * value (matching what an LE host would see directly). Copy that natural
-	 * value into palette_native and the renderer can read it without swapping. */
+	 * (LE-host-equivalent) value; copy that into dst and the renderer reads
+	 * it without swapping. */
 	const uint16_t *src = (const uint16_t *)paletteRAM;
 	for (int i = 0; i < 0x200; ++i)
-		palette_native[i] = READ16LE(&src[i]);
+		dst[i] = READ16LE(&src[i]);
 }
 
-static INLINE void oam_native_sync(void)
+static INLINE void oam_native_sync(uint16_t *dst)
 {
 	const uint16_t *src = (const uint16_t *)oam;
 	for (int i = 0; i < 0x200; ++i)
-		oam_native[i] = READ16LE(&src[i]);
+		dst[i] = READ16LE(&src[i]);
 }
 
-/* Renderer-side palette/OAM accessors: under MSB_FIRST point at the host-endian
- * shadow; under LE point at the raw byte array (already host-endian). */
+#if !THREADED_RENDERER
+/* Non-threaded BE: shared shadows live at file scope. */
+static uint16_t palette_native[0x200];
+static uint16_t oam_native[0x200];
 #define PAL_U16 palette_native
 #define OAM_U16 oam_native
 #else
+/* Threaded BE: shadows live in the renderer_context; PAL_U16 / OAM_U16
+ * resolve via the renderer_ctx in scope at the use site. */
+#define PAL_U16 renderer_ctx.palette_native
+#define OAM_U16 renderer_ctx.oam_native
+#endif
+
+#else /* !MSB_FIRST: LE host - paletteRAM / oam are already host-endian. */
 #define PAL_U16 ((uint16_t *)paletteRAM)
 #define OAM_U16 ((uint16_t *)oam)
-static INLINE void palette_native_sync(void) { /* no-op on LE */ }
-static INLINE void oam_native_sync(void) { /* no-op on LE */ }
+static INLINE void palette_native_sync(uint16_t *dst) { (void)dst; /* no-op on LE */ }
+static INLINE void oam_native_sync(uint16_t *dst)     { (void)dst; /* no-op on LE */ }
 #endif
 
 int renderfunc_mode = 0;
@@ -190,6 +194,16 @@ static void hardware_reset() {
 		uint32_t line[6][240];
 		int lineOBJpixleft[128];
 		bool gfxInWin[2][240];
+
+#ifdef MSB_FIRST
+		/* Per-context host-endian shadow of paletteRAM and OAM.  Synced by
+		 * the main thread in postRender before renderer_state=1, read by the
+		 * worker during rendering.  Per-context (rather than a shared global)
+		 * so multiple in-flight scanlines don't see a torn snapshot during
+		 * the next-line sync. */
+		uint16_t palette_native[0x200];
+		uint16_t oam_native[0x200];
+#endif
 
 		bool draw_objwin;
 		bool draw_sprites;
@@ -11379,10 +11393,14 @@ static void postRender() {
 	gfxBG2Changed = 0;
 	if(video_mode == 2)	gfxBG3Changed = 0;
 
-	/* §5b: sync host-endian palette + OAM shadows once per scanline before the
-	 * renderer thread sees renderer_state=1. No-ops on LE. */
-	palette_native_sync();
-	oam_native_sync();
+#ifdef MSB_FIRST
+	/* §5b/C: snapshot host-endian palette + OAM into THIS context's buffers
+	 * before the worker thread sees renderer_state=1.  Each context has its
+	 * own pair of shadows, so the worker reads a stable per-scanline snapshot
+	 * with no shared state and no race against the next-line sync. */
+	palette_native_sync(renderer_ctx.palette_native);
+	oam_native_sync(renderer_ctx.oam_native);
+#endif
 
 	//buffer is ready.
 	renderer_ctx.renderer_state = 1;
@@ -12949,11 +12967,14 @@ updateLoop:
 						bool draw_objwin = (graphics.layerEnable & 0x9000) == 0x9000;
 						bool draw_sprites = R_DISPCNT_Screen_Display_OBJ;
 
-						/* §5b: sync host-endian palette + OAM shadows once per
-						 * scanline. No-ops on LE; ~0x400 byteswaps total on BE
-						 * that save ~5x more in the per-pixel/per-sprite readers. */
-						palette_native_sync();
-						oam_native_sync();
+#ifdef MSB_FIRST
+						/* §5b/C: sync host-endian palette + OAM shadows once
+						 * per scanline.  No call on LE because the shadows
+						 * don't exist there (renderer reads paletteRAM/oam
+						 * directly via the LE branch of PAL_U16/OAM_U16). */
+						palette_native_sync(palette_native);
+						oam_native_sync(oam_native);
+#endif
 
 						memset(RENDERER_LINE[Layer_OBJ], -1, 240 * sizeof(u32));	// erase all sprites
 						if(draw_sprites) gfxDrawSprites<0>();
