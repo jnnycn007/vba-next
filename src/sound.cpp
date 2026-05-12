@@ -269,6 +269,7 @@ INLINE int Gb_Wave::read( unsigned addr ) const
 
 INLINE void Gb_Wave::write( unsigned addr, int data )
 {
+	unsigned char * wave_bank;
 	int index;
 
 	if(enabled)
@@ -276,7 +277,7 @@ INLINE void Gb_Wave::write( unsigned addr, int data )
 	else
 		index = addr & 0x0F;
 	
-	unsigned char * wave_bank = &wave_ram[(~regs[0] & BANK40_MASK) >> 2 & agb_mask];
+	wave_bank = &wave_ram[(~regs[0] & BANK40_MASK) >> 2 & agb_mask];
 
 	if ( index >= 0 )
 		wave_bank[index] = data;
@@ -346,13 +347,14 @@ static void gba_pcm_init (void)
 
 static void gba_pcm_apply_control( int pcm_idx, int idx )
 {
+	Blip_Buffer* out;
 	int ch = 0;
 	pcm[pcm_idx].pcm.shift = ~ioMem [SGCNT0_H] >> (2 + idx) & 1;
 
 	if ( (ioMem [NR52] & 0x80) )
 		ch = ioMem [SGCNT0_H+1] >> (idx << 2) & 3;
 
-	Blip_Buffer* out = 0;
+	out = 0;
 	switch ( ch )
 	{
 		case 1:
@@ -464,10 +466,11 @@ struct gb_apu_state_t
 
 static void gb_apu_reduce_clicks( bool reduce )
 {
+	int dac_off_amp;
 	gb_apu.reduce_clicks_ = reduce;
 
 	/* Click reduction makes DAC off generate same output as volume 0*/
-	int dac_off_amp = 0;
+	dac_off_amp = 0;
 
 	gb_apu.oscs[0]->dac_off_amp = dac_off_amp;
 	gb_apu.oscs[1]->dac_off_amp = dac_off_amp;
@@ -1127,6 +1130,8 @@ void Gb_Wave::corrupt_wave()
 
 void Gb_Square::run( int32_t time, int32_t end_time )
 {
+        int ph;
+        int vol;
         /* Calc duty and phase*/
         static unsigned char const duty_offsets [4] = { 1, 1, 3, 7 };
         static unsigned char const duties       [4] = { 1, 2, 4, 6 };
@@ -1136,10 +1141,10 @@ void Gb_Square::run( int32_t time, int32_t end_time )
 	/* AGB uses inverted duty*/
 	duty_offset -= duty;
 	duty = 8 - duty;
-        int ph = (phase + duty_offset) & 7;
+        ph = (phase + duty_offset) & 7;
 
         /* Determine what will be generated*/
-        int vol = 0;
+        vol = 0;
         Blip_Buffer* const out = output;
         if ( out )
         {
@@ -1314,11 +1319,12 @@ void Gb_Noise::run( int32_t time, int32_t end_time )
         static unsigned char const period1s [8] = { 1, 2, 4, 6, 8, 10, 12, 14 };
         int const period1 = period1s [regs [3] & 7] * CLK_MUL;
         {
+                int count;
                 int extra = (end_time - time) - delay;
                 int const per2 = GB_NOISE_PERIOD2(8);
                 time += delay + ((divider ^ (per2 >> 1)) & (per2 - 1)) * period1;
 
-                int count = (extra < 0 ? 0 : (extra + period1 - 1) / period1);
+                count = (extra < 0 ? 0 : (extra + period1 - 1) / period1);
                 divider = (divider - count) & PERIOD2_MASK;
                 delay = count * period1 - extra;
         }
@@ -1402,6 +1408,7 @@ void Gb_Wave::run( int32_t time, int32_t end_time )
         time += delay;
         if ( time < end_time )
         {
+                int ph;
                 unsigned char const* wave = wave_ram;
 
                 /* wave size and bank*/
@@ -1414,7 +1421,7 @@ void Gb_Wave::run( int32_t time, int32_t end_time )
                         wave += BANK_SIZE_DIV_TWO - (swap_banks >> 1);
                 }
 
-                int ph = phase ^ swap_banks;
+                ph = phase ^ swap_banks;
                 ph = (ph + 1) & wave_mask; /* pre-advance*/
 
                 int const per = period();
@@ -1431,14 +1438,16 @@ void Gb_Wave::run( int32_t time, int32_t end_time )
                         int lamp = last_amp + DAC_BIAS;
                         do
                         {
+                                int amp;
+                                int delta;
                                 /* Extract nybble*/
                                 int nybble = wave [ph >> 1] << (ph << 2 & 4) & 0xF0;
                                 ph = (ph + 1) & wave_mask;
 
                                 /* Scale by volume*/
-                                int amp = (nybble * volume_mul) >> VOLUME_SHIFT_PLUS_FOUR;
+                                amp = (nybble * volume_mul) >> VOLUME_SHIFT_PLUS_FOUR;
 
-                                int delta = amp - lamp;
+                                delta = amp - lamp;
                                 if ( delta )
                                 {
                                         lamp = amp;
@@ -1608,15 +1617,18 @@ static void stereo_buffer_clear (void)
 
 static INLINE void stereo_buffer_mixer_read_pairs( int16_t* out, int count )
 {
+	int16_t* outtemp;
+	Blip_Buffer* buf;
 	/* TODO: if caller never marks buffers as modified, uses mono*/
 	/* except that buffer isn't cleared, so caller can encounter*/
 	/* subtle problems and not realize the cause.*/
 	mixer_samples_read += count;
-	int16_t* outtemp = out + count * STEREO;
+	outtemp = out + count * STEREO;
 
 	/* do left + center and right + center separately to reduce register load*/
-	Blip_Buffer* buf = &bufs_buffer [2];
+	buf = &bufs_buffer [2];
 	{
+		int offset;
 		--buf;
 		--outtemp;
 
@@ -1626,7 +1638,7 @@ static INLINE void stereo_buffer_mixer_read_pairs( int16_t* out, int count )
 		BLIP_READER_ADJ_( side,   mixer_samples_read );
 		BLIP_READER_ADJ_( center, mixer_samples_read );
 
-		int offset = -count;
+		offset = -count;
 		do
 		{
 			int s = (center_reader_accum + side_reader_accum) >> 14;
@@ -1641,6 +1653,7 @@ static INLINE void stereo_buffer_mixer_read_pairs( int16_t* out, int count )
 		BLIP_READER_END( side,   *buf );
 	}
 	{
+		int offset;
 		--buf;
 		--outtemp;
 
@@ -1650,7 +1663,7 @@ static INLINE void stereo_buffer_mixer_read_pairs( int16_t* out, int count )
 		BLIP_READER_ADJ_( side,   mixer_samples_read );
 		BLIP_READER_ADJ_( center, mixer_samples_read );
 
-		int offset = -count;
+		offset = -count;
 		do
 		{
 			int s = (center_reader_accum + side_reader_accum) >> 14;
@@ -1671,6 +1684,7 @@ static INLINE void stereo_buffer_mixer_read_pairs( int16_t* out, int count )
 
 static void blip_buffer_remove_all_samples( long count )
 {
+	long remain;
 	uint32_t new_offset = (uint32_t)count << BLIP_BUFFER_ACCURACY;
 	/* BLIP BUFFER #1 */
 	bufs_buffer[0].offset_ -= new_offset;
@@ -1678,7 +1692,7 @@ static void blip_buffer_remove_all_samples( long count )
 	bufs_buffer[2].offset_ -= new_offset;
 
 	/* copy remaining samples to beginning and clear old samples*/
-	long remain = (bufs_buffer[0].offset_ >> BLIP_BUFFER_ACCURACY) + BLIP_BUFFER_EXTRA_;
+	remain = (bufs_buffer[0].offset_ >> BLIP_BUFFER_ACCURACY) + BLIP_BUFFER_EXTRA_;
 	memmove( bufs_buffer[0].buffer_, bufs_buffer[0].buffer_ + count, remain * sizeof *bufs_buffer[0].buffer_ );
 	memset( bufs_buffer[0].buffer_ + remain, 0, count * sizeof(*bufs_buffer[0].buffer_));
 
@@ -1734,10 +1748,11 @@ static void pcm_fifo_write_control( int data, int data2)
 
 	if(pcm[0].pcm.output)
 	{
+		int delta;
 		int time = SOUND_CLOCK_TICKS -  soundTicks;
 
 		pcm[0].dac = (int8_t)pcm[0].dac >> pcm[0].pcm.shift;
-		int delta = pcm[0].dac - pcm[0].pcm.last_amp;
+		delta = pcm[0].dac - pcm[0].pcm.last_amp;
 		if ( delta )
 		{
 			pcm[0].pcm.last_amp = pcm[0].dac;
@@ -1763,10 +1778,11 @@ static void pcm_fifo_write_control( int data, int data2)
 
 	if(pcm[1].pcm.output)
 	{
+		int delta;
 		int time = SOUND_CLOCK_TICKS -  soundTicks;
 
 		pcm[1].dac = (int8_t)pcm[1].dac >> pcm[1].pcm.shift;
-		int delta = pcm[1].dac - pcm[1].pcm.last_amp;
+		delta = pcm[1].dac - pcm[1].pcm.last_amp;
 		if ( delta )
 		{
 			pcm[1].pcm.last_amp = pcm[1].dac;
@@ -1853,10 +1869,11 @@ static void gba_pcm_fifo_timer_overflowed( unsigned pcm_idx )
 
 	if(pcm[pcm_idx].pcm.output)
 	{
+		int delta;
 		int time = SOUND_CLOCK_TICKS -  soundTicks;
 
 		pcm[pcm_idx].dac = (int8_t)pcm[pcm_idx].dac >> pcm[pcm_idx].pcm.shift;
-		int delta = pcm[pcm_idx].dac - pcm[pcm_idx].pcm.last_amp;
+		delta = pcm[pcm_idx].dac - pcm[pcm_idx].pcm.last_amp;
 		if ( delta )
 		{
 			pcm[pcm_idx].pcm.last_amp = pcm[pcm_idx].dac;
@@ -1957,6 +1974,8 @@ void soundTimerOverflow(int timer)
 
 void process_sound_tick_fn (void)
 {
+	long avail;
+	int numSamples;
 	/* Run sound hardware to present */
 	pcm[0].pcm.last_time -= SOUND_CLOCK_TICKS;
 	if ( pcm[0].pcm.last_time < -2048 )
@@ -1982,11 +2001,11 @@ void process_sound_tick_fn (void)
 
 	/* dump all the samples available */
 	/* VBA will only ever store 1 frame worth of samples */
-	long avail = stereo_buffer_samples_avail();
+	avail = stereo_buffer_samples_avail();
 	const long max_samples = (long)(sizeof(soundFinalWave) / sizeof(soundFinalWave[0]));
 	if (avail > max_samples)
 		avail = max_samples;
-	int numSamples = stereo_buffer_read_samples( (int16_t*) soundFinalWave, avail);
+	numSamples = stereo_buffer_read_samples( (int16_t*) soundFinalWave, avail);
 	systemOnWriteDataToSoundBuffer(soundFinalWave, numSamples);
 }
 
@@ -2039,6 +2058,7 @@ static void remake_stereo_buffer (void)
 
 void soundReset (void)
 {
+	int gb_addr;
 	remake_stereo_buffer();
 	/*Begin of Reset APU */
 	gb_apu_reset( MODE_AGB, true );
@@ -2052,7 +2072,7 @@ void soundReset (void)
 	soundTicks        = SOUND_CLOCK_TICKS_;
 
 	/* Sound Event (NR52) */
-	int gb_addr = table[NR52 - 0x60];
+	gb_addr = table[NR52 - 0x60];
 	if ( gb_addr )
 	{
 		ioMem[NR52] = 0x80;
@@ -2150,6 +2170,7 @@ void soundSaveGameMem(uint8_t *& data)
 
 void soundReadGameMem(const uint8_t *& in_data, int)
 {
+	int data;
 	/* Prepare APU and default state */
 
 	/*Begin of Reset APU */
@@ -2166,7 +2187,7 @@ void soundReadGameMem(const uint8_t *& in_data, int)
 
 	gb_apu_load_state( state.apu );
 	/*Begin of Write SGCNT0_H */
-	int data = (READ16LE( &ioMem [SGCNT0_H] ) & 0x770F);
+	data = (READ16LE( &ioMem [SGCNT0_H] ) & 0x770F);
 	WRITE16LE( &ioMem [SGCNT0_H], data & 0x770F );
 	pcm_fifo_write_control( data, data >> 4 );
 

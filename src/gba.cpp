@@ -1520,6 +1520,13 @@ static void BIOS_ArcTan2 (void)
 
 static void BIOS_BitUnPack(void)
 {
+	int bits;
+	int revbits;
+	uint32_t base;
+	bool addBase;
+	int dataSize;
+	int data;
+	int bitwritecount;
 	uint32_t source = bus.reg[0].I;
 	uint32_t dest   = bus.reg[1].I;
 	uint32_t header = bus.reg[2].I;
@@ -1530,29 +1537,34 @@ static void BIOS_BitUnPack(void)
      )
 		return;
 
-	int bits          = CPUReadByte(header+2);
-	int revbits       = 8 - bits;
+	bits = CPUReadByte(header+2);
+	revbits = 8 - bits;
 	/* uint32_t value = 0; */
-	uint32_t base          = CPUReadMemory(header+4);
-	bool addBase      = (base & 0x80000000) ? true : false;
+	base = CPUReadMemory(header+4);
+	addBase = (base & 0x80000000) ? true : false;
 	base &= 0x7fffffff;
-	int dataSize      = CPUReadByte(header+3);
-	int data          = 0;
-	int bitwritecount = 0;
+	dataSize = CPUReadByte(header+3);
+	data = 0;
+	bitwritecount = 0;
 	while(1)
 	{
+		int mask;
+		uint8_t b;
+		int bitcount;
 		len -= 1;
 		if(len < 0)
 			break;
-		int mask = 0xff >> revbits;
-		uint8_t b = CPUReadByte(source);
+		mask = 0xff >> revbits;
+		b = CPUReadByte(source);
 		source++;
-		int bitcount = 0;
+		bitcount = 0;
 		while(1) {
+			uint32_t d;
+			uint32_t temp;
 			if(bitcount >= 8)
 				break;
-			uint32_t d = b & mask;
-			uint32_t temp = d >> bitcount;
+			d = b & mask;
+			temp = d >> bitcount;
 			if(d || addBase) {
 				temp += base;
 			}
@@ -1579,27 +1591,41 @@ static void BIOS_BgAffineSet (void)
 
 	for(i = 0; i < num; i++)
 	{
+		int32_t cy;
+		int16_t dispx;
+		int16_t dispy;
+		int16_t rx;
+		int16_t ry;
+		uint16_t theta;
+		int32_t a;
+		int32_t b;
+		int16_t dx;
+		int16_t dmx;
+		int16_t dy;
+		int16_t dmy;
+		int32_t startx;
+		int32_t starty;
 		int32_t cx = CPUReadMemory(src);
 		src+=4;
-		int32_t cy = CPUReadMemory(src);
+		cy = CPUReadMemory(src);
 		src+=4;
-		int16_t dispx = CPUReadHalfWord(src);
+		dispx = CPUReadHalfWord(src);
 		src+=2;
-		int16_t dispy = CPUReadHalfWord(src);
+		dispy = CPUReadHalfWord(src);
 		src+=2;
-		int16_t rx = CPUReadHalfWord(src);
+		rx = CPUReadHalfWord(src);
 		src+=2;
-		int16_t ry = CPUReadHalfWord(src);
+		ry = CPUReadHalfWord(src);
 		src+=2;
-		uint16_t theta = CPUReadHalfWord(src)>>8;
+		theta = CPUReadHalfWord(src)>>8;
 		src+=4; /* keep structure alignment */
-		int32_t a = fast_cos(theta);
-		int32_t b = fast_sin(theta);
+		a = fast_cos(theta);
+		b = fast_sin(theta);
 
-		int16_t dx =  (rx * a)>>14;
-		int16_t dmx = (rx * b)>>14;
-		int16_t dy =  (ry * b)>>14;
-		int16_t dmy = (ry * a)>>14;
+		dx = (rx * a)>>14;
+		dmx = (rx * b)>>14;
+		dy = (ry * b)>>14;
+		dmy = (ry * a)>>14;
 
 		CPUWriteHalfWord(dest, dx);
 		dest += 2;
@@ -1611,8 +1637,8 @@ static void BIOS_BgAffineSet (void)
 
 		dest += 2;
 
-		int32_t startx = cx - dx * dispx + dmx * dispy;
-		int32_t starty = cy - dy * dispx - dmy * dispy;
+		startx = cx - dx * dispx + dmx * dispy;
+		starty = cy - dy * dispx - dmy * dispy;
 
 		CPUWriteMemory(dest, startx);
 		dest += 4;
@@ -1710,6 +1736,7 @@ static void BIOS_CpuSet (void)
 
 static void BIOS_CpuFastSet (void)
 {
+	int count;
 	uint32_t source = bus.reg[0].I;
 	uint32_t dest   = bus.reg[1].I;
 	uint32_t cnt    = bus.reg[2].I;
@@ -1718,7 +1745,7 @@ static void BIOS_CpuFastSet (void)
 	source    &= 0xFFFFFFFC;
 	dest      &= 0xFFFFFFFC;
 
-	int count  = cnt & 0x1FFFFF;
+	count = cnt & 0x1FFFFF;
 
 	/* fill? */
 	if((cnt >> 24) & 1) {
@@ -1774,6 +1801,8 @@ static void BIOS_CpuFastSet (void)
 
 static void BIOS_Diff8bitUnFilterWram (void)
 {
+	int len;
+	uint8_t data;
 	uint32_t source = bus.reg[0].I;
 	uint32_t dest   = bus.reg[1].I;
 	uint32_t header = CPUReadMemory(source);
@@ -1783,9 +1812,9 @@ static void BIOS_Diff8bitUnFilterWram (void)
 	(((source + ((header >> 8) & 0x1fffff)) & 0xe000000) == 0))
 		return;
 
-	int len = header >> 8;
+	len = header >> 8;
 
-	uint8_t data = CPUReadByte(source++);
+	data = CPUReadByte(source++);
 	CPUWriteByte(dest++, data);
 	len--;
 
@@ -1799,6 +1828,11 @@ static void BIOS_Diff8bitUnFilterWram (void)
 
 static void BIOS_Diff8bitUnFilterVram (void)
 {
+	int len;
+	uint8_t data;
+	uint16_t writeData;
+	int shift;
+	int bytes;
 	uint32_t source = bus.reg[0].I;
 	uint32_t dest = bus.reg[1].I;
 
@@ -1809,12 +1843,12 @@ static void BIOS_Diff8bitUnFilterVram (void)
 			((source + ((header >> 8) & 0x1fffff)) & 0xe000000) == 0)
 		return;
 
-	int len = header >> 8;
+	len = header >> 8;
 
-	uint8_t data = CPUReadByte(source++);
-	uint16_t writeData = data;
-	int shift = 8;
-	int bytes = 1;
+	data = CPUReadByte(source++);
+	writeData = data;
+	shift = 8;
+	bytes = 1;
 
 	while(len >= 2) {
 		uint8_t diff = CPUReadByte(source++);
@@ -1835,6 +1869,8 @@ static void BIOS_Diff8bitUnFilterVram (void)
 
 static void BIOS_Diff16bitUnFilter (void)
 {
+	int len;
+	uint16_t data;
 	uint32_t source = bus.reg[0].I;
 	uint32_t dest = bus.reg[1].I;
 
@@ -1845,9 +1881,9 @@ static void BIOS_Diff16bitUnFilter (void)
 			((source + ((header >> 8) & 0x1fffff)) & 0xe000000) == 0)
 		return;
 
-	int len = header >> 8;
+	len = header >> 8;
 
-	uint16_t data = CPUReadHalfWord(source);
+	data = CPUReadHalfWord(source);
 	source += 2;
 	CPUWriteHalfWord(dest, data);
 	dest += 2;
@@ -1865,6 +1901,18 @@ static void BIOS_Diff16bitUnFilter (void)
 
 static void BIOS_HuffUnComp (void)
 {
+	uint8_t treeSize;
+	uint32_t treeStart;
+	int len;
+	uint32_t mask;
+	uint32_t data;
+	int pos;
+	uint8_t rootNode;
+	uint8_t currentNode;
+	bool writeData;
+	int byteShift;
+	int byteCount;
+	uint32_t writeValue;
 	uint32_t source = bus.reg[0].I;
 	uint32_t dest = bus.reg[1].I;
 
@@ -1875,25 +1923,25 @@ static void BIOS_HuffUnComp (void)
 	((source + ((header >> 8) & 0x1fffff)) & 0xe000000) == 0)
 		return;
 
-	uint8_t treeSize = CPUReadByte(source++);
+	treeSize = CPUReadByte(source++);
 
-	uint32_t treeStart = source;
+	treeStart = source;
 
 	source += ((treeSize+1)<<1)-1; /* minus because we already skipped one byte */
 
-	int len = header >> 8;
+	len = header >> 8;
 
-	uint32_t mask = 0x80000000;
-	uint32_t data = CPUReadMemory(source);
+	mask = 0x80000000;
+	data = CPUReadMemory(source);
 	source += 4;
 
-	int pos = 0;
-	uint8_t rootNode = CPUReadByte(treeStart);
-	uint8_t currentNode = rootNode;
-	bool writeData = false;
-	int byteShift = 0;
-	int byteCount = 0;
-	uint32_t writeValue = 0;
+	pos = 0;
+	rootNode = CPUReadByte(treeStart);
+	currentNode = rootNode;
+	writeData = false;
+	byteShift = 0;
+	byteCount = 0;
+	writeValue = 0;
 
 	if((header & 0x0F) == 8) {
 		while(len > 0) {
@@ -2002,6 +2050,10 @@ static void BIOS_HuffUnComp (void)
 
 static void BIOS_LZ77UnCompVram (void)
 {
+int byteCount;
+int byteShift;
+uint32_t writeValue;
+int len;
 
 	uint32_t source = bus.reg[0].I;
 	uint32_t dest = bus.reg[1].I;
@@ -2013,11 +2065,11 @@ static void BIOS_LZ77UnCompVram (void)
 			((source + ((header >> 8) & 0x1fffff)) & 0xe000000) == 0)
 		return;
 
-	int byteCount = 0;
-	int byteShift = 0;
-	uint32_t writeValue = 0;
+	byteCount = 0;
+	byteShift = 0;
+	writeValue = 0;
 
-	int len = header >> 8;
+	len = header >> 8;
 
 	while(len > 0) {
 		uint8_t d = CPUReadByte(source++);
@@ -2027,11 +2079,14 @@ static void BIOS_LZ77UnCompVram (void)
 				int i;
 				for(i = 0; i < 8; i++) {
 				if(d & 0x80) {
+					int length;
+					int offset;
+					uint32_t windowOffset;
 					uint16_t data = CPUReadByte(source++) << 8;
 					data |= CPUReadByte(source++);
-					int length = (data >> 12) + 3;
-					int offset = (data & 0x0FFF);
-					uint32_t windowOffset = dest + byteCount - offset - 1;
+					length = (data >> 12) + 3;
+					offset = (data & 0x0FFF);
+					windowOffset = dest + byteCount - offset - 1;
 					{
 						int i2;
 						for(i2 = 0; i2 < length; i2++) {
@@ -2094,6 +2149,7 @@ static void BIOS_LZ77UnCompVram (void)
 
 static void BIOS_LZ77UnCompWram (void)
 {
+	int len;
 	uint32_t source = bus.reg[0].I;
 	uint32_t dest = bus.reg[1].I;
 
@@ -2104,7 +2160,7 @@ static void BIOS_LZ77UnCompWram (void)
 			((source + ((header >> 8) & 0x1fffff)) & 0xe000000) == 0)
 		return;
 
-	int len = header >> 8;
+	len = header >> 8;
 
 	while(len > 0) {
 		uint8_t d = CPUReadByte(source++);
@@ -2114,11 +2170,14 @@ static void BIOS_LZ77UnCompWram (void)
 				int i;
 				for(i = 0; i < 8; i++) {
 				if(d & 0x80) {
+					int length;
+					int offset;
+					uint32_t windowOffset;
 					uint16_t data = CPUReadByte(source++) << 8;
 					data |= CPUReadByte(source++);
-					int length = (data >> 12) + 3;
-					int offset = (data & 0x0FFF);
-					uint32_t windowOffset = dest - offset - 1;
+					length = (data >> 12) + 3;
+					offset = (data & 0x0FFF);
+					windowOffset = dest - offset - 1;
 					{
 						int i2;
 						for(i2 = 0; i2 < length; i2++) {
@@ -2161,20 +2220,28 @@ static void BIOS_ObjAffineSet (void)
 	{
 		int i;
 		for(i = 0; i < num; i++) {
+		int16_t ry;
+		uint16_t theta;
+		int32_t a;
+		int32_t b;
+		int16_t dx;
+		int16_t dmx;
+		int16_t dy;
+		int16_t dmy;
 		int16_t rx = CPUReadHalfWord(src);
 		src+=2;
-		int16_t ry = CPUReadHalfWord(src);
+		ry = CPUReadHalfWord(src);
 		src+=2;
-		uint16_t theta = CPUReadHalfWord(src)>>8;
+		theta = CPUReadHalfWord(src)>>8;
 		src+=4; /* keep structure alignment */
 
-		int32_t a = fast_cos(theta);
-		int32_t b = fast_sin(theta);
+		a = fast_cos(theta);
+		b = fast_sin(theta);
 
-		int16_t dx =  ((int32_t)rx * a)>>14;
-		int16_t dmx = ((int32_t)rx * b)>>14;
-		int16_t dy =  ((int32_t)ry * b)>>14;
-		int16_t dmy = ((int32_t)ry * a)>>14;
+		dx = ((int32_t)rx * a)>>14;
+		dmx = ((int32_t)rx * b)>>14;
+		dy = ((int32_t)ry * b)>>14;
+		dmy = ((int32_t)ry * a)>>14;
 
 		CPUWriteHalfWord(dest, dx);
 		dest += offset;
@@ -2261,6 +2328,10 @@ static void BIOS_RegisterRamReset(uint32_t flags)
 
 static void BIOS_RLUnCompVram (void)
 {
+	int len;
+	int byteCount;
+	int byteShift;
+	uint32_t writeValue;
 	uint32_t source = bus.reg[0].I;
 	uint32_t dest = bus.reg[1].I;
 
@@ -2271,10 +2342,10 @@ static void BIOS_RLUnCompVram (void)
 			((source + ((header >> 8) & 0x1fffff)) & 0xe000000) == 0)
 		return;
 
-	int len = header >> 8;
-	int byteCount = 0;
-	int byteShift = 0;
-	uint32_t writeValue = 0;
+	len = header >> 8;
+	byteCount = 0;
+	byteShift = 0;
+	writeValue = 0;
 
 	while(len > 0)
 	{
@@ -2328,6 +2399,7 @@ static void BIOS_RLUnCompVram (void)
 
 static void BIOS_RLUnCompWram (void)
 {
+	int len;
 	uint32_t source = bus.reg[0].I;
 	uint32_t dest = bus.reg[1].I;
 
@@ -2338,7 +2410,7 @@ static void BIOS_RLUnCompWram (void)
 			((source + ((header >> 8) & 0x1fffff)) & 0xe000000) == 0)
 		return;
 
-	int len = header >> 8;
+	len = header >> 8;
 
 	while(len > 0) {
 		uint8_t d = CPUReadByte(source++);
@@ -2372,6 +2444,7 @@ static void BIOS_RLUnCompWram (void)
 
 static void BIOS_SoftReset (void)
 {
+	uint8_t b;
 	armState = true;
 	armMode = 0x1F;
 	armIrqEnable = false;
@@ -2385,7 +2458,7 @@ static void BIOS_SoftReset (void)
 	bus.reg[R13_SVC].I = 0x03007FE0;
 	bus.reg[R14_SVC].I = 0x00000000;
 	bus.reg[SPSR_SVC].I = 0x00000000;
-	uint8_t b = internalRAM[0x7ffa];
+	b = internalRAM[0x7ffa];
 
 	memset(&internalRAM[0x7e00], 0, 0x200);
 
@@ -3345,11 +3418,12 @@ static  void arm0F9(uint32_t opcode) { MUL_INSN(OP_SMLAL, SETCOND_MULL, 3); }
 /* SWP Rd, Rm, [Rn] */
 static  void arm109(uint32_t opcode)
 {
+	int dataticks_value;
 	uint32_t address = bus.reg[(opcode >> 16) & 15].I;
 	uint32_t temp = CPUReadMemory(address);
 	CPUWriteMemory(address, bus.reg[opcode&15].I);
 	bus.reg[(opcode >> 12) & 15].I = temp;
-	int dataticks_value = DATATICKS_ACCESS_32BIT(address);
+	dataticks_value = DATATICKS_ACCESS_32BIT(address);
 	DATATICKS_ACCESS_BUS_PREFETCH(address, dataticks_value);
 	clockTicks = 4 + (dataticks_value << 1) + codeTicksAccess(bus.armNextPC, BITS_32);
 }
@@ -3357,11 +3431,12 @@ static  void arm109(uint32_t opcode)
 /* SWPB Rd, Rm, [Rn] */
 static  void arm149(uint32_t opcode)
 {
+	uint32_t dataticks_value;
 	uint32_t address = bus.reg[(opcode >> 16) & 15].I;
 	uint32_t temp = CPUReadByte(address);
 	CPUWriteByte(address, bus.reg[opcode&15].I & 0xFF);
 	bus.reg[(opcode>>12)&15].I = temp;
-	uint32_t dataticks_value = DATATICKS_ACCESS_32BIT(address);
+	dataticks_value = DATATICKS_ACCESS_32BIT(address);
 	DATATICKS_ACCESS_BUS_PREFETCH(address, dataticks_value);
 	clockTicks = 4 + (dataticks_value << 1) + codeTicksAccess(bus.armNextPC, BITS_32);
 }
@@ -3392,9 +3467,11 @@ static  void arm120(uint32_t opcode)
 {
     if ((opcode & 0x0FF0FFF0) == 0x0120F000)
     {
+	    uint32_t value;
+	    uint32_t newValue;
 	    CPU_UPDATE_CPSR();
-	    uint32_t value = bus.reg[opcode & 15].I;
-	    uint32_t newValue = bus.reg[16].I;
+	    value = bus.reg[opcode & 15].I;
+	    newValue = bus.reg[16].I;
 	    if (armMode > 0x10) {
 		    if (opcode & 0x00010000)
 			    newValue = (newValue & 0xFFFFFF00) | (value & 0x000000FF);
@@ -3446,13 +3523,16 @@ static  void arm320(uint32_t opcode)
 {
 	if ((opcode & 0x0FF0F000) == 0x0320F000)
 	{
+		uint32_t value;
+		int shift;
+		uint32_t newValue;
 		CPU_UPDATE_CPSR();
-		uint32_t value = opcode & 0xFF;
-		int shift = (opcode & 0xF00) >> 7;
+		value = opcode & 0xFF;
+		shift = (opcode & 0xF00) >> 7;
 		if (shift) {
 			ROR_IMM_MSR;
 		}
-		uint32_t newValue = bus.reg[16].I;
+		newValue = bus.reg[16].I;
 		if (armMode > 0x10) {
 			if (opcode & 0x00010000)
 				newValue = (newValue & 0xFFFFFF00) | (value & 0x000000FF);
@@ -4178,13 +4258,17 @@ static  void arm7F6(uint32_t opcode) { LDR_PREINC_WB(OFFSET_ROR, OP_LDRB, 16); }
 /* STMDA Rn, {Rlist} */
 static  void arm800(uint32_t opcode)
 {
+    int base;
+    uint32_t temp;
+    uint32_t address;
+    int count;
     if (bus.busPrefetchCount == 0)
         bus.busPrefetch = bus.busPrefetchEnable;
-    int base = (opcode & 0x000F0000) >> 16;
-    uint32_t temp = bus.reg[base].I -
+    base = (opcode & 0x000F0000) >> 16;
+    temp = bus.reg[base].I -
         4 * (cpuBitsSet[opcode & 255] + cpuBitsSet[(opcode >> 8) & 255]);
-    uint32_t address = (temp + 4) & 0xFFFFFFFC;
-    int count = 0;
+    address = (temp + 4) & 0xFFFFFFFC;
+    count = 0;
     STM_ALL;
     clockTicks += 1 + codeTicksAccess(bus.armNextPC, BITS_32);
 }
@@ -4192,13 +4276,17 @@ static  void arm800(uint32_t opcode)
 /* LDMDA Rn, {Rlist} */
 static  void arm810(uint32_t opcode)
 {
+    int base;
+    uint32_t temp;
+    uint32_t address;
+    int count;
     if (bus.busPrefetchCount == 0)
         bus.busPrefetch = bus.busPrefetchEnable;
-    int base = (opcode & 0x000F0000) >> 16;
-    uint32_t temp = bus.reg[base].I -
+    base = (opcode & 0x000F0000) >> 16;
+    temp = bus.reg[base].I -
         4 * (cpuBitsSet[opcode & 255] + cpuBitsSet[(opcode >> 8) & 255]);
-    uint32_t address = (temp + 4) & 0xFFFFFFFC;
-    int count = 0;
+    address = (temp + 4) & 0xFFFFFFFC;
+    count = 0;
     LDM_ALL;
     clockTicks += 2 + codeTicksAccess(bus.armNextPC, BITS_32);
 }
@@ -4206,13 +4294,17 @@ static  void arm810(uint32_t opcode)
 /* STMDA Rn!, {Rlist} */
 static  void arm820(uint32_t opcode)
 {
+    int base;
+    uint32_t temp;
+    uint32_t address;
+    int count;
     if (bus.busPrefetchCount == 0)
         bus.busPrefetch = bus.busPrefetchEnable;
-    int base = (opcode & 0x000F0000) >> 16;
-    uint32_t temp = bus.reg[base].I -
+    base = (opcode & 0x000F0000) >> 16;
+    temp = bus.reg[base].I -
         4 * (cpuBitsSet[opcode & 255] + cpuBitsSet[(opcode >> 8) & 255]);
-    uint32_t address = (temp+4) & 0xFFFFFFFC;
-    int count = 0;
+    address = (temp+4) & 0xFFFFFFFC;
+    count = 0;
     STMW_ALL;
     clockTicks += 1 + codeTicksAccess(bus.armNextPC, BITS_32);
 }
@@ -4220,13 +4312,17 @@ static  void arm820(uint32_t opcode)
 /* LDMDA Rn!, {Rlist} */
 static  void arm830(uint32_t opcode)
 {
+    int base;
+    uint32_t temp;
+    uint32_t address;
+    int count;
     if (bus.busPrefetchCount == 0)
         bus.busPrefetch = bus.busPrefetchEnable;
-    int base = (opcode & 0x000F0000) >> 16;
-    uint32_t temp = bus.reg[base].I -
+    base = (opcode & 0x000F0000) >> 16;
+    temp = bus.reg[base].I -
         4 * (cpuBitsSet[opcode & 255] + cpuBitsSet[(opcode >> 8) & 255]);
-    uint32_t address = (temp + 4) & 0xFFFFFFFC;
-    int count = 0;
+    address = (temp + 4) & 0xFFFFFFFC;
+    count = 0;
     LDM_ALL;
     clockTicks += 2 + codeTicksAccess(bus.armNextPC, BITS_32);
     if (!(opcode & (1U << base)))
@@ -4236,13 +4332,17 @@ static  void arm830(uint32_t opcode)
 /* STMDA Rn, {Rlist}^ */
 static  void arm840(uint32_t opcode)
 {
+    int base;
+    uint32_t temp;
+    uint32_t address;
+    int count;
     if (bus.busPrefetchCount == 0)
         bus.busPrefetch = bus.busPrefetchEnable;
-    int base = (opcode & 0x000F0000) >> 16;
-    uint32_t temp = bus.reg[base].I -
+    base = (opcode & 0x000F0000) >> 16;
+    temp = bus.reg[base].I -
         4 * (cpuBitsSet[opcode & 255] + cpuBitsSet[(opcode >> 8) & 255]);
-    uint32_t address = (temp+4) & 0xFFFFFFFC;
-    int count = 0;
+    address = (temp+4) & 0xFFFFFFFC;
+    count = 0;
     STM_ALL_2;
     clockTicks += 1 + codeTicksAccess(bus.armNextPC, BITS_32);
 }
@@ -4250,13 +4350,17 @@ static  void arm840(uint32_t opcode)
 /* LDMDA Rn, {Rlist}^ */
 static  void arm850(uint32_t opcode)
 {
+    int base;
+    uint32_t temp;
+    uint32_t address;
+    int count;
     if (bus.busPrefetchCount == 0)
         bus.busPrefetch = bus.busPrefetchEnable;
-    int base = (opcode & 0x000F0000) >> 16;
-    uint32_t temp = bus.reg[base].I -
+    base = (opcode & 0x000F0000) >> 16;
+    temp = bus.reg[base].I -
         4 * (cpuBitsSet[opcode & 255] + cpuBitsSet[(opcode >> 8) & 255]);
-    uint32_t address = (temp + 4) & 0xFFFFFFFC;
-    int count = 0;
+    address = (temp + 4) & 0xFFFFFFFC;
+    count = 0;
     LDM_ALL_2;
     LDM_ALL_2B;
     clockTicks += 2 + codeTicksAccess(bus.armNextPC, BITS_32);
@@ -4265,13 +4369,17 @@ static  void arm850(uint32_t opcode)
 /* STMDA Rn!, {Rlist}^ */
 static  void arm860(uint32_t opcode)
 {
+    int base;
+    uint32_t temp;
+    uint32_t address;
+    int count;
     if (bus.busPrefetchCount == 0)
         bus.busPrefetch = bus.busPrefetchEnable;
-    int base = (opcode & 0x000F0000) >> 16;
-    uint32_t temp = bus.reg[base].I -
+    base = (opcode & 0x000F0000) >> 16;
+    temp = bus.reg[base].I -
         4 * (cpuBitsSet[opcode & 255] + cpuBitsSet[(opcode >> 8) & 255]);
-    uint32_t address = (temp+4) & 0xFFFFFFFC;
-    int count = 0;
+    address = (temp+4) & 0xFFFFFFFC;
+    count = 0;
     STMW_ALL_2;
     clockTicks += 1 + codeTicksAccess(bus.armNextPC, BITS_32);
 }
@@ -4279,13 +4387,17 @@ static  void arm860(uint32_t opcode)
 /* LDMDA Rn!, {Rlist}^ */
 static  void arm870(uint32_t opcode)
 {
+    int base;
+    uint32_t temp;
+    uint32_t address;
+    int count;
     if (bus.busPrefetchCount == 0)
         bus.busPrefetch = bus.busPrefetchEnable;
-    int base = (opcode & 0x000F0000) >> 16;
-    uint32_t temp = bus.reg[base].I -
+    base = (opcode & 0x000F0000) >> 16;
+    temp = bus.reg[base].I -
         4 * (cpuBitsSet[opcode & 255] + cpuBitsSet[(opcode >> 8) & 255]);
-    uint32_t address = (temp + 4) & 0xFFFFFFFC;
-    int count = 0;
+    address = (temp + 4) & 0xFFFFFFFC;
+    count = 0;
     LDM_ALL_2;
     if (!(opcode & (1U << base)))
         bus.reg[base].I = temp;
@@ -4296,11 +4408,14 @@ static  void arm870(uint32_t opcode)
 /* STMIA Rn, {Rlist} */
 static  void arm880(uint32_t opcode)
 {
+    int base;
+    uint32_t address;
+    int count;
     if (bus.busPrefetchCount == 0)
         bus.busPrefetch = bus.busPrefetchEnable;
-    int base = (opcode & 0x000F0000) >> 16;
-    uint32_t address = bus.reg[base].I & 0xFFFFFFFC;
-    int count = 0;
+    base = (opcode & 0x000F0000) >> 16;
+    address = bus.reg[base].I & 0xFFFFFFFC;
+    count = 0;
     STM_ALL;
     clockTicks += 1 + codeTicksAccess(bus.armNextPC, BITS_32);
 }
@@ -4308,11 +4423,14 @@ static  void arm880(uint32_t opcode)
 /* LDMIA Rn, {Rlist} */
 static  void arm890(uint32_t opcode)
 {
+    int base;
+    uint32_t address;
+    int count;
     if (bus.busPrefetchCount == 0)
         bus.busPrefetch = bus.busPrefetchEnable;
-    int base = (opcode & 0x000F0000) >> 16;
-    uint32_t address = bus.reg[base].I & 0xFFFFFFFC;
-    int count = 0;
+    base = (opcode & 0x000F0000) >> 16;
+    address = bus.reg[base].I & 0xFFFFFFFC;
+    count = 0;
     LDM_ALL;
     clockTicks += 2 + codeTicksAccess(bus.armNextPC, BITS_32);
 }
@@ -4320,12 +4438,16 @@ static  void arm890(uint32_t opcode)
 /* STMIA Rn!, {Rlist} */
 static  void arm8A0(uint32_t opcode)
 {
+    int base;
+    uint32_t address;
+    int count;
+    uint32_t temp;
     if (bus.busPrefetchCount == 0)
         bus.busPrefetch = bus.busPrefetchEnable;
-    int base = (opcode & 0x000F0000) >> 16;
-    uint32_t address = bus.reg[base].I & 0xFFFFFFFC;
-    int count = 0;
-    uint32_t temp = bus.reg[base].I +
+    base = (opcode & 0x000F0000) >> 16;
+    address = bus.reg[base].I & 0xFFFFFFFC;
+    count = 0;
+    temp = bus.reg[base].I +
         4 * (cpuBitsSet[opcode & 0xFF] + cpuBitsSet[(opcode >> 8) & 255]);
     STMW_ALL;
     clockTicks += 1 + codeTicksAccess(bus.armNextPC, BITS_32);
@@ -4334,13 +4456,17 @@ static  void arm8A0(uint32_t opcode)
 /* LDMIA Rn!, {Rlist} */
 static  void arm8B0(uint32_t opcode)
 {
+    int base;
+    uint32_t temp;
+    uint32_t address;
+    int count;
     if (bus.busPrefetchCount == 0)
         bus.busPrefetch = bus.busPrefetchEnable;
-    int base = (opcode & 0x000F0000) >> 16;
-    uint32_t temp = bus.reg[base].I +
+    base = (opcode & 0x000F0000) >> 16;
+    temp = bus.reg[base].I +
         4 * (cpuBitsSet[opcode & 255] + cpuBitsSet[(opcode >> 8) & 255]);
-    uint32_t address = bus.reg[base].I & 0xFFFFFFFC;
-    int count = 0;
+    address = bus.reg[base].I & 0xFFFFFFFC;
+    count = 0;
     LDM_ALL;
     clockTicks += 2 + codeTicksAccess(bus.armNextPC, BITS_32);
     if (!(opcode & (1U << base)))
@@ -4350,11 +4476,14 @@ static  void arm8B0(uint32_t opcode)
 /* STMIA Rn, {Rlist}^ */
 static  void arm8C0(uint32_t opcode)
 {
+    int base;
+    uint32_t address;
+    int count;
     if (bus.busPrefetchCount == 0)
         bus.busPrefetch = bus.busPrefetchEnable;
-    int base = (opcode & 0x000F0000) >> 16;
-    uint32_t address = bus.reg[base].I & 0xFFFFFFFC;
-    int count = 0;
+    base = (opcode & 0x000F0000) >> 16;
+    address = bus.reg[base].I & 0xFFFFFFFC;
+    count = 0;
     STM_ALL_2;
     clockTicks += 1 + codeTicksAccess(bus.armNextPC, BITS_32);
 }
@@ -4362,11 +4491,14 @@ static  void arm8C0(uint32_t opcode)
 /* LDMIA Rn, {Rlist}^ */
 static  void arm8D0(uint32_t opcode)
 {
+    int base;
+    uint32_t address;
+    int count;
     if (bus.busPrefetchCount == 0)
         bus.busPrefetch = bus.busPrefetchEnable;
-    int base = (opcode & 0x000F0000) >> 16;
-    uint32_t address = bus.reg[base].I & 0xFFFFFFFC;
-    int count = 0;
+    base = (opcode & 0x000F0000) >> 16;
+    address = bus.reg[base].I & 0xFFFFFFFC;
+    count = 0;
     LDM_ALL_2;
     LDM_ALL_2B;
     clockTicks += 2 + codeTicksAccess(bus.armNextPC, BITS_32);
@@ -4375,12 +4507,16 @@ static  void arm8D0(uint32_t opcode)
 /* STMIA Rn!, {Rlist}^ */
 static  void arm8E0(uint32_t opcode)
 {
+    int base;
+    uint32_t address;
+    int count;
+    uint32_t temp;
     if (bus.busPrefetchCount == 0)
         bus.busPrefetch = bus.busPrefetchEnable;
-    int base = (opcode & 0x000F0000) >> 16;
-    uint32_t address = bus.reg[base].I & 0xFFFFFFFC;
-    int count = 0;
-    uint32_t temp = bus.reg[base].I +
+    base = (opcode & 0x000F0000) >> 16;
+    address = bus.reg[base].I & 0xFFFFFFFC;
+    count = 0;
+    temp = bus.reg[base].I +
         4 * (cpuBitsSet[opcode & 0xFF] + cpuBitsSet[(opcode >> 8) & 255]);
     STMW_ALL_2;
     clockTicks += 1 + codeTicksAccess(bus.armNextPC, BITS_32);
@@ -4389,13 +4525,17 @@ static  void arm8E0(uint32_t opcode)
 /* LDMIA Rn!, {Rlist}^ */
 static  void arm8F0(uint32_t opcode)
 {
+    int base;
+    uint32_t temp;
+    uint32_t address;
+    int count;
     if (bus.busPrefetchCount == 0)
         bus.busPrefetch = bus.busPrefetchEnable;
-    int base = (opcode & 0x000F0000) >> 16;
-    uint32_t temp = bus.reg[base].I +
+    base = (opcode & 0x000F0000) >> 16;
+    temp = bus.reg[base].I +
         4 * (cpuBitsSet[opcode & 255] + cpuBitsSet[(opcode >> 8) & 255]);
-    uint32_t address = bus.reg[base].I & 0xFFFFFFFC;
-    int count = 0;
+    address = bus.reg[base].I & 0xFFFFFFFC;
+    count = 0;
     LDM_ALL_2;
     if (!(opcode & (1U << base)))
         bus.reg[base].I = temp;
@@ -4406,13 +4546,17 @@ static  void arm8F0(uint32_t opcode)
 /* STMDB Rn, {Rlist} */
 static  void arm900(uint32_t opcode)
 {
+    int base;
+    uint32_t temp;
+    uint32_t address;
+    int count;
     if (bus.busPrefetchCount == 0)
         bus.busPrefetch = bus.busPrefetchEnable;
-    int base = (opcode & 0x000F0000) >> 16;
-    uint32_t temp = bus.reg[base].I -
+    base = (opcode & 0x000F0000) >> 16;
+    temp = bus.reg[base].I -
         4 * (cpuBitsSet[opcode & 255] + cpuBitsSet[(opcode >> 8) & 255]);
-    uint32_t address = temp & 0xFFFFFFFC;
-    int count = 0;
+    address = temp & 0xFFFFFFFC;
+    count = 0;
     STM_ALL;
     clockTicks += 1 + codeTicksAccess(bus.armNextPC, BITS_32);
 }
@@ -4420,13 +4564,17 @@ static  void arm900(uint32_t opcode)
 /* LDMDB Rn, {Rlist} */
 static  void arm910(uint32_t opcode)
 {
+    int base;
+    uint32_t temp;
+    uint32_t address;
+    int count;
     if (bus.busPrefetchCount == 0)
         bus.busPrefetch = bus.busPrefetchEnable;
-    int base = (opcode & 0x000F0000) >> 16;
-    uint32_t temp = bus.reg[base].I -
+    base = (opcode & 0x000F0000) >> 16;
+    temp = bus.reg[base].I -
         4 * (cpuBitsSet[opcode & 255] + cpuBitsSet[(opcode >> 8) & 255]);
-    uint32_t address = temp & 0xFFFFFFFC;
-    int count = 0;
+    address = temp & 0xFFFFFFFC;
+    count = 0;
     LDM_ALL;
     clockTicks += 2 + codeTicksAccess(bus.armNextPC, BITS_32);
 }
@@ -4434,13 +4582,17 @@ static  void arm910(uint32_t opcode)
 /* STMDB Rn!, {Rlist} */
 static  void arm920(uint32_t opcode)
 {
+    int base;
+    uint32_t temp;
+    uint32_t address;
+    int count;
     if (bus.busPrefetchCount == 0)
         bus.busPrefetch = bus.busPrefetchEnable;
-    int base = (opcode & 0x000F0000) >> 16;
-    uint32_t temp = bus.reg[base].I -
+    base = (opcode & 0x000F0000) >> 16;
+    temp = bus.reg[base].I -
         4 * (cpuBitsSet[opcode & 255] + cpuBitsSet[(opcode >> 8) & 255]);
-    uint32_t address = temp & 0xFFFFFFFC;
-    int count = 0;
+    address = temp & 0xFFFFFFFC;
+    count = 0;
     STMW_ALL;
     clockTicks += 1 + codeTicksAccess(bus.armNextPC, BITS_32);
 }
@@ -4448,13 +4600,17 @@ static  void arm920(uint32_t opcode)
 /* LDMDB Rn!, {Rlist} */
 static  void arm930(uint32_t opcode)
 {
+    int base;
+    uint32_t temp;
+    uint32_t address;
+    int count;
     if (bus.busPrefetchCount == 0)
         bus.busPrefetch = bus.busPrefetchEnable;
-    int base = (opcode & 0x000F0000) >> 16;
-    uint32_t temp = bus.reg[base].I -
+    base = (opcode & 0x000F0000) >> 16;
+    temp = bus.reg[base].I -
         4 * (cpuBitsSet[opcode & 255] + cpuBitsSet[(opcode >> 8) & 255]);
-    uint32_t address = temp & 0xFFFFFFFC;
-    int count = 0;
+    address = temp & 0xFFFFFFFC;
+    count = 0;
     LDM_ALL;
     clockTicks += 2 + codeTicksAccess(bus.armNextPC, BITS_32);
     if (!(opcode & (1U << base)))
@@ -4464,13 +4620,17 @@ static  void arm930(uint32_t opcode)
 /* STMDB Rn, {Rlist}^ */
 static  void arm940(uint32_t opcode)
 {
+    int base;
+    uint32_t temp;
+    uint32_t address;
+    int count;
     if (bus.busPrefetchCount == 0)
         bus.busPrefetch = bus.busPrefetchEnable;
-    int base = (opcode & 0x000F0000) >> 16;
-    uint32_t temp = bus.reg[base].I -
+    base = (opcode & 0x000F0000) >> 16;
+    temp = bus.reg[base].I -
         4 * (cpuBitsSet[opcode & 255] + cpuBitsSet[(opcode >> 8) & 255]);
-    uint32_t address = temp & 0xFFFFFFFC;
-    int count = 0;
+    address = temp & 0xFFFFFFFC;
+    count = 0;
     STM_ALL_2;
     clockTicks += 1 + codeTicksAccess(bus.armNextPC, BITS_32);
 }
@@ -4478,13 +4638,17 @@ static  void arm940(uint32_t opcode)
 /* LDMDB Rn, {Rlist}^ */
 static  void arm950(uint32_t opcode)
 {
+    int base;
+    uint32_t temp;
+    uint32_t address;
+    int count;
     if (bus.busPrefetchCount == 0)
         bus.busPrefetch = bus.busPrefetchEnable;
-    int base = (opcode & 0x000F0000) >> 16;
-    uint32_t temp = bus.reg[base].I -
+    base = (opcode & 0x000F0000) >> 16;
+    temp = bus.reg[base].I -
         4 * (cpuBitsSet[opcode & 255] + cpuBitsSet[(opcode >> 8) & 255]);
-    uint32_t address = temp & 0xFFFFFFFC;
-    int count = 0;
+    address = temp & 0xFFFFFFFC;
+    count = 0;
     LDM_ALL_2;
     LDM_ALL_2B;
     clockTicks += 2 + codeTicksAccess(bus.armNextPC, BITS_32);
@@ -4493,13 +4657,17 @@ static  void arm950(uint32_t opcode)
 /* STMDB Rn!, {Rlist}^ */
 static  void arm960(uint32_t opcode)
 {
+    int base;
+    uint32_t temp;
+    uint32_t address;
+    int count;
     if (bus.busPrefetchCount == 0)
         bus.busPrefetch = bus.busPrefetchEnable;
-    int base = (opcode & 0x000F0000) >> 16;
-    uint32_t temp = bus.reg[base].I -
+    base = (opcode & 0x000F0000) >> 16;
+    temp = bus.reg[base].I -
         4 * (cpuBitsSet[opcode & 255] + cpuBitsSet[(opcode >> 8) & 255]);
-    uint32_t address = temp & 0xFFFFFFFC;
-    int count = 0;
+    address = temp & 0xFFFFFFFC;
+    count = 0;
     STMW_ALL_2;
     clockTicks += 1 + codeTicksAccess(bus.armNextPC, BITS_32);
 }
@@ -4507,13 +4675,17 @@ static  void arm960(uint32_t opcode)
 /* LDMDB Rn!, {Rlist}^ */
 static  void arm970(uint32_t opcode)
 {
+    int base;
+    uint32_t temp;
+    uint32_t address;
+    int count;
     if (bus.busPrefetchCount == 0)
         bus.busPrefetch = bus.busPrefetchEnable;
-    int base = (opcode & 0x000F0000) >> 16;
-    uint32_t temp = bus.reg[base].I -
+    base = (opcode & 0x000F0000) >> 16;
+    temp = bus.reg[base].I -
         4 * (cpuBitsSet[opcode & 255] + cpuBitsSet[(opcode >> 8) & 255]);
-    uint32_t address = temp & 0xFFFFFFFC;
-    int count = 0;
+    address = temp & 0xFFFFFFFC;
+    count = 0;
     LDM_ALL_2;
     if (!(opcode & (1U << base)))
         bus.reg[base].I = temp;
@@ -4524,11 +4696,14 @@ static  void arm970(uint32_t opcode)
 /* STMIB Rn, {Rlist} */
 static  void arm980(uint32_t opcode)
 {
+    int base;
+    uint32_t address;
+    int count;
     if (bus.busPrefetchCount == 0)
         bus.busPrefetch = bus.busPrefetchEnable;
-    int base = (opcode & 0x000F0000) >> 16;
-    uint32_t address = (bus.reg[base].I+4) & 0xFFFFFFFC;
-    int count = 0;
+    base = (opcode & 0x000F0000) >> 16;
+    address = (bus.reg[base].I+4) & 0xFFFFFFFC;
+    count = 0;
     STM_ALL;
     clockTicks += 1 + codeTicksAccess(bus.armNextPC, BITS_32);
 }
@@ -4536,11 +4711,14 @@ static  void arm980(uint32_t opcode)
 /* LDMIB Rn, {Rlist} */
 static  void arm990(uint32_t opcode)
 {
+    int base;
+    uint32_t address;
+    int count;
     if (bus.busPrefetchCount == 0)
         bus.busPrefetch = bus.busPrefetchEnable;
-    int base = (opcode & 0x000F0000) >> 16;
-    uint32_t address = (bus.reg[base].I+4) & 0xFFFFFFFC;
-    int count = 0;
+    base = (opcode & 0x000F0000) >> 16;
+    address = (bus.reg[base].I+4) & 0xFFFFFFFC;
+    count = 0;
     LDM_ALL;
     clockTicks += 2 + codeTicksAccess(bus.armNextPC, BITS_32);
 }
@@ -4548,12 +4726,16 @@ static  void arm990(uint32_t opcode)
 /* STMIB Rn!, {Rlist} */
 static  void arm9A0(uint32_t opcode)
 {
+    int base;
+    uint32_t address;
+    int count;
+    uint32_t temp;
     if (bus.busPrefetchCount == 0)
         bus.busPrefetch = bus.busPrefetchEnable;
-    int base = (opcode & 0x000F0000) >> 16;
-    uint32_t address = (bus.reg[base].I+4) & 0xFFFFFFFC;
-    int count = 0;
-    uint32_t temp = bus.reg[base].I +
+    base = (opcode & 0x000F0000) >> 16;
+    address = (bus.reg[base].I+4) & 0xFFFFFFFC;
+    count = 0;
+    temp = bus.reg[base].I +
         4 * (cpuBitsSet[opcode & 0xFF] + cpuBitsSet[(opcode >> 8) & 255]);
     STMW_ALL;
     clockTicks += 1 + codeTicksAccess(bus.armNextPC, BITS_32);
@@ -4562,13 +4744,17 @@ static  void arm9A0(uint32_t opcode)
 /* LDMIB Rn!, {Rlist} */
 static  void arm9B0(uint32_t opcode)
 {
+    int base;
+    uint32_t temp;
+    uint32_t address;
+    int count;
     if (bus.busPrefetchCount == 0)
         bus.busPrefetch = bus.busPrefetchEnable;
-    int base = (opcode & 0x000F0000) >> 16;
-    uint32_t temp = bus.reg[base].I +
+    base = (opcode & 0x000F0000) >> 16;
+    temp = bus.reg[base].I +
         4 * (cpuBitsSet[opcode & 255] + cpuBitsSet[(opcode >> 8) & 255]);
-    uint32_t address = (bus.reg[base].I+4) & 0xFFFFFFFC;
-    int count = 0;
+    address = (bus.reg[base].I+4) & 0xFFFFFFFC;
+    count = 0;
     LDM_ALL;
     clockTicks += 2 + codeTicksAccess(bus.armNextPC, BITS_32);
     if (!(opcode & (1U << base)))
@@ -4578,11 +4764,14 @@ static  void arm9B0(uint32_t opcode)
 /* STMIB Rn, {Rlist}^ */
 static  void arm9C0(uint32_t opcode)
 {
+    int base;
+    uint32_t address;
+    int count;
     if (bus.busPrefetchCount == 0)
         bus.busPrefetch = bus.busPrefetchEnable;
-    int base = (opcode & 0x000F0000) >> 16;
-    uint32_t address = (bus.reg[base].I+4) & 0xFFFFFFFC;
-    int count = 0;
+    base = (opcode & 0x000F0000) >> 16;
+    address = (bus.reg[base].I+4) & 0xFFFFFFFC;
+    count = 0;
     STM_ALL_2;
     clockTicks += 1 + codeTicksAccess(bus.armNextPC, BITS_32);
 }
@@ -4590,11 +4779,14 @@ static  void arm9C0(uint32_t opcode)
 /* LDMIB Rn, {Rlist}^ */
 static  void arm9D0(uint32_t opcode)
 {
+    int base;
+    uint32_t address;
+    int count;
     if (bus.busPrefetchCount == 0)
         bus.busPrefetch = bus.busPrefetchEnable;
-    int base = (opcode & 0x000F0000) >> 16;
-    uint32_t address = (bus.reg[base].I+4) & 0xFFFFFFFC;
-    int count = 0;
+    base = (opcode & 0x000F0000) >> 16;
+    address = (bus.reg[base].I+4) & 0xFFFFFFFC;
+    count = 0;
     LDM_ALL_2;
     LDM_ALL_2B;
     clockTicks += 2 + codeTicksAccess(bus.armNextPC, BITS_32);
@@ -4603,12 +4795,16 @@ static  void arm9D0(uint32_t opcode)
 /* STMIB Rn!, {Rlist}^ */
 static  void arm9E0(uint32_t opcode)
 {
+	int base;
+	uint32_t address;
+	int count;
+	uint32_t temp;
 	if (bus.busPrefetchCount == 0)
 		bus.busPrefetch = bus.busPrefetchEnable;
-	int base = (opcode & 0x000F0000) >> 16;
-	uint32_t address = (bus.reg[base].I+4) & 0xFFFFFFFC;
-	int count = 0;
-	uint32_t temp = bus.reg[base].I +
+	base = (opcode & 0x000F0000) >> 16;
+	address = (bus.reg[base].I+4) & 0xFFFFFFFC;
+	count = 0;
+	temp = bus.reg[base].I +
 		4 * (cpuBitsSet[opcode & 0xFF] + cpuBitsSet[(opcode >> 8) & 255]);
 	STMW_ALL_2;
 	clockTicks += 1 + codeTicksAccess(bus.armNextPC, BITS_32);
@@ -4617,13 +4813,17 @@ static  void arm9E0(uint32_t opcode)
 /* LDMIB Rn!, {Rlist}^ */
 static  void arm9F0(uint32_t opcode)
 {
+	int base;
+	uint32_t temp;
+	uint32_t address;
+	int count;
 	if (bus.busPrefetchCount == 0)
 		bus.busPrefetch = bus.busPrefetchEnable;
-	int base = (opcode & 0x000F0000) >> 16;
-	uint32_t temp = bus.reg[base].I +
+	base = (opcode & 0x000F0000) >> 16;
+	temp = bus.reg[base].I +
 		4 * (cpuBitsSet[opcode & 255] + cpuBitsSet[(opcode >> 8) & 255]);
-	uint32_t address = (bus.reg[base].I+4) & 0xFFFFFFFC;
-	int count = 0;
+	address = (bus.reg[base].I+4) & 0xFFFFFFFC;
+	count = 0;
 	LDM_ALL_2;
 	if (!(opcode & (1U << base)))
 		bus.reg[base].I = temp;
@@ -4889,6 +5089,11 @@ static int armExecute (void)
 
 	do
    {
+uint32_t opcode;
+int32_t busprefetch_mask;
+int oldArmNextPC;
+int cond;
+bool cond_res;
 
       clockTicks = 0;
 
@@ -4899,11 +5104,11 @@ static int armExecute (void)
       if ((bus.armNextPC & 0x0803FFFF) == 0x08020000)
          bus.busPrefetchCount = 0x100;
 
-      uint32_t opcode = cpuPrefetch[0];
+      opcode = cpuPrefetch[0];
       cpuPrefetch[0] = cpuPrefetch[1];
 
       bus.busPrefetch = false;
-      int32_t busprefetch_mask = ((bus.busPrefetchCount & 0xFFFFFE00) | -(bus.busPrefetchCount & 0xFFFFFE00)) >> 31;
+      busprefetch_mask = ((bus.busPrefetchCount & 0xFFFFFE00) | -(bus.busPrefetchCount & 0xFFFFFE00)) >> 31;
       bus.busPrefetchCount = ((0x100 | (bus.busPrefetchCount & 0xFF)) & busprefetch_mask) | (bus.busPrefetchCount & ~busprefetch_mask);
 #if 0
       if (bus.busPrefetchCount & 0xFFFFFE00)
@@ -4911,14 +5116,14 @@ static int armExecute (void)
 #endif
 
 
-      int oldArmNextPC = bus.armNextPC;
+      oldArmNextPC = bus.armNextPC;
 
       bus.armNextPC = bus.reg[15].I;
       bus.reg[15].I += 4;
       ARM_PREFETCH_NEXT;
 
-      int cond = opcode >> 28;
-      bool cond_res = true;
+      cond = opcode >> 28;
+      cond_res = true;
       if (cond != 0x0E) {  /* most opcodes are AL (always) */
          switch(cond) {
             case 0x00: /* EQ */
@@ -5646,9 +5851,11 @@ static  void thumb43_0(uint32_t opcode)
 /* MUL Rd, Rs */
 static  void thumb43_1(uint32_t opcode)
 {
+  int dest;
+  uint32_t rm;
   clockTicks = 1;
-  int dest = opcode & 7;
-  uint32_t rm = bus.reg[dest].I;
+  dest = opcode & 7;
+  rm = bus.reg[dest].I;
   bus.reg[dest].I = bus.reg[(opcode >> 3) & 7].I * rm;
   if (((int32_t)rm) < 0)
     rm = ~rm;
@@ -5813,13 +6020,15 @@ static  void thumb47(uint32_t opcode)
 /* LDR R0~R7,[PC, #Imm] */
 static  void thumb48(uint32_t opcode)
 {
+	uint32_t address;
+	int dataticks_value;
 	uint8_t regist = (opcode >> 8) & 7;
 	if (bus.busPrefetchCount == 0)
 		bus.busPrefetch = bus.busPrefetchEnable;
-	uint32_t address = (bus.reg[15].I & 0xFFFFFFFC) + ((opcode & 0xFF) << 2);
+	address = (bus.reg[15].I & 0xFFFFFFFC) + ((opcode & 0xFF) << 2);
 	bus.reg[regist].I = CPUReadMemoryQuick(address);
 	bus.busPrefetchCount=0;
-	int dataticks_value = DATATICKS_ACCESS_32BIT(address);
+	dataticks_value = DATATICKS_ACCESS_32BIT(address);
 	DATATICKS_ACCESS_BUS_PREFETCH(address, dataticks_value);
 	clockTicks = 3 + dataticks_value + codeTicksAccess(bus.armNextPC, BITS_16);
 }
@@ -5827,11 +6036,13 @@ static  void thumb48(uint32_t opcode)
 /* STR Rd, [Rs, Rn] */
 static  void thumb50(uint32_t opcode)
 {
+	uint32_t address;
+	int dataticks_value;
 	if (bus.busPrefetchCount == 0)
 		bus.busPrefetch = bus.busPrefetchEnable;
-	uint32_t address = bus.reg[(opcode>>3)&7].I + bus.reg[(opcode>>6)&7].I;
+	address = bus.reg[(opcode>>3)&7].I + bus.reg[(opcode>>6)&7].I;
 	CPUWriteMemory(address, bus.reg[opcode & 7].I);
-	int dataticks_value = DATATICKS_ACCESS_32BIT(address);
+	dataticks_value = DATATICKS_ACCESS_32BIT(address);
 	DATATICKS_ACCESS_BUS_PREFETCH(address, dataticks_value);
 	clockTicks = dataticks_value + codeTicksAccess(bus.armNextPC, BITS_16) + 2;
 }
@@ -5839,11 +6050,13 @@ static  void thumb50(uint32_t opcode)
 /* STRH Rd, [Rs, Rn] */
 static  void thumb52(uint32_t opcode)
 {
+	uint32_t address;
+	int dataticks_value;
 	if (bus.busPrefetchCount == 0)
 		bus.busPrefetch = bus.busPrefetchEnable;
-	uint32_t address = bus.reg[(opcode>>3)&7].I + bus.reg[(opcode>>6)&7].I;
+	address = bus.reg[(opcode>>3)&7].I + bus.reg[(opcode>>6)&7].I;
 	CPUWriteHalfWord(address, bus.reg[opcode&7].I & 0xFFFF);
-	int dataticks_value = DATATICKS_ACCESS_16BIT(address);
+	dataticks_value = DATATICKS_ACCESS_16BIT(address);
 	DATATICKS_ACCESS_BUS_PREFETCH(address, dataticks_value);
 	clockTicks = dataticks_value + codeTicksAccess(bus.armNextPC, BITS_16) + 2;
 }
@@ -5851,11 +6064,13 @@ static  void thumb52(uint32_t opcode)
 /* STRB Rd, [Rs, Rn] */
 static  void thumb54(uint32_t opcode)
 {
+	uint32_t address;
+	int dataticks_value;
 	if (bus.busPrefetchCount == 0)
 		bus.busPrefetch = bus.busPrefetchEnable;
-	uint32_t address = bus.reg[(opcode>>3)&7].I + bus.reg[(opcode >>6)&7].I;
+	address = bus.reg[(opcode>>3)&7].I + bus.reg[(opcode >>6)&7].I;
 	CPUWriteByte(address, bus.reg[opcode & 7].I & 0xFF);
-	int dataticks_value = DATATICKS_ACCESS_16BIT(address);
+	dataticks_value = DATATICKS_ACCESS_16BIT(address);
 	DATATICKS_ACCESS_BUS_PREFETCH(address, dataticks_value);
 	clockTicks = dataticks_value + codeTicksAccess(bus.armNextPC, BITS_16) + 2;
 }
@@ -5863,11 +6078,13 @@ static  void thumb54(uint32_t opcode)
 /* LDSB Rd, [Rs, Rn] */
 static  void thumb56(uint32_t opcode)
 {
+	uint32_t address;
+	int dataticks_value;
 	if (bus.busPrefetchCount == 0)
 		bus.busPrefetch = bus.busPrefetchEnable;
-	uint32_t address = bus.reg[(opcode>>3)&7].I + bus.reg[(opcode>>6)&7].I;
+	address = bus.reg[(opcode>>3)&7].I + bus.reg[(opcode>>6)&7].I;
 	bus.reg[opcode&7].I = (int8_t)CPUReadByte(address);
-	int dataticks_value = DATATICKS_ACCESS_16BIT(address);
+	dataticks_value = DATATICKS_ACCESS_16BIT(address);
 	DATATICKS_ACCESS_BUS_PREFETCH(address, dataticks_value);
 	clockTicks = 3 + dataticks_value + codeTicksAccess(bus.armNextPC, BITS_16);
 }
@@ -5875,11 +6092,13 @@ static  void thumb56(uint32_t opcode)
 /* LDR Rd, [Rs, Rn] */
 static  void thumb58(uint32_t opcode)
 {
+	uint32_t address;
+	int dataticks_value;
 	if (bus.busPrefetchCount == 0)
 		bus.busPrefetch = bus.busPrefetchEnable;
-	uint32_t address = bus.reg[(opcode>>3)&7].I + bus.reg[(opcode>>6)&7].I;
+	address = bus.reg[(opcode>>3)&7].I + bus.reg[(opcode>>6)&7].I;
 	bus.reg[opcode&7].I = CPUReadMemory(address);
-	int dataticks_value = DATATICKS_ACCESS_32BIT(address);
+	dataticks_value = DATATICKS_ACCESS_32BIT(address);
 	DATATICKS_ACCESS_BUS_PREFETCH(address, dataticks_value);
 	clockTicks = 3 + dataticks_value + codeTicksAccess(bus.armNextPC, BITS_16);
 }
@@ -5887,11 +6106,13 @@ static  void thumb58(uint32_t opcode)
 /* LDRH Rd, [Rs, Rn] */
 static  void thumb5A(uint32_t opcode)
 {
+	uint32_t address;
+	int dataticks_value;
 	if (bus.busPrefetchCount == 0)
 		bus.busPrefetch = bus.busPrefetchEnable;
-	uint32_t address = bus.reg[(opcode>>3)&7].I + bus.reg[(opcode>>6)&7].I;
+	address = bus.reg[(opcode>>3)&7].I + bus.reg[(opcode>>6)&7].I;
 	bus.reg[opcode&7].I = CPUReadHalfWord(address);
-	int dataticks_value = DATATICKS_ACCESS_32BIT(address);
+	dataticks_value = DATATICKS_ACCESS_32BIT(address);
 	DATATICKS_ACCESS_BUS_PREFETCH(address, dataticks_value);
 	clockTicks = 3 + dataticks_value + codeTicksAccess(bus.armNextPC, BITS_16);
 }
@@ -5899,11 +6120,13 @@ static  void thumb5A(uint32_t opcode)
 /* LDRB Rd, [Rs, Rn] */
 static  void thumb5C(uint32_t opcode)
 {
+	uint32_t address;
+	int dataticks_value;
 	if (bus.busPrefetchCount == 0)
 		bus.busPrefetch = bus.busPrefetchEnable;
-	uint32_t address = bus.reg[(opcode>>3)&7].I + bus.reg[(opcode>>6)&7].I;
+	address = bus.reg[(opcode>>3)&7].I + bus.reg[(opcode>>6)&7].I;
 	bus.reg[opcode&7].I = CPUReadByte(address);
-	int dataticks_value = DATATICKS_ACCESS_16BIT(address);
+	dataticks_value = DATATICKS_ACCESS_16BIT(address);
 	DATATICKS_ACCESS_BUS_PREFETCH(address, dataticks_value);
 	clockTicks = 3 + dataticks_value + codeTicksAccess(bus.armNextPC, BITS_16);
 }
@@ -5911,11 +6134,13 @@ static  void thumb5C(uint32_t opcode)
 /* LDSH Rd, [Rs, Rn] */
 static  void thumb5E(uint32_t opcode)
 {
+	uint32_t address;
+	int dataticks_value;
 	if (bus.busPrefetchCount == 0)
 		bus.busPrefetch = bus.busPrefetchEnable;
-	uint32_t address = bus.reg[(opcode>>3)&7].I + bus.reg[(opcode>>6)&7].I;
+	address = bus.reg[(opcode>>3)&7].I + bus.reg[(opcode>>6)&7].I;
 	bus.reg[opcode&7].I = (int16_t)CPUReadHalfWordSigned(address);
-	int dataticks_value = DATATICKS_ACCESS_16BIT(address);
+	dataticks_value = DATATICKS_ACCESS_16BIT(address);
 	DATATICKS_ACCESS_BUS_PREFETCH(address, dataticks_value);
 	clockTicks = 3 + dataticks_value + codeTicksAccess(bus.armNextPC, BITS_16);
 }
@@ -5923,11 +6148,13 @@ static  void thumb5E(uint32_t opcode)
 /* STR Rd, [Rs, #Imm] */
 static  void thumb60(uint32_t opcode)
 {
+	uint32_t address;
+	int dataticks_value;
 	if (bus.busPrefetchCount == 0)
 		bus.busPrefetch = bus.busPrefetchEnable;
-	uint32_t address = bus.reg[(opcode>>3)&7].I + (((opcode>>6)&31)<<2);
+	address = bus.reg[(opcode>>3)&7].I + (((opcode>>6)&31)<<2);
 	CPUWriteMemory(address, bus.reg[opcode&7].I);
-	int dataticks_value = DATATICKS_ACCESS_32BIT(address);
+	dataticks_value = DATATICKS_ACCESS_32BIT(address);
 	DATATICKS_ACCESS_BUS_PREFETCH(address, dataticks_value);
 	clockTicks = dataticks_value + codeTicksAccess(bus.armNextPC, BITS_16) + 2;
 }
@@ -5935,11 +6162,13 @@ static  void thumb60(uint32_t opcode)
 /* LDR Rd, [Rs, #Imm] */
 static  void thumb68(uint32_t opcode)
 {
+	uint32_t address;
+	int dataticks_value;
 	if (bus.busPrefetchCount == 0)
 		bus.busPrefetch = bus.busPrefetchEnable;
-	uint32_t address = bus.reg[(opcode>>3)&7].I + (((opcode>>6)&31)<<2);
+	address = bus.reg[(opcode>>3)&7].I + (((opcode>>6)&31)<<2);
 	bus.reg[opcode&7].I = CPUReadMemory(address);
-	int dataticks_value = DATATICKS_ACCESS_32BIT(address);
+	dataticks_value = DATATICKS_ACCESS_32BIT(address);
 	DATATICKS_ACCESS_BUS_PREFETCH(address, dataticks_value);
 	clockTicks = 3 + dataticks_value + codeTicksAccess(bus.armNextPC, BITS_16);
 }
@@ -5947,11 +6176,13 @@ static  void thumb68(uint32_t opcode)
 /* STRB Rd, [Rs, #Imm] */
 static  void thumb70(uint32_t opcode)
 {
+	uint32_t address;
+	int dataticks_value;
 	if (bus.busPrefetchCount == 0)
 		bus.busPrefetch = bus.busPrefetchEnable;
-	uint32_t address = bus.reg[(opcode>>3)&7].I + (((opcode>>6)&31));
+	address = bus.reg[(opcode>>3)&7].I + (((opcode>>6)&31));
 	CPUWriteByte(address, bus.reg[opcode&7].I & 0xFF);
-	int dataticks_value = DATATICKS_ACCESS_16BIT(address);
+	dataticks_value = DATATICKS_ACCESS_16BIT(address);
 	DATATICKS_ACCESS_BUS_PREFETCH(address, dataticks_value);
 	clockTicks = dataticks_value + codeTicksAccess(bus.armNextPC, BITS_16) + 2;
 }
@@ -5959,11 +6190,13 @@ static  void thumb70(uint32_t opcode)
 /* LDRB Rd, [Rs, #Imm] */
 static  void thumb78(uint32_t opcode)
 {
+	uint32_t address;
+	int dataticks_value;
 	if (bus.busPrefetchCount == 0)
 		bus.busPrefetch = bus.busPrefetchEnable;
-	uint32_t address = bus.reg[(opcode>>3)&7].I + (((opcode>>6)&31));
+	address = bus.reg[(opcode>>3)&7].I + (((opcode>>6)&31));
 	bus.reg[opcode&7].I = CPUReadByte(address);
-	int dataticks_value = DATATICKS_ACCESS_16BIT(address);
+	dataticks_value = DATATICKS_ACCESS_16BIT(address);
 	DATATICKS_ACCESS_BUS_PREFETCH(address, dataticks_value);
 	clockTicks = 3 + dataticks_value + codeTicksAccess(bus.armNextPC, BITS_16);
 }
@@ -5971,11 +6204,13 @@ static  void thumb78(uint32_t opcode)
 /* STRH Rd, [Rs, #Imm] */
 static  void thumb80(uint32_t opcode)
 {
+	uint32_t address;
+	int dataticks_value;
 	if (bus.busPrefetchCount == 0)
 		bus.busPrefetch = bus.busPrefetchEnable;
-	uint32_t address = bus.reg[(opcode>>3)&7].I + (((opcode>>6)&31)<<1);
+	address = bus.reg[(opcode>>3)&7].I + (((opcode>>6)&31)<<1);
 	CPUWriteHalfWord(address, bus.reg[opcode&7].I & 0xFFFF);
-	int dataticks_value = DATATICKS_ACCESS_16BIT(address);
+	dataticks_value = DATATICKS_ACCESS_16BIT(address);
 	DATATICKS_ACCESS_BUS_PREFETCH(address, dataticks_value);
 	clockTicks = dataticks_value + codeTicksAccess(bus.armNextPC, BITS_16) + 2;
 }
@@ -5983,11 +6218,13 @@ static  void thumb80(uint32_t opcode)
 /* LDRH Rd, [Rs, #Imm] */
 static  void thumb88(uint32_t opcode)
 {
+	uint32_t address;
+	int dataticks_value;
 	if (bus.busPrefetchCount == 0)
 		bus.busPrefetch = bus.busPrefetchEnable;
-	uint32_t address = bus.reg[(opcode>>3)&7].I + (((opcode>>6)&31)<<1);
+	address = bus.reg[(opcode>>3)&7].I + (((opcode>>6)&31)<<1);
 	bus.reg[opcode&7].I = CPUReadHalfWord(address);
-	int dataticks_value = DATATICKS_ACCESS_16BIT(address);
+	dataticks_value = DATATICKS_ACCESS_16BIT(address);
 	DATATICKS_ACCESS_BUS_PREFETCH(address, dataticks_value);
 	clockTicks = 3 + dataticks_value + codeTicksAccess(bus.armNextPC, BITS_16);
 }
@@ -5995,12 +6232,14 @@ static  void thumb88(uint32_t opcode)
 /* STR R0~R7, [SP, #Imm] */
 static  void thumb90(uint32_t opcode)
 {
+	uint32_t address;
+	int dataticks_value;
 	uint8_t regist = (opcode >> 8) & 7;
 	if (bus.busPrefetchCount == 0)
 		bus.busPrefetch = bus.busPrefetchEnable;
-	uint32_t address = bus.reg[13].I + ((opcode&255)<<2);
+	address = bus.reg[13].I + ((opcode&255)<<2);
 	CPUWriteMemory(address, bus.reg[regist].I);
-	int dataticks_value = DATATICKS_ACCESS_32BIT(address);
+	dataticks_value = DATATICKS_ACCESS_32BIT(address);
 	DATATICKS_ACCESS_BUS_PREFETCH(address, dataticks_value);
 	clockTicks = dataticks_value + codeTicksAccess(bus.armNextPC, BITS_16) + 2;
 }
@@ -6008,12 +6247,14 @@ static  void thumb90(uint32_t opcode)
 /* LDR R0~R7, [SP, #Imm] */
 static  void thumb98(uint32_t opcode)
 {
+	uint32_t address;
+	int dataticks_value;
 	uint8_t regist = (opcode >> 8) & 7;
 	if (bus.busPrefetchCount == 0)
 		bus.busPrefetch = bus.busPrefetchEnable;
-	uint32_t address = bus.reg[13].I + ((opcode&255)<<2);
+	address = bus.reg[13].I + ((opcode&255)<<2);
 	bus.reg[regist].I = CPUReadMemoryQuick(address);
-	int dataticks_value = DATATICKS_ACCESS_32BIT(address);
+	dataticks_value = DATATICKS_ACCESS_32BIT(address);
 	DATATICKS_ACCESS_BUS_PREFETCH(address, dataticks_value);
 	clockTicks = 3 + dataticks_value + codeTicksAccess(bus.armNextPC, BITS_16);
 }
@@ -6071,11 +6312,14 @@ static  void thumbB0(uint32_t opcode)
 /* PUSH {Rlist} */
 static  void thumbB4(uint32_t opcode)
 {
+  int count;
+  uint32_t temp;
+  uint32_t address;
   if (bus.busPrefetchCount == 0)
     bus.busPrefetch = bus.busPrefetchEnable;
-  int count = 0;
-  uint32_t temp = bus.reg[13].I - 4 * cpuBitsSet[opcode & 0xff];
-  uint32_t address = temp & 0xFFFFFFFC;
+  count = 0;
+  temp = bus.reg[13].I - 4 * cpuBitsSet[opcode & 0xff];
+  address = temp & 0xFFFFFFFC;
   PUSH_REG(1, 0);
   PUSH_REG(2, 1);
   PUSH_REG(4, 2);
@@ -6091,11 +6335,14 @@ static  void thumbB4(uint32_t opcode)
 /* PUSH {Rlist, LR} */
 static  void thumbB5(uint32_t opcode)
 {
+  int count;
+  uint32_t temp;
+  uint32_t address;
   if (bus.busPrefetchCount == 0)
     bus.busPrefetch = bus.busPrefetchEnable;
-  int count = 0;
-  uint32_t temp = bus.reg[13].I - 4 - 4 * cpuBitsSet[opcode & 0xff];
-  uint32_t address = temp & 0xFFFFFFFC;
+  count = 0;
+  temp = bus.reg[13].I - 4 - 4 * cpuBitsSet[opcode & 0xff];
+  address = temp & 0xFFFFFFFC;
   PUSH_REG(1, 0);
   PUSH_REG(2, 1);
   PUSH_REG(4, 2);
@@ -6112,11 +6359,14 @@ static  void thumbB5(uint32_t opcode)
 /* POP {Rlist} */
 static  void thumbBC(uint32_t opcode)
 {
+  int count;
+  uint32_t address;
+  uint32_t temp;
   if (bus.busPrefetchCount == 0)
     bus.busPrefetch = bus.busPrefetchEnable;
-  int count = 0;
-  uint32_t address = bus.reg[13].I & 0xFFFFFFFC;
-  uint32_t temp = bus.reg[13].I + 4*cpuBitsSet[opcode & 0xFF];
+  count = 0;
+  address = bus.reg[13].I & 0xFFFFFFFC;
+  temp = bus.reg[13].I + 4*cpuBitsSet[opcode & 0xFF];
   POP_REG(1, 0);
   POP_REG(2, 1);
   POP_REG(4, 2);
@@ -6132,11 +6382,15 @@ static  void thumbBC(uint32_t opcode)
 /* POP {Rlist, PC} */
 static  void thumbBD(uint32_t opcode)
 {
+  int count;
+  uint32_t address;
+  uint32_t temp;
+  int dataticks_value;
   if (bus.busPrefetchCount == 0)
     bus.busPrefetch = bus.busPrefetchEnable;
-  int count = 0;
-  uint32_t address = bus.reg[13].I & 0xFFFFFFFC;
-  uint32_t temp = bus.reg[13].I + 4 + 4*cpuBitsSet[opcode & 0xFF];
+  count = 0;
+  address = bus.reg[13].I & 0xFFFFFFFC;
+  temp = bus.reg[13].I + 4 + 4*cpuBitsSet[opcode & 0xFF];
   POP_REG(1, 0);
   POP_REG(2, 1);
   POP_REG(4, 2);
@@ -6146,7 +6400,7 @@ static  void thumbBD(uint32_t opcode)
   POP_REG(64, 6);
   POP_REG(128, 7);
   bus.reg[15].I = (CPUReadMemory(address) & 0xFFFFFFFE);
-  int dataticks_value = count ? DATATICKS_ACCESS_32BIT_SEQ(address) : DATATICKS_ACCESS_32BIT(address);
+  dataticks_value = count ? DATATICKS_ACCESS_32BIT_SEQ(address) : DATATICKS_ACCESS_32BIT(address);
   DATATICKS_ACCESS_BUS_PREFETCH(address, dataticks_value);
   clockTicks += 1 + dataticks_value;
   count++;
@@ -6184,12 +6438,15 @@ static  void thumbBD(uint32_t opcode)
 /* STM R0~7!, {Rlist} */
 static  void thumbC0(uint32_t opcode)
 {
+  uint32_t address;
+  uint32_t temp;
+  int count;
   uint8_t regist = (opcode >> 8) & 7;
   if (bus.busPrefetchCount == 0)
     bus.busPrefetch = bus.busPrefetchEnable;
-  uint32_t address = bus.reg[regist].I & 0xFFFFFFFC;
-  uint32_t temp = bus.reg[regist].I + 4*cpuBitsSet[opcode & 0xff];
-  int count = 0;
+  address = bus.reg[regist].I & 0xFFFFFFFC;
+  temp = bus.reg[regist].I + 4*cpuBitsSet[opcode & 0xff];
+  count = 0;
   /* store */
   THUMB_STM_REG(1, 0, regist);
   THUMB_STM_REG(2, 1, regist);
@@ -6205,12 +6462,15 @@ static  void thumbC0(uint32_t opcode)
 /* LDM R0~R7!, {Rlist} */
 static  void thumbC8(uint32_t opcode)
 {
+  uint32_t address;
+  uint32_t temp;
+  int count;
   uint8_t regist = (opcode >> 8) & 7;
   if (bus.busPrefetchCount == 0)
     bus.busPrefetch = bus.busPrefetchEnable;
-  uint32_t address = bus.reg[regist].I & 0xFFFFFFFC;
-  uint32_t temp = bus.reg[regist].I + 4*cpuBitsSet[opcode & 0xFF];
-  int count = 0;
+  address = bus.reg[regist].I & 0xFFFFFFFC;
+  temp = bus.reg[regist].I + 4*cpuBitsSet[opcode & 0xFF];
+  count = 0;
   /* load */
   THUMB_LDM_REG(1, 0);
   THUMB_LDM_REG(2, 1);
@@ -6634,6 +6894,8 @@ static int thumbExecute (void)
 
    do
    {
+      uint32_t opcode;
+      uint32_t oldArmNextPC;
       clockTicks = 0;
 
 #if USE_CHEATS
@@ -6645,7 +6907,7 @@ static int thumbExecute (void)
          bus.busPrefetchCount=0x100;
 #endif
 
-      uint32_t opcode = cpuPrefetch[0];
+      opcode = cpuPrefetch[0];
       cpuPrefetch[0] = cpuPrefetch[1];
 
       bus.busPrefetch = false;
@@ -6654,7 +6916,7 @@ static int thumbExecute (void)
          bus.busPrefetchCount = 0x100 | (bus.busPrefetchCount & 0xFF);
 #endif
 
-      uint32_t oldArmNextPC = bus.armNextPC;
+      oldArmNextPC = bus.armNextPC;
 
       bus.armNextPC = bus.reg[15].I;
       bus.reg[15].I += 2;
@@ -6758,12 +7020,14 @@ static inline void gfxDrawPixel(uint32_t *dest, const uint8_t color, const uint1
 
 inline const TileLine gfxReadTile(const uint16_t *screenSource, const int yyy, const uint8_t *charBase, uint16_t *palette, const uint32_t prio)
 {
+   int tileY;
+   TileLine tileLine;
    TileEntry tile;
    tile.val = READ16LE(screenSource);
 
-   int tileY = yyy & 7;
+   tileY = yyy & 7;
    if (tile.vFlip) tileY = 7 - tileY;
-   TileLine tileLine;
+   tileLine = tileLine;
 
    const uint8_t *tileBase = &charBase[tile.tileNum * 64 + tileY * 8];
 
@@ -6795,13 +7059,15 @@ inline const TileLine gfxReadTile(const uint16_t *screenSource, const int yyy, c
 
 inline const TileLine gfxReadTilePal(const uint16_t *screenSource, const int yyy, const uint8_t *charBase, uint16_t *palette, const uint32_t prio)
 {
+   int tileY;
+   TileLine tileLine;
    TileEntry tile;
    tile.val = READ16LE(screenSource);
 
-   int tileY = yyy & 7;
+   tileY = yyy & 7;
    if (tile.vFlip) tileY = 7 - tileY;
    palette += tile.palette * 16;
-   TileLine tileLine;
+   tileLine = tileLine;
 
    const u8h *tileBase = (u8h*) &charBase[tile.tileNum * 32 + tileY * 4];
 
@@ -6851,14 +7117,30 @@ static inline void gfxDrawTileClipped(const TileLine &tileLine, uint32_t* _line,
 
 static void gfxDrawTextScreen(TileReader readTile, int layer, int renderer_idx, uint16_t control, uint16_t hofs, uint16_t vofs)
 {
+	uint16_t * palette;
+	uint8_t * charBase;
+	uint16_t * screenBase;
+	uint32_t prio;
+	int sizeX;
+	int sizeY;
+	int maskX;
+	int maskY;
+	bool mosaicOn;
+	int xxx;
+	int yyy;
+	int mosaicX;
+	int mosaicY;
+	int yshift;
+	uint16_t * screenSource;
+	int x;
 	INIT_RENDERER_CONTEXT(renderer_idx);
 
-   uint16_t *palette = PAL_U16;
-   uint8_t *charBase = &vram[((control >> 2) & 0x03) * 0x4000];
-   uint16_t *screenBase = (uint16_t *)&vram[((control >> 8) & 0x1f) * 0x800];
-   uint32_t prio = ((control & 3)<<25) + 0x1000000;
-   int sizeX = 256;
-   int sizeY = 256;
+   palette = PAL_U16;
+   charBase = &vram[((control >> 2) & 0x03) * 0x4000];
+   screenBase = (uint16_t *)&vram[((control >> 8) & 0x1f) * 0x800];
+   prio = ((control & 3)<<25) + 0x1000000;
+   sizeX = 256;
+   sizeY = 256;
    switch ((control >> 14) & 3)
    {
       case 0:
@@ -6875,15 +7157,15 @@ static void gfxDrawTextScreen(TileReader readTile, int layer, int renderer_idx, 
          break;
    }
 
-   int maskX = sizeX-1;
-   int maskY = sizeY-1;
+   maskX = sizeX-1;
+   maskY = sizeY-1;
 
-   bool mosaicOn = (control & 0x40) ? true : false;
+   mosaicOn = (control & 0x40) ? true : false;
 
-   int xxx = hofs & maskX;
-   int yyy = (vofs + RENDERER_R_VCOUNT) & maskY;
-   int mosaicX = (RENDERER_MOSAIC & 0x000F)+1;
-   int mosaicY = ((RENDERER_MOSAIC & 0x00F0)>>4)+1;
+   xxx = hofs & maskX;
+   yyy = (vofs + RENDERER_R_VCOUNT) & maskY;
+   mosaicX = (RENDERER_MOSAIC & 0x000F)+1;
+   mosaicY = ((RENDERER_MOSAIC & 0x00F0)>>4)+1;
 
    if (mosaicOn)
    {
@@ -6902,10 +7184,10 @@ static void gfxDrawTextScreen(TileReader readTile, int layer, int renderer_idx, 
          screenBase += 0x400;
    }
 
-   int yshift = ((yyy>>3)<<5);
+   yshift = ((yyy>>3)<<5);
 
-   uint16_t *screenSource = screenBase + 0x400 * (xxx>>8) + ((xxx & 255)>>3) + yshift;
-   int x = 0;
+   screenSource = screenBase + 0x400 * (xxx>>8) + ((xxx & 255)>>3) + yshift;
+   x = 0;
    const int firstTileX = xxx & 7;
 
    /* First tile, if clipped */
@@ -7230,28 +7512,44 @@ static INLINE void fetchDrawRotScreen16Bit160(int *p_currentX, int *p_currentY, 
 static INLINE void gfxDrawRotScreen(int layer, int renderer_idx, uint16_t control, uint16_t x_l, uint16_t x_h, uint16_t y_l, uint16_t y_h,
 uint16_t pa,  uint16_t pb, uint16_t pc,  uint16_t pd, int *p_currentX, int *p_currentY, int changed)
 {
+	uint16_t * palette;
+	uint8_t * charBase;
+	uint8_t * screenBase;
+	int prio;
+	uint32_t map_size;
+	uint32_t sizeX;
+	uint32_t sizeY;
+	int maskX;
+	int maskY;
+	int yshift;
+	int dx;
+	int dmx;
+	int dy;
+	int dmy;
+	int realX;
+	int realY;
 	int currentX = *p_currentX;
 	int currentY = *p_currentY;
 	INIT_RENDERER_CONTEXT(renderer_idx);
 
-	uint16_t *palette = PAL_U16;
-	uint8_t *charBase = &vram[((control >> 2) & 0x03) << 14];
-	uint8_t *screenBase = (uint8_t *)&vram[((control >> 8) & 0x1f) << 11];
-	int prio = ((control & 3) << 25) + 0x1000000;
+	palette = PAL_U16;
+	charBase = &vram[((control >> 2) & 0x03) << 14];
+	screenBase = (uint8_t *)&vram[((control >> 8) & 0x1f) << 11];
+	prio = ((control & 3) << 25) + 0x1000000;
 
-	uint32_t map_size = (control >> 14) & 3;
-	uint32_t sizeX = map_sizes_rot[map_size];
-	uint32_t sizeY = map_sizes_rot[map_size];
+	map_size = (control >> 14) & 3;
+	sizeX = map_sizes_rot[map_size];
+	sizeY = map_sizes_rot[map_size];
 
-	int maskX = sizeX-1;
-	int maskY = sizeY-1;
+	maskX = sizeX-1;
+	maskY = sizeY-1;
 
-	int yshift = ((control >> 14) & 3)+4;
+	yshift = ((control >> 14) & 3)+4;
 
-	int dx  = (int)(int16_t)pa;
-	int dmx = (int)(int16_t)pb;
-	int dy  = (int)(int16_t)pc;
-	int dmy = (int)(int16_t)pd;
+	dx = (int)(int16_t)pa;
+	dmx = (int)(int16_t)pb;
+	dy = (int)(int16_t)pc;
+	dmy = (int)(int16_t)pd;
 
 	if(RENDERER_R_VCOUNT == 0)
 		changed = 3;
@@ -7273,8 +7571,8 @@ uint16_t pa,  uint16_t pb, uint16_t pc,  uint16_t pd, int *p_currentX, int *p_cu
 			currentY |= 0xF8000000;
 	}
 
-	int realX = currentX;
-	int realY = currentY;
+	realX = currentX;
+	realY = currentY;
 
 	if(control & 0x40)
 	{
@@ -7338,15 +7636,20 @@ uint16_t pa,  uint16_t pb, uint16_t pc,  uint16_t pd, int *p_currentX, int *p_cu
 	{
 		if(dx > 0 && dy == 0) /* Common subcase: no rotation or flipping */
 		{
+			unsigned yyyshift;
+			unsigned tileY;
+			unsigned tileYshift;
+			int32_t x0;
+			int32_t x1;
 			unsigned yyy = (realY >> 8);
 			if (yyy >= sizeY)
 				goto skipLine;
-			unsigned yyyshift = (yyy>>3)<<yshift;
-			unsigned tileY = yyy & 7;
-			unsigned tileYshift = (tileY<<3);
+			yyyshift = (yyy>>3)<<yshift;
+			tileY = yyy & 7;
+			tileYshift = (tileY<<3);
 
-			int32_t x0 = max(  0, (int32_t)(             + (-realX + dx - 1)) / dx);
-			int32_t x1 = min(240, (int32_t)((sizeX << 8) + (-realX + dx - 1)) / dx);
+			x0 = max(  0, (int32_t)(             + (-realX + dx - 1)) / dx);
+			x1 = min(240, (int32_t)((sizeX << 8) + (-realX + dx - 1)) / dx);
 
 			realX += dx * x0;
 
@@ -7409,27 +7712,41 @@ uint16_t pa,  uint16_t pb, uint16_t pc,  uint16_t pd, int *p_currentX, int *p_cu
 
 static INLINE void gfxDrawRotScreen16Bit(int renderer_idx, int *p_currentX,  int *p_currentY, int changed)
 {
+	uint16_t * screenBase;
+	int prio;
+	uint32_t sizeX;
+	uint32_t sizeY;
+	int startX;
+	int startY;
+	int dx;
+	int dmx;
+	int dy;
+	int dmy;
+	int realX;
+	int realY;
+	unsigned xxx;
+	unsigned yyy;
 	int currentX = *p_currentX;
 	int currentY = *p_currentY;
 	INIT_RENDERER_CONTEXT(renderer_idx);
 
-	uint16_t *screenBase = (uint16_t *)&vram[0];
-	int prio = ((RENDERER_IO_REGISTERS[REG_BG2CNT] & 3) << 25) + 0x1000000;
+	screenBase = (uint16_t *)&vram[0];
+	prio = ((RENDERER_IO_REGISTERS[REG_BG2CNT] & 3) << 25) + 0x1000000;
 
-	uint32_t sizeX = 240;
-	uint32_t sizeY = 160;
+	sizeX = 240;
+	sizeY = 160;
 
-	int startX = (BG2X_L) | ((BG2X_H & 0x07FF)<<16);
+	startX = (BG2X_L) | ((BG2X_H & 0x07FF)<<16);
 	if(BG2X_H & 0x0800)
 		startX |= 0xF8000000;
-	int startY = (BG2Y_L) | ((BG2Y_H & 0x07FF)<<16);
+	startY = (BG2Y_L) | ((BG2Y_H & 0x07FF)<<16);
 	if(BG2Y_H & 0x0800)
 		startY |= 0xF8000000;
 
-	int dx   = (int)(int16_t)RENDERER_IO_REGISTERS[REG_BG2PA];
-	int dmx  = (int)(int16_t)RENDERER_IO_REGISTERS[REG_BG2PB];
-	int dy   = (int)(int16_t)RENDERER_IO_REGISTERS[REG_BG2PC];
-	int dmy  = (int)(int16_t)RENDERER_IO_REGISTERS[REG_BG2PD];
+	dx = (int)(int16_t)RENDERER_IO_REGISTERS[REG_BG2PA];
+	dmx = (int)(int16_t)RENDERER_IO_REGISTERS[REG_BG2PB];
+	dy = (int)(int16_t)RENDERER_IO_REGISTERS[REG_BG2PC];
+	dmy = (int)(int16_t)RENDERER_IO_REGISTERS[REG_BG2PD];
 
 	if(RENDERER_R_VCOUNT == 0)
 		changed = 3;
@@ -7451,8 +7768,8 @@ static INLINE void gfxDrawRotScreen16Bit(int renderer_idx, int *p_currentX,  int
 			currentY |= 0xF8000000;
 	}
 
-	int realX = currentX;
-	int realY = currentY;
+	realX = currentX;
+	realY = currentY;
 
 	if(RENDERER_IO_REGISTERS[REG_BG2CNT] & 0x40) {
 		int mosaicY = ((RENDERER_MOSAIC & 0xF0)>>4) + 1;
@@ -7461,8 +7778,8 @@ static INLINE void gfxDrawRotScreen16Bit(int renderer_idx, int *p_currentX,  int
 		realY -= y*dmy;
 	}
 
-	unsigned xxx = (realX >> 8);
-	unsigned yyy = (realY >> 8);
+	xxx = (realX >> 8);
+	yyy = (realY >> 8);
 
 	memset(RENDERER_LINE[Layer_BG2], -1, 240 * sizeof(uint32_t));
 	{
@@ -7492,27 +7809,42 @@ static INLINE void gfxDrawRotScreen16Bit(int renderer_idx, int *p_currentX,  int
 
 static INLINE void gfxDrawRotScreen256(int renderer_idx, int *p_currentX, int *p_currentY, int changed)
 {
+	uint16_t * palette;
+	uint8_t * screenBase;
+	int prio;
+	uint32_t sizeX;
+	uint32_t sizeY;
+	int startX;
+	int startY;
+	int dx;
+	int dmx;
+	int dy;
+	int dmy;
+	int realX;
+	int realY;
+	int xxx;
+	int yyy;
 	int currentX = *p_currentX;
 	int currentY = *p_currentY;
 	INIT_RENDERER_CONTEXT(renderer_idx);
 
-	uint16_t *palette = PAL_U16;
-	uint8_t *screenBase = (RENDERER_IO_REGISTERS[REG_DISPCNT] & 0x0010) ? &vram[0xA000] : &vram[0x0000];
-	int prio = ((RENDERER_IO_REGISTERS[REG_BG2CNT] & 3) << 25) + 0x1000000;
-	uint32_t sizeX = 240;
-	uint32_t sizeY = 160;
+	palette = PAL_U16;
+	screenBase = (RENDERER_IO_REGISTERS[REG_DISPCNT] & 0x0010) ? &vram[0xA000] : &vram[0x0000];
+	prio = ((RENDERER_IO_REGISTERS[REG_BG2CNT] & 3) << 25) + 0x1000000;
+	sizeX = 240;
+	sizeY = 160;
 
-	int startX = (BG2X_L) | ((BG2X_H & 0x07FF)<<16);
+	startX = (BG2X_L) | ((BG2X_H & 0x07FF)<<16);
 	if(BG2X_H & 0x0800)
 		startX |= 0xF8000000;
-	int startY = (BG2Y_L) | ((BG2Y_H & 0x07FF)<<16);
+	startY = (BG2Y_L) | ((BG2Y_H & 0x07FF)<<16);
 	if(BG2Y_H & 0x0800)
 		startY |= 0xF8000000;
 
-	int dx  = (int)(int16_t)RENDERER_IO_REGISTERS[REG_BG2PA];
-	int dmx = (int)(int16_t)RENDERER_IO_REGISTERS[REG_BG2PB];
-	int dy  = (int)(int16_t)RENDERER_IO_REGISTERS[REG_BG2PC];
-	int dmy = (int)(int16_t)RENDERER_IO_REGISTERS[REG_BG2PD];
+	dx = (int)(int16_t)RENDERER_IO_REGISTERS[REG_BG2PA];
+	dmx = (int)(int16_t)RENDERER_IO_REGISTERS[REG_BG2PB];
+	dy = (int)(int16_t)RENDERER_IO_REGISTERS[REG_BG2PC];
+	dmy = (int)(int16_t)RENDERER_IO_REGISTERS[REG_BG2PD];
 
 	if(RENDERER_R_VCOUNT == 0)
 		changed = 3;
@@ -7534,8 +7866,8 @@ static INLINE void gfxDrawRotScreen256(int renderer_idx, int *p_currentX, int *p
 			currentY |= 0xF8000000;
 	}
 
-	int realX = currentX;
-	int realY = currentY;
+	realX = currentX;
+	realY = currentY;
 
 	if(RENDERER_IO_REGISTERS[REG_BG2CNT] & 0x40) {
 		int mosaicY = ((RENDERER_MOSAIC & 0xF0)>>4) + 1;
@@ -7544,8 +7876,8 @@ static INLINE void gfxDrawRotScreen256(int renderer_idx, int *p_currentX, int *p
 		realY = startY + y*dmy;
 	}
 
-	int xxx = (realX >> 8);
-	int yyy = (realY >> 8);
+	xxx = (realX >> 8);
+	yyy = (realY >> 8);
 
 	memset(RENDERER_LINE[Layer_BG2], -1, 240 * sizeof(uint32_t));
 	{
@@ -7578,27 +7910,42 @@ static INLINE void gfxDrawRotScreen256(int renderer_idx, int *p_currentX, int *p
 
 static INLINE void gfxDrawRotScreen16Bit160(int renderer_idx, int *p_currentX, int *p_currentY, int changed)
 {
+	uint16_t * screenBase;
+	int prio;
+	uint32_t sizeX;
+	uint32_t sizeY;
+	int startX;
+	int startY;
+	int dx;
+	int dmx;
+	int dy;
+	int dmy;
+	int realX;
+	int realY;
+	int xxx;
+	int yyy;
+	int mosaicX;
 	int currentX = *p_currentX;
 	int currentY = *p_currentY;
 	INIT_RENDERER_CONTEXT(renderer_idx);
 
-	uint16_t *screenBase = (RENDERER_IO_REGISTERS[REG_DISPCNT] & 0x0010) ? (uint16_t *)&vram[0xa000] :
+	screenBase = (RENDERER_IO_REGISTERS[REG_DISPCNT] & 0x0010) ? (uint16_t *)&vram[0xa000] :
 		(uint16_t *)&vram[0];
-	int prio = ((RENDERER_IO_REGISTERS[REG_BG2CNT] & 3) << 25) + 0x1000000;
-	uint32_t sizeX = 160;
-	uint32_t sizeY = 128;
+	prio = ((RENDERER_IO_REGISTERS[REG_BG2CNT] & 3) << 25) + 0x1000000;
+	sizeX = 160;
+	sizeY = 128;
 
-	int startX = (BG2X_L) | ((BG2X_H & 0x07FF)<<16);
+	startX = (BG2X_L) | ((BG2X_H & 0x07FF)<<16);
 	if(BG2X_H & 0x0800)
 		startX |= 0xF8000000;
-	int startY = (BG2Y_L) | ((BG2Y_H & 0x07FF)<<16);
+	startY = (BG2Y_L) | ((BG2Y_H & 0x07FF)<<16);
 	if(BG2Y_H & 0x0800)
 		startY |= 0xF8000000;
 
-	int dx  = (int)(int16_t)RENDERER_IO_REGISTERS[REG_BG2PA];
-	int dmx = (int)(int16_t)RENDERER_IO_REGISTERS[REG_BG2PB];
-	int dy  = (int)(int16_t)RENDERER_IO_REGISTERS[REG_BG2PC];
-	int dmy = (int)(int16_t)RENDERER_IO_REGISTERS[REG_BG2PD];
+	dx = (int)(int16_t)RENDERER_IO_REGISTERS[REG_BG2PA];
+	dmx = (int)(int16_t)RENDERER_IO_REGISTERS[REG_BG2PB];
+	dy = (int)(int16_t)RENDERER_IO_REGISTERS[REG_BG2PC];
+	dmy = (int)(int16_t)RENDERER_IO_REGISTERS[REG_BG2PD];
 
 	if(RENDERER_R_VCOUNT == 0)
 		changed = 3;
@@ -7620,8 +7967,8 @@ static INLINE void gfxDrawRotScreen16Bit160(int renderer_idx, int *p_currentX, i
 			currentY |= 0xF8000000;
 	}
 
-	int realX = currentX;
-	int realY = currentY;
+	realX = currentX;
+	realY = currentY;
 
 	if(RENDERER_IO_REGISTERS[REG_BG2CNT] & 0x40) {
 		int mosaicY = ((RENDERER_MOSAIC & 0xF0)>>4) + 1;
@@ -7630,8 +7977,8 @@ static INLINE void gfxDrawRotScreen16Bit160(int renderer_idx, int *p_currentX, i
 		realY = startY + y*dmy;
 	}
 
-	int xxx = (realX >> 8);
-	int yyy = (realY >> 8);
+	xxx = (realX >> 8);
+	yyy = (realY >> 8);
 
 	memset(RENDERER_LINE[Layer_BG2], -1, 240 * sizeof(uint32_t));
 	{
@@ -7650,7 +7997,7 @@ static INLINE void gfxDrawRotScreen16Bit160(int renderer_idx, int *p_currentX, i
 	}
 
 
-	int mosaicX = (RENDERER_MOSAIC & 0xF) + 1;
+	mosaicX = (RENDERER_MOSAIC & 0xF) + 1;
 	if(RENDERER_IO_REGISTERS[REG_BG2CNT] & 0x40 && (mosaicX > 1))
 	{
 		MOSAIC_LOOP(Layer_BG2, mosaicX);
@@ -7665,6 +8012,10 @@ static INLINE void gfxDrawRotScreen16Bit160(int renderer_idx, int *p_currentX, i
 
 static void gfxDrawSprites (int renderer_idx)
 {
+	uint16_t * sprites;
+	uint16_t * spritePalette;
+	int mosaicY;
+	int mosaicX;
 	INIT_RENDERER_CONTEXT(renderer_idx);
 
 	unsigned lineOBJpix, m;
@@ -7672,14 +8023,19 @@ static void gfxDrawSprites (int renderer_idx)
 	lineOBJpix = (RENDERER_IO_REGISTERS[REG_DISPCNT] & 0x20) ? 954 : 1226;
 	m = 0;
 
-	uint16_t *sprites = OAM_U16;
-	uint16_t *spritePalette = &PAL_U16[256];
-	int mosaicY = ((RENDERER_MOSAIC & 0xF000)>>12) + 1;
-	int mosaicX = ((RENDERER_MOSAIC & 0xF00)>>8) + 1;
+	sprites = OAM_U16;
+	spritePalette = &PAL_U16[256];
+	mosaicY = ((RENDERER_MOSAIC & 0xF000)>>12) + 1;
+	mosaicX = ((RENDERER_MOSAIC & 0xF00)>>8) + 1;
 	{
 		uint32_t x;
 		for(x = 0; x < 128; x++)
 	{
+		uint16_t a0val;
+		uint32_t sizeX;
+		uint32_t sizeY;
+		int sy;
+		int sx;
 		uint16_t a0 = *sprites++;
 		uint16_t a1 = *sprites++;
 		uint16_t a2 = *sprites++;
@@ -7694,7 +8050,7 @@ static void gfxDrawSprites (int renderer_idx)
 		if ((a0 & 0x0c00) == 0x0c00)
 			a0 &=0xF3FF;
 
-		uint16_t a0val = a0>>14;
+		a0val = a0>>14;
 
 		if (a0val == 3)
 		{
@@ -7702,8 +8058,8 @@ static void gfxDrawSprites (int renderer_idx)
 			a1 &= 0x3FFF;
 		}
 
-		uint32_t sizeX = 8<<(a1>>14);
-		uint32_t sizeY = sizeX;
+		sizeX = 8<<(a1>>14);
+		sizeY = sizeX;
 
 
 		if (a0val & 1)
@@ -7733,8 +8089,8 @@ static void gfxDrawSprites (int renderer_idx)
 		}
 
 
-		int sy = (a0 & 255);
-		int sx = (a1 & 0x1FF);
+		sy = (a0 & 255);
+		sx = (a1 & 0x1FF);
 
 		/* computes ticks used by OBJ-WIN if OBJWIN is enabled */
 		if (((a0 & 0x0c00) == 0x0800) && (RENDERER_R_DISPCNT_OBJ_Window_Display))
@@ -7779,6 +8135,7 @@ static void gfxDrawSprites (int renderer_idx)
 
 		if(a0 & 0x0100)
 		{
+			int t;
 			uint32_t fieldX = sizeX;
 			uint32_t fieldY = sizeY;
 			if(a0 & 0x0200)
@@ -7788,7 +8145,7 @@ static void gfxDrawSprites (int renderer_idx)
 			}
 			if((sy+fieldY) > 256)
 				sy -= 256;
-			int t = RENDERER_R_VCOUNT - sy;
+			t = RENDERER_R_VCOUNT - sy;
 			if(unsigned(t) < fieldY)
 			{
 				uint32_t startpix = 0;
@@ -7797,23 +8154,33 @@ static void gfxDrawSprites (int renderer_idx)
 
 				if (lineOBJpix && ((sx < 240) || startpix))
 				{
+					int rot;
+					uint16_t * OAM;
+					int dx;
+					int dmx;
+					int dy;
+					int dmy;
+					int realX;
+					int realY;
+					uint32_t prio;
+					int c;
 					lineOBJpix-=8;
-					int rot = (((a1 >> 9) & 0x1F) << 4);
-					uint16_t *OAM = OAM_U16;
-					int dx  = (int)(int16_t)OAM[3 + rot];
-					int dmx = (int)(int16_t)OAM[7 + rot];
-					int dy  = (int)(int16_t)OAM[11 + rot];
-					int dmy = (int)(int16_t)OAM[15 + rot];
+					rot = (((a1 >> 9) & 0x1F) << 4);
+					OAM = OAM_U16;
+					dx = (int)(int16_t)OAM[3 + rot];
+					dmx = (int)(int16_t)OAM[7 + rot];
+					dy = (int)(int16_t)OAM[11 + rot];
+					dmy = (int)(int16_t)OAM[15 + rot];
 
 					if(a0 & 0x1000)
 						t -= (t % mosaicY);
 
-					int realX = ((sizeX) << 7) - (fieldX >> 1)*dx + ((t - (fieldY>>1))* dmx);
-					int realY = ((sizeY) << 7) - (fieldX >> 1)*dy + ((t - (fieldY>>1))* dmy);
+					realX = ((sizeX) << 7) - (fieldX >> 1)*dx + ((t - (fieldY>>1))* dmx);
+					realY = ((sizeY) << 7) - (fieldX >> 1)*dy + ((t - (fieldY>>1))* dmy);
 
-					uint32_t prio = (((a2 >> 10) & 3) << 25) | ((a0 & 0x0c00)<<6);
+					prio = (((a2 >> 10) & 3) << 25) | ((a0 & 0x0c00)<<6);
 
-					int c = (a2 & 0x3FF);
+					c = (a2 & 0x3FF);
 					if(RENDERER_R_DISPCNT_Video_Mode > 2 && (c < 512))
 						continue;
 
@@ -7828,10 +8195,12 @@ static void gfxDrawSprites (int renderer_idx)
 							uint32_t x;
 							for(x = 0; x < fieldX; x++)
 						{
+							unsigned xxx;
+							unsigned yyy;
 							if (x >= startpix)
 								lineOBJpix-=2;
-							unsigned xxx = realX >> 8;
-							unsigned yyy = realY >> 8;
+							xxx = realX >> 8;
+							yyy = realY >> 8;
 							if(xxx < sizeX && yyy < sizeY && sx < 240)
 							{
 
@@ -7862,18 +8231,21 @@ static void gfxDrawSprites (int renderer_idx)
 					}
 					else
 					{
+						int palette;
 						int inc = 32;
 						if(RENDERER_IO_REGISTERS[REG_DISPCNT] & 0x40)
 							inc = sizeX >> 3;
-						int palette = (a2 >> 8) & 0xF0;
+						palette = (a2 >> 8) & 0xF0;
 						{
 							uint32_t x;
 							for(x = 0; x < fieldX; ++x)
 						{
+							unsigned xxx;
+							unsigned yyy;
 							if (x >= startpix)
 								lineOBJpix-=2;
-							unsigned xxx = realX >> 8;
-							unsigned yyy = realY >> 8;
+							xxx = realX >> 8;
+							yyy = realY >> 8;
 							if(xxx < sizeX && yyy < sizeY && sx < 240)
 							{
 
@@ -7917,9 +8289,10 @@ static void gfxDrawSprites (int renderer_idx)
 		}
 		else
 		{
+			int t;
 			if(sy+sizeY > 256)
 				sy -= 256;
-			int t = RENDERER_R_VCOUNT - sy;
+			t = RENDERER_R_VCOUNT - sy;
 			if(unsigned(t) < sizeY)
 			{
 				uint32_t startpix = 0;
@@ -7928,17 +8301,20 @@ static void gfxDrawSprites (int renderer_idx)
 
 				if((sx < 240) || startpix)
 				{
+					int c;
+					int inc;
+					int xxx;
 					lineOBJpix+=2;
 
 					if(a1 & 0x2000)
 						t = sizeY - t - 1;
 
-					int c = (a2 & 0x3FF);
+					c = (a2 & 0x3FF);
 					if(RENDERER_R_DISPCNT_Video_Mode > 2 && (c < 512))
 						continue;
 
-					int inc = 32;
-					int xxx = 0;
+					inc = 32;
+					xxx = 0;
 					if(a1 & 0x1000)
 						xxx = sizeX-1;
 
@@ -7947,17 +8323,19 @@ static void gfxDrawSprites (int renderer_idx)
 
 					if(a0 & 0x2000)
 					{
+						int address;
+						uint32_t prio;
 						if(RENDERER_IO_REGISTERS[REG_DISPCNT] & 0x40)
 							inc = sizeX >> 2;
 						else
 							c &= 0x3FE;
 
-						int address = 0x10000 + ((((c+ (t>>3) * inc) << 5)
+						address = 0x10000 + ((((c+ (t>>3) * inc) << 5)
 									+ ((t & 7) << 3) + ((xxx>>3)<<6) + (xxx & 7)) & 0x7FFF);
 
 						if(a1 & 0x1000)
 							xxx = 7;
-						uint32_t prio = (((a2 >> 10) & 3) << 25) | ((a0 & 0x0c00)<<6);
+						prio = (((a2 >> 10) & 3) << 25) | ((a0 & 0x0c00)<<6);
 
 						{
 							uint32_t xx;
@@ -8014,18 +8392,22 @@ static void gfxDrawSprites (int renderer_idx)
 					}
 					else
 					{
+						int address;
+						uint32_t prio;
+						int palette;
 						if(RENDERER_IO_REGISTERS[REG_DISPCNT] & 0x40)
 							inc = sizeX >> 3;
 
-						int address = 0x10000 + ((((c + (t>>3) * inc)<<5)
+						address = 0x10000 + ((((c + (t>>3) * inc)<<5)
 									+ ((t & 7)<<2) + ((xxx>>3)<<5) + ((xxx & 7) >> 1))&0x7FFF);
 
-						uint32_t prio = (((a2 >> 10) & 3) << 25) | ((a0 & 0x0c00)<<6);
-						int palette = (a2 >> 8) & 0xF0;
+						prio = (((a2 >> 10) & 3) << 25) | ((a0 & 0x0c00)<<6);
+						palette = (a2 >> 8) & 0xF0;
 						if(a1 & 0x1000)
 						{
+							int xx;
 							xxx = 7;
-							int xx = sizeX - 1;
+							xx = sizeX - 1;
 							do
 							{
 								if (xx >= (int)(startpix))
@@ -8129,13 +8511,18 @@ static void gfxDrawSprites (int renderer_idx)
 
 static void gfxDrawOBJWin (int renderer_idx)
 {
+	uint16_t * sprites;
 	INIT_RENDERER_CONTEXT(renderer_idx);
 
-	uint16_t *sprites = OAM_U16;
+	sprites = OAM_U16;
 	{
 		int x;
 		for(x = 0; x < 128 ; x++)
 	{
+		uint16_t a0val;
+		int sizeX;
+		int sizeY;
+		int sy;
 		int lineOBJpix = RENDERER_LINE_OBJ_PIX_LEFT[x];
 		uint16_t a0 = *sprites++;
 		uint16_t a1 = *sprites++;
@@ -8149,7 +8536,7 @@ static void gfxDrawOBJWin (int renderer_idx)
 		if(((a0 & 0x0c00) != 0x0800) || ((a0 & 0x0300) == 0x0200))
 			continue;
 
-		uint16_t a0val = a0>>14;
+		a0val = a0>>14;
 
 		if ((a0 & 0x0c00) == 0x0c00)
 			a0 &=0xF3FF;
@@ -8160,8 +8547,8 @@ static void gfxDrawOBJWin (int renderer_idx)
 			a1 &= 0x3FFF;
 		}
 
-		int sizeX = 8<<(a1>>14);
-		int sizeY = sizeX;
+		sizeX = 8<<(a1>>14);
+		sizeY = sizeX;
 
 		if (a0val & 1)
 		{
@@ -8189,10 +8576,11 @@ static void gfxDrawOBJWin (int renderer_idx)
 
 		}
 
-		int sy = (a0 & 255);
+		sy = (a0 & 255);
 
 		if(a0 & 0x0100)
 		{
+			int t;
 			int fieldX = sizeX;
 			int fieldY = sizeY;
 			if(a0 & 0x0200)
@@ -8202,7 +8590,7 @@ static void gfxDrawOBJWin (int renderer_idx)
 			}
 			if((sy+fieldY) > 256)
 				sy -= 256;
-			int t = RENDERER_R_VCOUNT - sy;
+			t = RENDERER_R_VCOUNT - sy;
 			if((t >= 0) && (t < fieldY))
 			{
 				int sx = (a1 & 0x1FF);
@@ -8212,34 +8600,45 @@ static void gfxDrawOBJWin (int renderer_idx)
 
 				if((sx < 240) || startpix)
 				{
+					int rot;
+					uint16_t * OAM;
+					int dx;
+					int dmx;
+					int dy;
+					int dmy;
+					int realX;
+					int realY;
+					int c;
+					int inc;
+					bool condition1;
 					lineOBJpix-=8;
 					/* int t2 = t - (fieldY >> 1); */
-					int rot = (a1 >> 9) & 0x1F;
-					uint16_t *OAM = OAM_U16;
-					int dx = OAM[3 + (rot << 4)];
+					rot = (a1 >> 9) & 0x1F;
+					OAM = OAM_U16;
+					dx = OAM[3 + (rot << 4)];
 					if(dx & 0x8000)
 						dx |= 0xFFFF8000;
-					int dmx = OAM[7 + (rot << 4)];
+					dmx = OAM[7 + (rot << 4)];
 					if(dmx & 0x8000)
 						dmx |= 0xFFFF8000;
-					int dy = OAM[11 + (rot << 4)];
+					dy = OAM[11 + (rot << 4)];
 					if(dy & 0x8000)
 						dy |= 0xFFFF8000;
-					int dmy = OAM[15 + (rot << 4)];
+					dmy = OAM[15 + (rot << 4)];
 					if(dmy & 0x8000)
 						dmy |= 0xFFFF8000;
 
-					int realX = ((sizeX) << 7) - (fieldX >> 1)*dx - (fieldY>>1)*dmx
+					realX = ((sizeX) << 7) - (fieldX >> 1)*dx - (fieldY>>1)*dmx
 						+ t * dmx;
-					int realY = ((sizeY) << 7) - (fieldX >> 1)*dy - (fieldY>>1)*dmy
+					realY = ((sizeY) << 7) - (fieldX >> 1)*dy - (fieldY>>1)*dmy
 						+ t * dmy;
 
-					int c = (a2 & 0x3FF);
+					c = (a2 & 0x3FF);
 					if(RENDERER_R_DISPCNT_Video_Mode > 2 && (c < 512))
 						continue;
 
-					int inc = 32;
-					bool condition1 = a0 & 0x2000;
+					inc = 32;
+					condition1 = a0 & 0x2000;
 
 					if(RENDERER_IO_REGISTERS[REG_DISPCNT] & 0x40)
 						inc = sizeX >> 3;
@@ -8248,13 +8647,15 @@ static void gfxDrawOBJWin (int renderer_idx)
 						int x;
 						for(x = 0; x < fieldX; x++)
 					{
+						int xxx;
+						int yyy;
 						bool cont = true;
 						if (x >= startpix)
 							lineOBJpix-=2;
 						if (lineOBJpix<0)
 							continue;
-						int xxx = realX >> 8;
-						int yyy = realY >> 8;
+						xxx = realX >> 8;
+						yyy = realY >> 8;
 
 						if(xxx < 0 || xxx >= sizeX || yyy < 0 || yyy >= sizeY || sx >= 240)
 							cont = false;
@@ -8290,9 +8691,10 @@ static void gfxDrawOBJWin (int renderer_idx)
 		}
 		else
 		{
+			int t;
 			if((sy+sizeY) > 256)
 				sy -= 256;
-			int t = RENDERER_R_VCOUNT - sy;
+			t = RENDERER_R_VCOUNT - sy;
 			if((t >= 0) && (t < sizeY))
 			{
 				int sx = (a1 & 0x1FF);
@@ -8302,14 +8704,17 @@ static void gfxDrawOBJWin (int renderer_idx)
 
 				if((sx < 240) || startpix)
 				{
+					int c;
 					lineOBJpix+=2;
 					if(a1 & 0x2000)
 						t = sizeY - t - 1;
-					int c = (a2 & 0x3FF);
+					c = (a2 & 0x3FF);
 					if(RENDERER_R_DISPCNT_Video_Mode > 2 && (c < 512))
 						continue;
 					if(a0 & 0x2000)
 					{
+int xxx;
+int address;
 
 						int inc = 32;
 						if(RENDERER_IO_REGISTERS[REG_DISPCNT] & 0x40)
@@ -8317,10 +8722,10 @@ static void gfxDrawOBJWin (int renderer_idx)
 						else
 							c &= 0x3FE;
 
-						int xxx = 0;
+						xxx = 0;
 						if(a1 & 0x1000)
 							xxx = sizeX-1;
-						int address = 0x10000 + ((((c+ (t>>3) * inc) << 5)
+						address = 0x10000 + ((((c+ (t>>3) * inc) << 5)
 									+ ((t & 7) << 3) + ((xxx>>3)<<6) + (xxx & 7))&0x7fff);
 						if(a1 & 0x1000)
 							xxx = 7;
@@ -8364,13 +8769,15 @@ static void gfxDrawOBJWin (int renderer_idx)
 					}
 					else
 					{
+						int xxx;
+						int address;
 						int inc = 32;
 						if(RENDERER_IO_REGISTERS[REG_DISPCNT] & 0x40)
 							inc = sizeX >> 3;
-						int xxx = 0;
+						xxx = 0;
 						if(a1 & 0x1000)
 							xxx = sizeX - 1;
-						int address = 0x10000 + ((((c + (t>>3) * inc)<<5)
+						address = 0x10000 + ((((c + (t>>3) * inc)<<5)
 									+ ((t & 7)<<2) + ((xxx>>3)<<5) + ((xxx & 7) >> 1))&0x7fff);
 						/* uint32_t prio = (((a2 >> 10) & 3) << 25) | ((a0 & 0x0c00)<<6); */
 						/* int palette = (a2 >> 8) & 0xF0; */
@@ -9287,14 +9694,16 @@ void ThreadedRendererStop(void)
 
 static void mode0RenderLine (int renderer_idx)
 {
+	uint16_t* lineMix;
+	uint32_t backdrop;
 	INIT_RENDERER_CONTEXT(renderer_idx);
 
 #if !DEBUG_RENDERER_MODE0
 	return;
 #endif
-	uint16_t* lineMix = GET_LINE_MIX;
+	lineMix = GET_LINE_MIX;
 
-	uint32_t backdrop = RENDERER_BACKDROP;
+	backdrop = RENDERER_BACKDROP;
 
 	if(RENDERER_R_DISPCNT_Screen_Display_BG0) {
 		gfxDrawTextScreen(Layer_BG0, renderer_idx, RENDERER_IO_REGISTERS[REG_BG0CNT], RENDERER_IO_REGISTERS[REG_BG0HOFS], RENDERER_IO_REGISTERS[REG_BG0VOFS]);
@@ -9398,15 +9807,17 @@ static void mode0RenderLine (int renderer_idx)
 
 static void mode0RenderLineNoWindow (int renderer_idx)
 {
+   uint16_t* lineMix;
+   uint32_t backdrop;
    int x;
 	INIT_RENDERER_CONTEXT(renderer_idx);
 
 #if !DEBUG_RENDERER_MODE0
 	return;
 #endif
-	uint16_t* lineMix = GET_LINE_MIX;
+	lineMix = GET_LINE_MIX;
 
-	uint32_t backdrop = RENDERER_BACKDROP;
+	backdrop = RENDERER_BACKDROP;
 
 	if(RENDERER_R_DISPCNT_Screen_Display_BG0)
       gfxDrawTextScreen(Layer_BG0, renderer_idx, RENDERER_IO_REGISTERS[REG_BG0CNT], RENDERER_IO_REGISTERS[REG_BG0HOFS], RENDERER_IO_REGISTERS[REG_BG0VOFS]);
@@ -9548,17 +9959,24 @@ static void mode0RenderLineNoWindow (int renderer_idx)
 
 static void mode0RenderLineAll (int renderer_idx)
 {
+	uint16_t* lineMix;
+	uint32_t backdrop;
+	bool inWindow0;
+	bool inWindow1;
+	uint8_t inWin0Mask;
+	uint8_t inWin1Mask;
+	uint8_t outMask;
 	INIT_RENDERER_CONTEXT(renderer_idx);
 
 #if !DEBUG_RENDERER_MODE0
 	return;
 #endif
-	uint16_t* lineMix = GET_LINE_MIX;
+	lineMix = GET_LINE_MIX;
 
-	uint32_t backdrop = RENDERER_BACKDROP;
+	backdrop = RENDERER_BACKDROP;
 
-	bool inWindow0 = false;
-	bool inWindow1 = false;
+	inWindow0 = false;
+	inWindow1 = false;
 
 	if(RENDERER_R_DISPCNT_Window_0_Display) {
 		uint8_t v0 = RENDERER_R_WIN_Window0_Y1;
@@ -9595,9 +10013,9 @@ static void mode0RenderLineAll (int renderer_idx)
 		gfxDrawTextScreen(Layer_BG3, renderer_idx, RENDERER_IO_REGISTERS[REG_BG3CNT], RENDERER_IO_REGISTERS[REG_BG3HOFS], RENDERER_IO_REGISTERS[REG_BG3VOFS]);
 	}
 
-	uint8_t inWin0Mask = RENDERER_R_WIN_Window0_Mask;
-	uint8_t inWin1Mask = RENDERER_R_WIN_Window1_Mask;
-	uint8_t outMask = RENDERER_R_WIN_Outside_Mask;
+	inWin0Mask = RENDERER_R_WIN_Window0_Mask;
+	inWin1Mask = RENDERER_R_WIN_Window1_Mask;
+	outMask = RENDERER_R_WIN_Outside_Mask;
 
 	{
 		int x;
@@ -9738,14 +10156,16 @@ These routines only render a single line at a time, because of the way the GBA d
 
 static void mode1RenderLine (int renderer_idx)
 {
+	uint16_t* lineMix;
+	uint32_t backdrop;
 	INIT_RENDERER_CONTEXT(renderer_idx);
 
 #if !DEBUG_RENDERER_MODE1
 	return;
 #endif
-	uint16_t* lineMix = GET_LINE_MIX;
+	lineMix = GET_LINE_MIX;
 
-	uint32_t backdrop = RENDERER_BACKDROP;
+	backdrop = RENDERER_BACKDROP;
 
 	if(RENDERER_R_DISPCNT_Screen_Display_BG0) {
 		gfxDrawTextScreen(Layer_BG0, renderer_idx, RENDERER_IO_REGISTERS[REG_BG0CNT], RENDERER_IO_REGISTERS[REG_BG0HOFS], RENDERER_IO_REGISTERS[REG_BG0VOFS]);
@@ -9837,14 +10257,16 @@ static void mode1RenderLine (int renderer_idx)
 
 static void mode1RenderLineNoWindow (int renderer_idx)
 {
+	uint16_t* lineMix;
+	uint32_t backdrop;
 	INIT_RENDERER_CONTEXT(renderer_idx);
 
 #if !DEBUG_RENDERER_MODE1
 	return;
 #endif
-	uint16_t* lineMix = GET_LINE_MIX;
+	lineMix = GET_LINE_MIX;
 
-	uint32_t backdrop = RENDERER_BACKDROP;
+	backdrop = RENDERER_BACKDROP;
 
 	if(RENDERER_R_DISPCNT_Screen_Display_BG0) {
 		gfxDrawTextScreen(Layer_BG0, renderer_idx, RENDERER_IO_REGISTERS[REG_BG0CNT], RENDERER_IO_REGISTERS[REG_BG0HOFS], RENDERER_IO_REGISTERS[REG_BG0VOFS]);
@@ -9988,17 +10410,24 @@ static void mode1RenderLineNoWindow (int renderer_idx)
 
 static void mode1RenderLineAll (int renderer_idx)
 {
+	uint16_t* lineMix;
+	uint32_t backdrop;
+	bool inWindow0;
+	bool inWindow1;
+	uint8_t inWin0Mask;
+	uint8_t inWin1Mask;
+	uint8_t outMask;
 	INIT_RENDERER_CONTEXT(renderer_idx);
 
 #if !DEBUG_RENDERER_MODE1
 	return;
 #endif
-	uint16_t* lineMix = GET_LINE_MIX;
+	lineMix = GET_LINE_MIX;
 
-	uint32_t backdrop = RENDERER_BACKDROP;
+	backdrop = RENDERER_BACKDROP;
 
-	bool inWindow0 = false;
-	bool inWindow1 = false;
+	inWindow0 = false;
+	inWindow1 = false;
 
 	if(RENDERER_R_DISPCNT_Window_0_Display)
 	{
@@ -10027,9 +10456,9 @@ static void mode1RenderLineAll (int renderer_idx)
 				&RENDERER_BG2X, &RENDERER_BG2Y, RENDERER_BG2C);
 	}
 
-	uint8_t inWin0Mask = RENDERER_R_WIN_Window0_Mask;
-	uint8_t inWin1Mask = RENDERER_R_WIN_Window1_Mask;
-	uint8_t outMask = RENDERER_R_WIN_Outside_Mask;
+	inWin0Mask = RENDERER_R_WIN_Window0_Mask;
+	inWin1Mask = RENDERER_R_WIN_Window1_Mask;
+	outMask = RENDERER_R_WIN_Outside_Mask;
 
 	{
 		int x;
@@ -10156,14 +10585,16 @@ These routines only render a single line at a time, because of the way the GBA d
 
 static void mode2RenderLine (int renderer_idx)
 {
+	uint16_t* lineMix;
+	uint32_t backdrop;
 	INIT_RENDERER_CONTEXT(renderer_idx);
 
 #if !DEBUG_RENDERER_MODE2
 	return;
 #endif
-	uint16_t* lineMix = GET_LINE_MIX;
+	lineMix = GET_LINE_MIX;
 
-	uint32_t backdrop = RENDERER_BACKDROP;
+	backdrop = RENDERER_BACKDROP;
 
 	if(RENDERER_R_DISPCNT_Screen_Display_BG2) {
 		gfxDrawRotScreen(Layer_BG2, renderer_idx, RENDERER_IO_REGISTERS[REG_BG2CNT], RENDERER_BG2X_L, RENDERER_BG2X_H, RENDERER_BG2Y_L, RENDERER_BG2Y_H,
@@ -10241,14 +10672,16 @@ static void mode2RenderLine (int renderer_idx)
 
 static void mode2RenderLineNoWindow (int renderer_idx)
 {
+	uint16_t* lineMix;
+	uint32_t backdrop;
 	INIT_RENDERER_CONTEXT(renderer_idx);
 
 #if !DEBUG_RENDERER_MODE2
 	return;
 #endif
-	uint16_t* lineMix = GET_LINE_MIX;
+	lineMix = GET_LINE_MIX;
 
-	uint32_t backdrop = RENDERER_BACKDROP;
+	backdrop = RENDERER_BACKDROP;
 
 	if(RENDERER_R_DISPCNT_Screen_Display_BG2) {
 		gfxDrawRotScreen(Layer_BG2, renderer_idx, RENDERER_IO_REGISTERS[REG_BG2CNT], RENDERER_BG2X_L, RENDERER_BG2X_H, RENDERER_BG2Y_L, RENDERER_BG2Y_H,
@@ -10366,17 +10799,24 @@ static void mode2RenderLineNoWindow (int renderer_idx)
 
 static void mode2RenderLineAll (int renderer_idx)
 {
+	uint16_t* lineMix;
+	uint32_t backdrop;
+	bool inWindow0;
+	bool inWindow1;
+	uint8_t inWin0Mask;
+	uint8_t inWin1Mask;
+	uint8_t outMask;
 	INIT_RENDERER_CONTEXT(renderer_idx);
 
 #if !DEBUG_RENDERER_MODE2
 	return;
 #endif
-	uint16_t* lineMix = GET_LINE_MIX;
+	lineMix = GET_LINE_MIX;
 
-	uint32_t backdrop = RENDERER_BACKDROP;
+	backdrop = RENDERER_BACKDROP;
 
-	bool inWindow0 = false;
-	bool inWindow1 = false;
+	inWindow0 = false;
+	inWindow1 = false;
 
 	if(RENDERER_R_DISPCNT_Window_0_Display)
 	{
@@ -10403,9 +10843,9 @@ static void mode2RenderLineAll (int renderer_idx)
 				&RENDERER_BG3X, &RENDERER_BG3Y, RENDERER_BG3C);
 	}
 
-	uint8_t inWin0Mask = RENDERER_R_WIN_Window0_Mask;
-	uint8_t inWin1Mask = RENDERER_R_WIN_Window1_Mask;
-	uint8_t outMask = RENDERER_R_WIN_Outside_Mask;
+	inWin0Mask = RENDERER_R_WIN_Window0_Mask;
+	inWin1Mask = RENDERER_R_WIN_Window1_Mask;
+	outMask = RENDERER_R_WIN_Outside_Mask;
 
 	{
 		int x;
@@ -10516,13 +10956,15 @@ These routines only render a single line at a time, because of the way the GBA d
 
 static void mode3RenderLine (int renderer_idx)
 {
+	uint16_t* lineMix;
+	uint32_t background;
 	INIT_RENDERER_CONTEXT(renderer_idx);
 
 #if !DEBUG_RENDERER_MODE3
 	return;
 #endif
-	uint16_t* lineMix = GET_LINE_MIX;
-	uint32_t background = RENDERER_BACKDROP;
+	lineMix = GET_LINE_MIX;
+	background = RENDERER_BACKDROP;
 
 	if(RENDERER_R_DISPCNT_Screen_Display_BG2) {
 		gfxDrawRotScreen16Bit(renderer_idx, &RENDERER_BG2X, &RENDERER_BG2Y, RENDERER_BG2C);
@@ -10569,13 +11011,15 @@ static void mode3RenderLine (int renderer_idx)
 
 static void mode3RenderLineNoWindow (int renderer_idx)
 {
+uint16_t* lineMix;
+uint32_t background;
 INIT_RENDERER_CONTEXT(renderer_idx);
 
 #if !DEBUG_RENDERER_MODE3
 	return;
 #endif
-	uint16_t* lineMix = GET_LINE_MIX;
-	uint32_t background = RENDERER_BACKDROP;
+	lineMix = GET_LINE_MIX;
+	background = RENDERER_BACKDROP;
 
 	if(RENDERER_R_DISPCNT_Screen_Display_BG2) {
 		gfxDrawRotScreen16Bit(renderer_idx, &RENDERER_BG2X, &RENDERER_BG2Y, RENDERER_BG2C);
@@ -10658,16 +11102,23 @@ INIT_RENDERER_CONTEXT(renderer_idx);
 
 static void mode3RenderLineAll (int renderer_idx)
 {
+	uint16_t* lineMix;
+	uint32_t background;
+	bool inWindow0;
+	bool inWindow1;
+	uint8_t inWin0Mask;
+	uint8_t inWin1Mask;
+	uint8_t outMask;
 	INIT_RENDERER_CONTEXT(renderer_idx);
 
 #if !DEBUG_RENDERER_MODE3
 	return;
 #endif
-	uint16_t* lineMix = GET_LINE_MIX;
-	uint32_t background = RENDERER_BACKDROP;
+	lineMix = GET_LINE_MIX;
+	background = RENDERER_BACKDROP;
 
-	bool inWindow0 = false;
-	bool inWindow1 = false;
+	inWindow0 = false;
+	inWindow1 = false;
 
 	if(RENDERER_R_DISPCNT_Window_0_Display)
 	{
@@ -10687,9 +11138,9 @@ static void mode3RenderLineAll (int renderer_idx)
 		gfxDrawRotScreen16Bit(renderer_idx, &RENDERER_BG2X, &RENDERER_BG2Y, RENDERER_BG2C);
 	}
 
-	uint8_t inWin0Mask = RENDERER_R_WIN_Window0_Mask;
-	uint8_t inWin1Mask = RENDERER_R_WIN_Window1_Mask;
-	uint8_t outMask = RENDERER_R_WIN_Outside_Mask;
+	inWin0Mask = RENDERER_R_WIN_Window0_Mask;
+	inWin1Mask = RENDERER_R_WIN_Window1_Mask;
+	outMask = RENDERER_R_WIN_Outside_Mask;
 
 	{
 		int x;
@@ -10783,13 +11234,15 @@ These routines only render a single line at a time, because of the way the GBA d
 
 static void mode4RenderLine (int renderer_idx)
 {
+	uint16_t* lineMix;
+	uint32_t backdrop;
 	INIT_RENDERER_CONTEXT(renderer_idx);
 
 #if !DEBUG_RENDERER_MODE4
 	return;
 #endif
-	uint16_t* lineMix = GET_LINE_MIX;
-	uint32_t backdrop = RENDERER_BACKDROP;
+	lineMix = GET_LINE_MIX;
+	backdrop = RENDERER_BACKDROP;
 
 	if(RENDERER_R_DISPCNT_Screen_Display_BG2) {
 		gfxDrawRotScreen256(renderer_idx, &RENDERER_BG2X, &RENDERER_BG2Y, RENDERER_BG2C);
@@ -10836,13 +11289,15 @@ static void mode4RenderLine (int renderer_idx)
 
 static void mode4RenderLineNoWindow (int renderer_idx)
 {
+	uint16_t* lineMix;
+	uint32_t backdrop;
 	INIT_RENDERER_CONTEXT(renderer_idx);
 
 #if !DEBUG_RENDERER_MODE4
 	return;
 #endif
-	uint16_t* lineMix = GET_LINE_MIX;
-	uint32_t backdrop = RENDERER_BACKDROP;
+	lineMix = GET_LINE_MIX;
+	backdrop = RENDERER_BACKDROP;
 
 	if(RENDERER_R_DISPCNT_Screen_Display_BG2) {
 		gfxDrawRotScreen256(renderer_idx, &RENDERER_BG2X, &RENDERER_BG2Y, RENDERER_BG2C);
@@ -10925,16 +11380,23 @@ static void mode4RenderLineNoWindow (int renderer_idx)
 
 static void mode4RenderLineAll (int renderer_idx)
 {
+	uint16_t* lineMix;
+	uint32_t backdrop;
+	bool inWindow0;
+	bool inWindow1;
+	uint8_t inWin0Mask;
+	uint8_t inWin1Mask;
+	uint8_t outMask;
 	INIT_RENDERER_CONTEXT(renderer_idx);
 
 #if !DEBUG_RENDERER_MODE4
 	return;
 #endif
-	uint16_t* lineMix = GET_LINE_MIX;
-	uint32_t backdrop = RENDERER_BACKDROP;
+	lineMix = GET_LINE_MIX;
+	backdrop = RENDERER_BACKDROP;
 
-	bool inWindow0 = false;
-	bool inWindow1 = false;
+	inWindow0 = false;
+	inWindow1 = false;
 
 	if(RENDERER_R_DISPCNT_Window_0_Display)
 	{
@@ -10954,9 +11416,9 @@ static void mode4RenderLineAll (int renderer_idx)
 		gfxDrawRotScreen256(renderer_idx, &RENDERER_BG2X, &RENDERER_BG2Y, RENDERER_BG2C);
 	}
 
-	uint8_t inWin0Mask = RENDERER_R_WIN_Window0_Mask;
-	uint8_t inWin1Mask = RENDERER_R_WIN_Window1_Mask;
-	uint8_t outMask = RENDERER_R_WIN_Outside_Mask;
+	inWin0Mask = RENDERER_R_WIN_Window0_Mask;
+	inWin1Mask = RENDERER_R_WIN_Window1_Mask;
+	outMask = RENDERER_R_WIN_Outside_Mask;
 
 	{
 		int x;
@@ -11052,13 +11514,15 @@ These routines only render a single line at a time, because of the way the GBA d
 
 static void mode5RenderLine (int renderer_idx)
 {
+	uint16_t* lineMix;
+	uint32_t background;
 	INIT_RENDERER_CONTEXT(renderer_idx);
 
 #if !DEBUG_RENDERER_MODE5
 	return;
 #endif
-	uint16_t* lineMix = GET_LINE_MIX;
-	uint32_t background = RENDERER_BACKDROP;
+	lineMix = GET_LINE_MIX;
+	background = RENDERER_BACKDROP;
 
 	if(RENDERER_R_DISPCNT_Screen_Display_BG2) {
 		gfxDrawRotScreen16Bit160(renderer_idx, &RENDERER_BG2X, &RENDERER_BG2Y, RENDERER_BG2C);
@@ -11104,13 +11568,15 @@ static void mode5RenderLine (int renderer_idx)
 
 static void mode5RenderLineNoWindow (int renderer_idx)
 {
+	uint16_t* lineMix;
+	uint32_t background;
 	INIT_RENDERER_CONTEXT(renderer_idx);
 
 #if !DEBUG_RENDERER_MODE5
 	return;
 #endif
-	uint16_t* lineMix = GET_LINE_MIX;
-	uint32_t background = RENDERER_BACKDROP;
+	lineMix = GET_LINE_MIX;
+	background = RENDERER_BACKDROP;
 
 	if(RENDERER_R_DISPCNT_Screen_Display_BG2) {
 		gfxDrawRotScreen16Bit160(renderer_idx, &RENDERER_BG2X, &RENDERER_BG2Y, RENDERER_BG2C);
@@ -11193,20 +11659,27 @@ static void mode5RenderLineNoWindow (int renderer_idx)
 
 static void mode5RenderLineAll (int renderer_idx)
 {
+	uint16_t* lineMix;
+	uint32_t background;
+	bool inWindow0;
+	bool inWindow1;
+	uint8_t inWin0Mask;
+	uint8_t inWin1Mask;
+	uint8_t outMask;
 	INIT_RENDERER_CONTEXT(renderer_idx);
 
 #if !DEBUG_RENDERER_MODE5
 	return;
 #endif
-	uint16_t* lineMix = GET_LINE_MIX;
-	uint32_t background = RENDERER_BACKDROP;
+	lineMix = GET_LINE_MIX;
+	background = RENDERER_BACKDROP;
 
 	if(RENDERER_R_DISPCNT_Screen_Display_BG2) {
 		gfxDrawRotScreen16Bit160(renderer_idx, &RENDERER_BG2X, &RENDERER_BG2Y, RENDERER_BG2C);
 	}
 
-	bool inWindow0 = false;
-	bool inWindow1 = false;
+	inWindow0 = false;
+	inWindow1 = false;
 
 	if(RENDERER_R_DISPCNT_Window_0_Display)
 	{
@@ -11222,9 +11695,9 @@ static void mode5RenderLineAll (int renderer_idx)
 		inWindow1 = (uint8_t)(RENDERER_R_VCOUNT - v0) < (uint8_t)(v1 - v0) || ((v0 == v1) && (v0 >= 0xe8));
 	}
 
-	uint8_t inWin0Mask = RENDERER_R_WIN_Window0_Mask;
-	uint8_t inWin1Mask = RENDERER_R_WIN_Window1_Mask;
-	uint8_t outMask = RENDERER_R_WIN_Outside_Mask;
+	inWin0Mask = RENDERER_R_WIN_Window0_Mask;
+	inWin1Mask = RENDERER_R_WIN_Window1_Mask;
+	outMask = RENDERER_R_WIN_Outside_Mask;
 
 	{
 		int x;

@@ -190,6 +190,7 @@ static unsigned serialize_size = 0;
 
 void retro_init(void)
 {
+   enum retro_pixel_format rgb565;
    struct retro_log_callback log;
    memset(libretro_save_buf, 0xff, sizeof(libretro_save_buf));
    adjust_save_ram();
@@ -214,7 +215,7 @@ void retro_init(void)
 #endif
 
 #ifdef FRONTEND_SUPPORTS_RGB565
-   enum retro_pixel_format rgb565 = RETRO_PIXEL_FORMAT_RGB565;
+   rgb565 = RETRO_PIXEL_FORMAT_RGB565;
    if(environ_cb(RETRO_ENVIRONMENT_SET_PIXEL_FORMAT, &rgb565) && log_cb)
       log_cb(RETRO_LOG_DEBUG, "Frontend supports RGB565 - will use that instead of XRGB1555.\n");
 #endif
@@ -352,6 +353,8 @@ static const ini_t gbaover[256] = {
 
 static void load_image_preferences (void)
 {
+	bool found;
+	int found_no;
 	char buffer[5];
 	buffer[0] = rom[0xac];
 	buffer[1] = rom[0xad];
@@ -362,8 +365,8 @@ static void load_image_preferences (void)
    if (log_cb)
       log_cb(RETRO_LOG_DEBUG, "GameID in ROM is: %s\n", buffer);
 
-	bool found = false;
-	int found_no = 0;
+	found = false;
+	found_no = 0;
 
 	{
 		int i;
@@ -427,6 +430,8 @@ static int get_frameskip_code(void)
 
 static void gba_init(void)
 {
+   bool usebios;
+   uint8_t * state_buf;
    struct retro_variable var = { 0 };
    bool rtc = false;
  
@@ -459,7 +464,7 @@ static void gba_init(void)
    soundSetSampleRate(32000);
 
 #if HAVE_HLE_BIOS
-   bool usebios = false;
+   usebios = false;
 
    var.key = "vbanext_bios";
    var.value = NULL;
@@ -487,7 +492,6 @@ static void gba_init(void)
     * is ~570KB; 700KB gives ~25% headroom. retro_serialize then uses the
     * measured size for the actual user-visible save buffer. */
    #define SERIALIZE_DRYRUN_CAP 700000u
-   uint8_t * state_buf = (uint8_t*)malloc(SERIALIZE_DRYRUN_CAP);
    if (!state_buf) {
       /* Out of memory at boot - fall back to a conservative constant.
        * Frontends will still get a valid (oversized) buffer from retro_serialize. */
