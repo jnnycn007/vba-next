@@ -2849,7 +2849,10 @@ static void armUnknownInsn(uint32_t opcode)
  #define ALU_INIT_C \
     int dest = (opcode>>12) & 15;                       \
     bool C_OUT = C_FLAG;                                \
-    uint32_t value;
+    uint32_t value;                                     \
+    uint32_t res;                                       \
+    uint32_t lhs;                                       \
+    uint32_t rhs;
 #endif
 /* OP Rd,Rb,Rm LSL # */
 #ifndef VALUE_LSL_IMM_C
@@ -3053,7 +3056,7 @@ static void armUnknownInsn(uint32_t opcode)
 #define C_CHECK_PC(SETCOND) if (dest != 15) { SETCOND }
 #ifndef OP_AND
  #define OP_AND \
-    uint32_t res = bus.reg[(opcode>>16)&15].I & value;           \
+    res = bus.reg[(opcode>>16)&15].I & value;           \
     bus.reg[dest].I = res;
 #endif
 #ifndef OP_ANDS
@@ -3061,7 +3064,7 @@ static void armUnknownInsn(uint32_t opcode)
 #endif
 #ifndef OP_EOR
  #define OP_EOR \
-    uint32_t res = bus.reg[(opcode>>16)&15].I ^ value;           \
+    res = bus.reg[(opcode>>16)&15].I ^ value;           \
     bus.reg[dest].I = res;
 #endif
 #ifndef OP_EORS
@@ -3069,9 +3072,9 @@ static void armUnknownInsn(uint32_t opcode)
 #endif
 #ifndef OP_SUB
  #define OP_SUB \
-    uint32_t lhs = bus.reg[(opcode>>16)&15].I;                   \
-    uint32_t rhs = value;                                    \
-    uint32_t res = lhs - rhs;                                \
+    lhs = bus.reg[(opcode>>16)&15].I;                   \
+    rhs = value;                                    \
+    res = lhs - rhs;                                \
     bus.reg[dest].I = res;
 #endif
 #ifndef OP_SUBS
@@ -3079,9 +3082,9 @@ static void armUnknownInsn(uint32_t opcode)
 #endif
 #ifndef OP_RSB
  #define OP_RSB \
-    uint32_t lhs = value;                                    \
-    uint32_t rhs = bus.reg[(opcode>>16)&15].I;               \
-    uint32_t res = lhs - rhs;                                \
+    lhs = value;                                    \
+    rhs = bus.reg[(opcode>>16)&15].I;               \
+    res = lhs - rhs;                                \
     bus.reg[dest].I = res;
 #endif
 #ifndef OP_RSBS
@@ -3089,9 +3092,9 @@ static void armUnknownInsn(uint32_t opcode)
 #endif
 #ifndef OP_ADD
  #define OP_ADD \
-    uint32_t lhs = bus.reg[(opcode>>16)&15].I;                   \
-    uint32_t rhs = value;                                    \
-    uint32_t res = lhs + rhs;                                \
+    lhs = bus.reg[(opcode>>16)&15].I;                   \
+    rhs = value;                                    \
+    res = lhs + rhs;                                \
     bus.reg[dest].I = res;
 #endif
 #ifndef OP_ADDS
@@ -3099,9 +3102,9 @@ static void armUnknownInsn(uint32_t opcode)
 #endif
 #ifndef OP_ADC
  #define OP_ADC \
-    uint32_t lhs = bus.reg[(opcode>>16)&15].I;                   \
-    uint32_t rhs = value;                                    \
-    uint32_t res = lhs + rhs + (uint32_t)C_FLAG;                  \
+    lhs = bus.reg[(opcode>>16)&15].I;                   \
+    rhs = value;                                    \
+    res = lhs + rhs + (uint32_t)C_FLAG;                  \
     bus.reg[dest].I = res;
 #endif
 #ifndef OP_ADCS
@@ -3109,9 +3112,9 @@ static void armUnknownInsn(uint32_t opcode)
 #endif
 #ifndef OP_SBC
  #define OP_SBC \
-    uint32_t lhs = bus.reg[(opcode>>16)&15].I;                   \
-    uint32_t rhs = value;                                    \
-    uint32_t res = lhs - rhs - !((uint32_t)C_FLAG);               \
+    lhs = bus.reg[(opcode>>16)&15].I;                   \
+    rhs = value;                                    \
+    res = lhs - rhs - !((uint32_t)C_FLAG);               \
     bus.reg[dest].I = res;
 #endif
 #ifndef OP_SBCS
@@ -3119,9 +3122,9 @@ static void armUnknownInsn(uint32_t opcode)
 #endif
 #ifndef OP_RSC
  #define OP_RSC \
-    uint32_t lhs = value;                                    \
-    uint32_t rhs = bus.reg[(opcode>>16)&15].I;                   \
-    uint32_t res = lhs - rhs - !((uint32_t)C_FLAG);               \
+    lhs = value;                                    \
+    rhs = bus.reg[(opcode>>16)&15].I;                   \
+    res = lhs - rhs - !((uint32_t)C_FLAG);               \
     bus.reg[dest].I = res;
 #endif
 #ifndef OP_RSCS
@@ -3129,31 +3132,31 @@ static void armUnknownInsn(uint32_t opcode)
 #endif
 #ifndef OP_TST
  #define OP_TST \
-    uint32_t res = bus.reg[(opcode >> 16) & 0x0F].I & value;     \
+    res = bus.reg[(opcode >> 16) & 0x0F].I & value;     \
     C_SETCOND_LOGICAL;
 #endif
 #ifndef OP_TEQ
  #define OP_TEQ \
-    uint32_t res = bus.reg[(opcode >> 16) & 0x0F].I ^ value;     \
+    res = bus.reg[(opcode >> 16) & 0x0F].I ^ value;     \
     C_SETCOND_LOGICAL;
 #endif
 #ifndef OP_CMP
  #define OP_CMP \
-    uint32_t lhs = bus.reg[(opcode>>16)&15].I;                   \
-    uint32_t rhs = value;                                    \
-    uint32_t res = lhs - rhs;                                \
+    lhs = bus.reg[(opcode>>16)&15].I;                   \
+    rhs = value;                                    \
+    res = lhs - rhs;                                \
     C_SETCOND_SUB;
 #endif
 #ifndef OP_CMN
  #define OP_CMN \
-    uint32_t lhs = bus.reg[(opcode>>16)&15].I;                   \
-    uint32_t rhs = value;                                    \
-    uint32_t res = lhs + rhs;                                \
+    lhs = bus.reg[(opcode>>16)&15].I;                   \
+    rhs = value;                                    \
+    res = lhs + rhs;                                \
     C_SETCOND_ADD;
 #endif
 #ifndef OP_ORR
  #define OP_ORR \
-    uint32_t res = bus.reg[(opcode >> 16) & 0x0F].I | value;     \
+    res = bus.reg[(opcode >> 16) & 0x0F].I | value;     \
     bus.reg[dest].I = res;
 #endif
 #ifndef OP_ORRS
@@ -3161,7 +3164,7 @@ static void armUnknownInsn(uint32_t opcode)
 #endif
 #ifndef OP_MOV
  #define OP_MOV \
-    uint32_t res = value;                                    \
+    res = value;                                    \
     bus.reg[dest].I = res;
 #endif
 #ifndef OP_MOVS
@@ -3169,7 +3172,7 @@ static void armUnknownInsn(uint32_t opcode)
 #endif
 #ifndef OP_BIC
  #define OP_BIC \
-    uint32_t res = bus.reg[(opcode >> 16) & 0x0F].I & (~value);  \
+    res = bus.reg[(opcode >> 16) & 0x0F].I & (~value);  \
     bus.reg[dest].I = res;
 #endif
 #ifndef OP_BICS
@@ -3177,7 +3180,7 @@ static void armUnknownInsn(uint32_t opcode)
 #endif
 #ifndef OP_MVN
  #define OP_MVN \
-    uint32_t res = ~value;                                   \
+    res = ~value;                                   \
     bus.reg[dest].I = res;
 #endif
 #ifndef OP_MVNS
