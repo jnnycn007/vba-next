@@ -12790,7 +12790,8 @@ static void CPUInterrupt(void)
 void UpdateJoypad(void)
 {
    /* update joystick information */
-   io_registers[REG_P1] = 0x03FF ^ (joy & 0x3FF);
+   uint16_t joypad = 0x03FF ^ (joy & 0x3FF);
+   io_registers[REG_P1] = joypad;
 #if USE_MOTION_SENSOR
 	if(hardware.sensor) {
 		systemUpdateMotionSensor();
@@ -12798,7 +12799,7 @@ void UpdateJoypad(void)
 		hardware.tilt_y = (systemGetAccelY() >> 21) + 0x3A0;
 	}
 #endif
-   UPDATE_REG(0x130, io_registers[REG_P1]);
+   UPDATE_REG(0x130, joypad);
    io_registers[REG_P1CNT] = READ16LE(((uint16_t *)&ioMem[0x132]));
 
    // this seems wrong, but there are cases where the game
@@ -13028,16 +13029,22 @@ updateLoop:
 				if(timer1On) {
 					if(io_registers[REG_TM1CNT] & 4) {
 						if(timerOverflow & 1) {
-							io_registers[REG_TM1D]++;
-							if(io_registers[REG_TM1D] == 0) {
-								io_registers[REG_TM1D] += timer1Reload;
+							/* §B+: hold TM1D in a local across the inc /
+							 * overflow-check / reload so neither the check
+							 * nor the final UPDATE_REG hits LHS on the
+							 * just-written io_registers slot.  soundTimerOverflow
+							 * touches only pcm[] state, never io_registers. */
+							uint16_t tm1d = io_registers[REG_TM1D] + 1;
+							if(tm1d == 0) {
+								tm1d = timer1Reload;
 								timerOverflow |= 2;
 								soundTimerOverflow(1);
 								if(io_registers[REG_TM1CNT] & 0x40) {
 									{ uint16_t _v = (io_registers[REG_IF]) | (0x10); io_registers[REG_IF] = _v; UPDATE_REG(0x202, _v); }
 								}
 							}
-							UPDATE_REG(0x104, io_registers[REG_TM1D]);
+							io_registers[REG_TM1D] = tm1d;
+							UPDATE_REG(0x104, tm1d);
 						}
 					} else {
 						timer1Ticks -= clockTicks;
@@ -13056,15 +13063,17 @@ updateLoop:
 				if(timer2On) {
 					if(io_registers[REG_TM2CNT] & 4) {
 						if(timerOverflow & 2) {
-							io_registers[REG_TM2D]++;
-							if(io_registers[REG_TM2D] == 0) {
-								io_registers[REG_TM2D] += timer2Reload;
+							/* §B+: see timer1-cascade comment above. */
+							uint16_t tm2d = io_registers[REG_TM2D] + 1;
+							if(tm2d == 0) {
+								tm2d = timer2Reload;
 								timerOverflow |= 4;
 								if(io_registers[REG_TM2CNT] & 0x40) {
 									{ uint16_t _v = (io_registers[REG_IF]) | (0x20); io_registers[REG_IF] = _v; UPDATE_REG(0x202, _v); }
 								}
 							}
-							UPDATE_REG(0x108, io_registers[REG_TM2D]);
+							io_registers[REG_TM2D] = tm2d;
+							UPDATE_REG(0x108, tm2d);
 						}
 					} else {
 						timer2Ticks -= clockTicks;
@@ -13082,14 +13091,16 @@ updateLoop:
 				if(timer3On) {
 					if(io_registers[REG_TM3CNT] & 4) {
 						if(timerOverflow & 4) {
-							io_registers[REG_TM3D]++;
-							if(io_registers[REG_TM3D] == 0) {
-								io_registers[REG_TM3D] += timer3Reload;
+							/* §B+: see timer1-cascade comment above. */
+							uint16_t tm3d = io_registers[REG_TM3D] + 1;
+							if(tm3d == 0) {
+								tm3d = timer3Reload;
 								if(io_registers[REG_TM3CNT] & 0x40) {
 									{ uint16_t _v = (io_registers[REG_IF]) | (0x40); io_registers[REG_IF] = _v; UPDATE_REG(0x202, _v); }
 								}
 							}
-							UPDATE_REG(0x10C, io_registers[REG_TM3D]);
+							io_registers[REG_TM3D] = tm3d;
+							UPDATE_REG(0x10C, tm3d);
 						}
 					} else {
 						timer3Ticks -= clockTicks;
@@ -13181,10 +13192,13 @@ updateLoop:
 				{
 					timer0ClockReload = TIMER_TICKS[timer0Value & 3];
 					if(!timer0On && (timer0Value & 0x80)) {
-						// reload the counter
-						io_registers[REG_TM0D] = timer0Reload;
-						timer0Ticks = (0x10000 - io_registers[REG_TM0D]) << timer0ClockReload;
-						UPDATE_REG(0x100, io_registers[REG_TM0D]);
+						/* §B+: avoid two LHS reads of REG_TM0D (one for the
+						 * timer0Ticks calc, one for UPDATE_REG) by holding the
+						 * reload value in a local across the store. */
+						uint16_t tm0d = timer0Reload;
+						io_registers[REG_TM0D] = tm0d;
+						timer0Ticks = (0x10000 - tm0d) << timer0ClockReload;
+						UPDATE_REG(0x100, tm0d);
 					}
 					timer0On = timer0Value & 0x80 ? true : false;
 					{ uint16_t _v = timer0Value & 0xC7; io_registers[REG_TM0CNT] = _v; UPDATE_REG(0x102, _v); }
@@ -13193,10 +13207,11 @@ updateLoop:
 				{
 					timer1ClockReload = TIMER_TICKS[timer1Value & 3];
 					if(!timer1On && (timer1Value & 0x80)) {
-						// reload the counter
-						io_registers[REG_TM1D] = timer1Reload;
-						timer1Ticks = (0x10000 - io_registers[REG_TM1D]) << timer1ClockReload;
-						UPDATE_REG(0x104, io_registers[REG_TM1D]);
+						/* §B+: see timer0 reload comment above. */
+						uint16_t tm1d = timer1Reload;
+						io_registers[REG_TM1D] = tm1d;
+						timer1Ticks = (0x10000 - tm1d) << timer1ClockReload;
+						UPDATE_REG(0x104, tm1d);
 					}
 					timer1On = timer1Value & 0x80 ? true : false;
 					{ uint16_t _v = timer1Value & 0xC7; io_registers[REG_TM1CNT] = _v; UPDATE_REG(0x106, _v); }
@@ -13205,10 +13220,11 @@ updateLoop:
 				{
 					timer2ClockReload = TIMER_TICKS[timer2Value & 3];
 					if(!timer2On && (timer2Value & 0x80)) {
-						// reload the counter
-						io_registers[REG_TM2D] = timer2Reload;
-						timer2Ticks = (0x10000 - io_registers[REG_TM2D]) << timer2ClockReload;
-						UPDATE_REG(0x108, io_registers[REG_TM2D]);
+						/* §B+: see timer0 reload comment above. */
+						uint16_t tm2d = timer2Reload;
+						io_registers[REG_TM2D] = tm2d;
+						timer2Ticks = (0x10000 - tm2d) << timer2ClockReload;
+						UPDATE_REG(0x108, tm2d);
 					}
 					timer2On = timer2Value & 0x80 ? true : false;
 					{ uint16_t _v = timer2Value & 0xC7; io_registers[REG_TM2CNT] = _v; UPDATE_REG(0x10A, _v); }
@@ -13217,10 +13233,11 @@ updateLoop:
 				{
 					timer3ClockReload = TIMER_TICKS[timer3Value & 3];
 					if(!timer3On && (timer3Value & 0x80)) {
-						// reload the counter
-						io_registers[REG_TM3D] = timer3Reload;
-						timer3Ticks = (0x10000 - io_registers[REG_TM3D]) << timer3ClockReload;
-						UPDATE_REG(0x10C, io_registers[REG_TM3D]);
+						/* §B+: see timer0 reload comment above. */
+						uint16_t tm3d = timer3Reload;
+						io_registers[REG_TM3D] = tm3d;
+						timer3Ticks = (0x10000 - tm3d) << timer3ClockReload;
+						UPDATE_REG(0x10C, tm3d);
 					}
 					timer3On = timer3Value & 0x80 ? true : false;
 					{ uint16_t _v = timer3Value & 0xC7; io_registers[REG_TM3CNT] = _v; UPDATE_REG(0x10E, _v); }
