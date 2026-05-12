@@ -297,10 +297,10 @@ int eepromBits = 0;
 int eepromAddress = 0;
 
 /* Workaround for broken-by-design GBA save semantics. */
-extern u8 libretro_save_buf[0x20000 + 0x2000];
-u8 *eepromData = libretro_save_buf + 0x20000;
+extern uint8_t libretro_save_buf[0x20000 + 0x2000];
+uint8_t *eepromData = libretro_save_buf + 0x20000;
 
-u8 eepromBuffer[16];
+uint8_t eepromBuffer[16];
 bool eepromInUse = false;
 int eepromSize = 512;
 
@@ -399,7 +399,7 @@ int eepromRead (void)
    return 0;
 }
 
-void eepromWrite(u8 value)
+void eepromWrite(uint8_t value)
 {
    if(cpuDmaCount == 0)
       return;
@@ -492,19 +492,19 @@ void eepromWrite(u8 value)
 	SRAM
 ============================================================ */
 
-u8 sramRead(u32 address)
+uint8_t sramRead(uint32_t address)
 {
 	return flashSaveMemory[address & 0xFFFF];
 }
 
-void sramDelayedWrite(u32 address, u8 byte)
+void sramDelayedWrite(uint32_t address, uint8_t byte)
 {
 	saveType = 1;
 	cpuSaveGameFunc = sramWrite;
 	sramWrite(address, byte);
 }
 
-void sramWrite(u32 address, u8 byte)
+void sramWrite(uint32_t address, uint8_t byte)
 {
 	flashSaveMemory[address & 0xFFFF] = byte;
 }
@@ -514,7 +514,7 @@ void sramWrite(u32 address, u8 byte)
 ============================================================ */
 
 #if USE_MOTION_SENSOR
-static u16 gyro_data[3];
+static uint16_t gyro_data[3];
 
 static void gyroWritePins(unsigned pins)
 {
@@ -543,7 +543,7 @@ static void gyroReadPins(void)
 	hardware.gyroEdge = !!(hardware.pinState & 2);
 }
 
-bool gyroWrite(u32 address, u16 value)
+bool gyroWrite(uint32_t address, uint16_t value)
 {
    switch (address)
    {
@@ -571,7 +571,7 @@ bool gyroWrite(u32 address, u16 value)
    return true;
 }
 
-u16 gyroRead(u32 address)
+uint16_t gyroRead(uint32_t address)
 {
 	return gyro_data[(address - 0x80000c4) >> 1];
 }
@@ -588,18 +588,18 @@ u16 gyroRead(u32 address)
 
 typedef struct
 {
-	u8 byte0;
-	u8 byte1;
-	u8 byte2;
-	u8 command;
+	uint8_t byte0;
+	uint8_t byte1;
+	uint8_t byte2;
+	uint8_t command;
 	int dataLen;
 	int bits;
 	int state;
-	u8 data[12];
+	uint8_t data[12];
 	/* reserved variables for future */
-	u8 reserved[12];
+	uint8_t reserved[12];
 	bool reserved2;
-	u32 reserved3;
+	uint32_t reserved3;
 } RTCCLOCKDATA;
 
 static RTCCLOCKDATA rtcClockData;
@@ -615,7 +615,7 @@ bool rtcIsEnabled (void)
 	return rtcEnabled;
 }
 
-u16 rtcRead(u32 address)
+uint16_t rtcRead(uint32_t address)
 {
    if(rtcEnabled)
    {
@@ -633,7 +633,7 @@ u16 rtcRead(u32 address)
    return READ16LE((&rom[address & 0x1FFFFFE]));
 }
 
-static u8 toBCD(u8 value)
+static uint8_t toBCD(uint8_t value)
 {
 	value = value % 100;
 	int l = value % 10;
@@ -641,15 +641,15 @@ static u8 toBCD(u8 value)
 	return h * 16 + l;
 };
 
-bool rtcWrite(u32 address, u16 value)
+bool rtcWrite(uint32_t address, uint16_t value)
 {
    if(!rtcEnabled)
       return false;
 
    if(address == 0x80000c8)
-      rtcClockData.byte2 = (u8)value; /* enable ? */
+      rtcClockData.byte2 = (uint8_t)value; /* enable ? */
    else if(address == 0x80000c6)
-      rtcClockData.byte1 = (u8)value; /* read/write */
+      rtcClockData.byte1 = (uint8_t)value; /* read/write */
    else if(address == 0x80000c4)
    {
       if(rtcClockData.byte2 & 1)
@@ -663,7 +663,7 @@ bool rtcWrite(u32 address, u16 value)
          else if(!(rtcClockData.byte0 & 1) && (value & 1))
          {
             /* bit transfer */
-            rtcClockData.byte0 = (u8)value;
+            rtcClockData.byte0 = (uint8_t)value;
             switch(rtcClockData.state)
             {
                case COMMAND:
@@ -770,7 +770,7 @@ bool rtcWrite(u32 address, u16 value)
             }
          }
          else
-            rtcClockData.byte0 = (u8)value;
+            rtcClockData.byte0 = (uint8_t)value;
       }
    }
    return true;

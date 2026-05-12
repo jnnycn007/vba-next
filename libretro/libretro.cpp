@@ -528,8 +528,8 @@ void retro_reset(void)
 #define MAX_BUTTONS 10
 #define TURBO_BUTTONS 2
 static bool option_turboEnable;
-static u32 option_turboDelay;
-static u32 turbo_delay_counter;
+static uint32_t option_turboDelay;
+static uint32_t turbo_delay_counter;
 
 static const unsigned binds[MAX_BUTTONS] = {
 	RETRO_DEVICE_ID_JOYPAD_A,
@@ -589,7 +589,7 @@ static void update_variables(void)
 static void update_input(void)
 {
    /* Reset input states */
-   u32 J = 0;
+   uint32_t J = 0;
    int32_t joy_bits = 0;
    unsigned i;
 
@@ -734,7 +734,7 @@ void retro_cheat_set(unsigned index, bool enabled, const char *code)
    free(codeLine) ;
 }
 
-static u32 rom_size = 0;
+static uint32_t rom_size = 0;
 
 static void set_memory_maps(void)
 {

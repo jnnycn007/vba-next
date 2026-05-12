@@ -236,10 +236,10 @@ static void hardware_reset() {
 		ctx->background_ver = 0;
 		ctx->gfxinwin_ver[0] = 0;
 		ctx->gfxinwin_ver[1] = 0;
-		memset(ctx->line[Layer_BG0], -1, 240 * sizeof(u32));
-		memset(ctx->line[Layer_BG1], -1, 240 * sizeof(u32));
-		memset(ctx->line[Layer_BG2], -1, 240 * sizeof(u32));
-		memset(ctx->line[Layer_BG3], -1, 240 * sizeof(u32));
+		memset(ctx->line[Layer_BG0], -1, 240 * sizeof(uint32_t));
+		memset(ctx->line[Layer_BG1], -1, 240 * sizeof(uint32_t));
+		memset(ctx->line[Layer_BG2], -1, 240 * sizeof(uint32_t));
+		memset(ctx->line[Layer_BG3], -1, 240 * sizeof(uint32_t));
 	}
 
 	static renderer_context threaded_renderer_contexts[THREADED_RENDERER_COUNT];
@@ -375,7 +375,7 @@ static void hardware_reset() {
 	GBA INLINE
 ============================================================ */
 
-#define UPDATE_REG(address, value)	WRITE16LE(((u16 *)&ioMem[address]),value);
+#define UPDATE_REG(address, value)	WRITE16LE(((uint16_t *)&ioMem[address]),value);
 #define ARM_PREFETCH_NEXT		cpuPrefetch[1] = CPUReadMemoryQuick(bus.armNextPC+4);
 #define THUMB_PREFETCH_NEXT		cpuPrefetch[1] = CPUReadHalfWordQuick(bus.armNextPC+2);
 
@@ -400,13 +400,13 @@ static void hardware_reset() {
 	} \
 }
 
-static INLINE u32 gfxIncreaseBrightness(u32 color, int coeff) {
+static INLINE uint32_t gfxIncreaseBrightness(uint32_t color, int coeff) {
 	color = (((color & 0xffff) << 16) | (color & 0xffff)) & 0x3E07C1F;
 	color += ((((0x3E07C1F - color) * coeff) >> 4) & 0x3E07C1F);
 	return (color >> 16) | color;
 }
 
-static INLINE u32 gfxDecreaseBrightness(u32 color, int coeff) {
+static INLINE uint32_t gfxDecreaseBrightness(uint32_t color, int coeff) {
 	color = (((color & 0xffff) << 16) | (color & 0xffff)) & 0x3E07C1F;
 	color -= (((color * coeff) >> 4) & 0x3E07C1F);
 	return (color >> 16) | color;
@@ -632,7 +632,7 @@ uint32_t FORCE_INLINE SELECT(bool condition, uint32_t ifTrue, uint32_t ifFalse)
 	return (testmask & ifFalse) | (~testmask & ifTrue);
 }
 
-static u16 MOSAIC;
+static uint16_t MOSAIC;
 
 static uint16_t BG2X_L   = 0x0000;
 static uint16_t BG2X_H   = 0x0000;
@@ -747,7 +747,7 @@ static int gbaSaveType = 0; /* used to remember the save type on reset */
 #define DATATICKS_ACCESS_16BIT_SEQ(address) (memoryWaitSeq[(address >> 24) & 15])
 
 /* Waitstates when executing opcode */
-static INLINE int codeTicksAccess(u32 address, u8 bit32) /* THUMB NON SEQ */
+static INLINE int codeTicksAccess(uint32_t address, uint8_t bit32) /* THUMB NON SEQ */
 {
 	int addr = (address>>24) & 15;
 
@@ -772,7 +772,7 @@ static INLINE int codeTicksAccess(u32 address, u8 bit32) /* THUMB NON SEQ */
    return memoryWait[addr];
 }
 
-static INLINE int codeTicksAccessSeq16(u32 address) /* THUMB SEQ */
+static INLINE int codeTicksAccessSeq16(uint32_t address) /* THUMB SEQ */
 {
 	int addr = (address>>24) & 15;
 
@@ -795,7 +795,7 @@ static INLINE int codeTicksAccessSeq16(u32 address) /* THUMB SEQ */
 	return memoryWaitSeq[addr];
 }
 
-static INLINE int codeTicksAccessSeq32(u32 address) /* ARM SEQ */
+static INLINE int codeTicksAccessSeq32(uint32_t address) /* ARM SEQ */
 {
 	int addr = (address>>24)&15;
 
@@ -821,8 +821,8 @@ static INLINE int codeTicksAccessSeq32(u32 address) /* ARM SEQ */
 }
 
 #define CPUReadByteQuick(addr)		map[(addr)>>24].address[(addr) & map[(addr)>>24].mask]
-#define CPUReadHalfWordQuick(addr)	READ16LE(((u16*)&map[(addr)>>24].address[(addr) & map[(addr)>>24].mask]))
-#define CPUReadMemoryQuick(addr)	READ32LE(((u32*)&map[(addr)>>24].address[(addr) & map[(addr)>>24].mask]))
+#define CPUReadHalfWordQuick(addr)	READ16LE(((uint16_t*)&map[(addr)>>24].address[(addr) & map[(addr)>>24].mask]))
+#define CPUReadMemoryQuick(addr)	READ32LE(((uint32_t*)&map[(addr)>>24].address[(addr) & map[(addr)>>24].mask]))
 
 static bool stopState = false;
 extern bool cpuSramEnabled;
@@ -928,9 +928,9 @@ unreadable:
 }
 #endif
 
-static INLINE u32 CPUReadMemory(u32 address)
+static INLINE uint32_t CPUReadMemory(uint32_t address)
 {
-	u32 value;
+	uint32_t value;
 	switch(address >> 24)
 	{
 		case 0:
@@ -938,7 +938,7 @@ static INLINE u32 CPUReadMemory(u32 address)
 			if(bus.reg[15].I >> 24)
 			{
 				if(address < 0x4000)
-					value = READ32LE(((u32 *)&biosProtected));
+					value = READ32LE(((uint32_t *)&biosProtected));
 				else goto unreadable;
 			}
 			else
@@ -970,7 +970,7 @@ static INLINE u32 CPUReadMemory(u32 address)
 			break;
 		case 0x06: {
 			/* VRAM */
-			u32 addr = (address & 0x1fffc);
+			uint32_t addr = (address & 0x1fffc);
 			if ((R_DISPCNT_Video_Mode > 2) && ((addr & 0x1C000) == 0x18000))
 			{
 				value = 0;
@@ -1018,9 +1018,9 @@ unreadable:
 	return value;
 }
 
-static INLINE u32 CPUReadHalfWord(u32 address)
+static INLINE uint32_t CPUReadHalfWord(uint32_t address)
 {
-	u32 value;
+	uint32_t value;
 
 	switch(address >> 24)
 	{
@@ -1066,7 +1066,7 @@ static INLINE u32 CPUReadHalfWord(u32 address)
 			value = READ16LE(paletteRAM + (address & 0x3fe));
 			break;
 		case 6: {
-			u32 addr = (address & 0x1fffe);
+			uint32_t addr = (address & 0x1fffe);
 			if ((R_DISPCNT_Video_Mode > 2) && ((addr & 0x1C000) == 0x18000))
 			{
 				value = 0;
@@ -1125,15 +1125,15 @@ unreadable:
 	return value;
 }
 
-static INLINE u16 CPUReadHalfWordSigned(u32 address)
+static INLINE uint16_t CPUReadHalfWordSigned(uint32_t address)
 {
-	u16 value = CPUReadHalfWord(address);
+	uint16_t value = CPUReadHalfWord(address);
 	if((address & 1))
-		value = (s8)value;
+		value = (int8_t)value;
 	return value;
 }
 
-static INLINE u8 CPUReadByte(u32 address)
+static INLINE uint8_t CPUReadByte(uint32_t address)
 {
 	switch(address >> 24)
 	{
@@ -1205,7 +1205,7 @@ unreadable:
 	}
 }
 
-static INLINE void CPUWriteMemory(u32 address, u32 value)
+static INLINE void CPUWriteMemory(uint32_t address, uint32_t value)
 {
 	switch(address >> 24)
 	{
@@ -1247,14 +1247,14 @@ static INLINE void CPUWriteMemory(u32 address, u32 value)
 		case 0x0E:
 		case 0x0F:
 			if((!eepromInUse) | cpuSramEnabled | cpuFlashEnabled)
-				(*cpuSaveGameFunc)(address, (u8)value);
+				(*cpuSaveGameFunc)(address, (uint8_t)value);
 			break;
 		default:
 			break;
 	}
 }
 
-static INLINE void CPUWriteHalfWord(u32 address, u16 value)
+static INLINE void CPUWriteHalfWord(uint32_t address, uint16_t value)
 {
 	switch(address >> 24)
 	{
@@ -1299,19 +1299,19 @@ static INLINE void CPUWriteHalfWord(u32 address, u16 value)
 			break;
 		case 13:
 			if(cpuEEPROMEnabled)
-				eepromWrite((u8)value);
+				eepromWrite((uint8_t)value);
 			break;
 		case 14:
 		case 15:
 			if((!eepromInUse) | cpuSramEnabled | cpuFlashEnabled)
-				(*cpuSaveGameFunc)(address, (u8)value);
+				(*cpuSaveGameFunc)(address, (uint8_t)value);
 			break;
 		default:
 			break;
 	}
 }
 
-static INLINE void CPUWriteByte(u32 address, u8 b)
+static INLINE void CPUWriteByte(uint32_t address, uint8_t b)
 {
 	switch(address >> 24)
 	{
@@ -1379,7 +1379,7 @@ static INLINE void CPUWriteByte(u32 address, u8 b)
 						break;
 					default: /* every other register */
 						{
-							u32 lowerBits = address & 0x3fe;
+							uint32_t lowerBits = address & 0x3fe;
 							uint16_t param;
 							/* Read the unaffected half as a direct byte to avoid an
 							 * unnecessary READ16LE byteswap on BE: we discard one byte
@@ -1397,7 +1397,7 @@ static INLINE void CPUWriteByte(u32 address, u8 b)
 			break;
 		case 5:
 			/* no need to switch */
-			*(u16 *)(paletteRAM + (address & 0x3FE)) = (b << 8) | b;
+			*(uint16_t *)(paletteRAM + (address & 0x3FE)) = (b << 8) | b;
 			break;
 		case 6:
 			address = (address & 0x1fffe);
@@ -1409,12 +1409,12 @@ static INLINE void CPUWriteByte(u32 address, u8 b)
 			/* no need to switch */
 			/* byte writes to OBJ VRAM are ignored */
 			if ((address) < objTilesAddress[(R_DISPCNT_Video_Mode+1)>>2])
-				*(u16 *)(vram + address) = (b << 8) | b;
+				*(uint16_t *)(vram + address) = (b << 8) | b;
 			break;
 		case 7:
 			/* no need to switch */
 			/* byte writes to OAM are ignored */
-			/*    *((u16 *)&oam[address & 0x3FE]) = (b << 8) | b; */
+			/*    *((uint16_t *)&oam[address & 0x3FE]) = (b << 8) | b; */
 			break;
 		case 13:
 			if(cpuEEPROMEnabled)
@@ -1453,9 +1453,9 @@ static inline int16_t fast_cos(uint8_t val)
 
 static void BIOS_ArcTan (void)
 {
-	s32 i = bus.reg[0].I;
-	s32 a =  -((i * i) >> 14);
-	s32 b = ((0xA9 * a) >> 14) + 0x390;
+	int32_t i = bus.reg[0].I;
+	int32_t a =  -((i * i) >> 14);
+	int32_t b = ((0xA9 * a) >> 14) + 0x390;
 	b = ((b * a) >> 14) + 0x91C;
 	b = ((b * a) >> 14) + 0xFB6;
 	b = ((b * a) >> 14) + 0x16AA;
@@ -1474,19 +1474,19 @@ static void BIOS_Div (void)
 
 	if (denom != 0)
 	{
-      s32 temp;
+      int32_t temp;
 		bus.reg[0].I = number / denom;
 		bus.reg[1].I = number % denom;
-		temp         = (s32)bus.reg[0].I;
-		bus.reg[3].I = temp < 0 ? (u32)-temp : (u32)temp;
+		temp         = (int32_t)bus.reg[0].I;
+		bus.reg[3].I = temp < 0 ? (uint32_t)-temp : (uint32_t)temp;
 	}
 }
 
 static void BIOS_ArcTan2 (void)
 {
-	s32 x = bus.reg[0].I;
-	s32 y = bus.reg[1].I;
-	u32 res = 0;
+	int32_t x = bus.reg[0].I;
+	int32_t y = bus.reg[1].I;
+	uint32_t res = 0;
 	if (y == 0)
 		res = ((x>>16) & 0x8000);
 	else
@@ -1521,9 +1521,9 @@ static void BIOS_ArcTan2 (void)
 
 static void BIOS_BitUnPack(void)
 {
-	u32 source = bus.reg[0].I;
-	u32 dest   = bus.reg[1].I;
-	u32 header = bus.reg[2].I;
+	uint32_t source = bus.reg[0].I;
+	uint32_t dest   = bus.reg[1].I;
+	uint32_t header = bus.reg[2].I;
 	int len    = CPUReadHalfWord(header);
 	/* check address */
    if(       ((source & 0xe000000)        == 0)
@@ -1533,8 +1533,8 @@ static void BIOS_BitUnPack(void)
 
 	int bits          = CPUReadByte(header+2);
 	int revbits       = 8 - bits;
-	/* u32 value = 0; */
-	u32 base          = CPUReadMemory(header+4);
+	/* uint32_t value = 0; */
+	uint32_t base          = CPUReadMemory(header+4);
 	bool addBase      = (base & 0x80000000) ? true : false;
 	base &= 0x7fffffff;
 	int dataSize      = CPUReadByte(header+3);
@@ -1546,14 +1546,14 @@ static void BIOS_BitUnPack(void)
 		if(len < 0)
 			break;
 		int mask = 0xff >> revbits;
-		u8 b = CPUReadByte(source);
+		uint8_t b = CPUReadByte(source);
 		source++;
 		int bitcount = 0;
 		while(1) {
 			if(bitcount >= 8)
 				break;
-			u32 d = b & mask;
-			u32 temp = d >> bitcount;
+			uint32_t d = b & mask;
+			uint32_t temp = d >> bitcount;
 			if(d || addBase) {
 				temp += base;
 			}
@@ -1574,33 +1574,33 @@ static void BIOS_BitUnPack(void)
 static void BIOS_BgAffineSet (void)
 {
    int i;
-	u32 src  = bus.reg[0].I;
-	u32 dest = bus.reg[1].I;
+	uint32_t src  = bus.reg[0].I;
+	uint32_t dest = bus.reg[1].I;
 	int num  = bus.reg[2].I;
 
 	for(i = 0; i < num; i++)
 	{
-		s32 cx = CPUReadMemory(src);
+		int32_t cx = CPUReadMemory(src);
 		src+=4;
-		s32 cy = CPUReadMemory(src);
+		int32_t cy = CPUReadMemory(src);
 		src+=4;
-		s16 dispx = CPUReadHalfWord(src);
+		int16_t dispx = CPUReadHalfWord(src);
 		src+=2;
-		s16 dispy = CPUReadHalfWord(src);
+		int16_t dispy = CPUReadHalfWord(src);
 		src+=2;
-		s16 rx = CPUReadHalfWord(src);
+		int16_t rx = CPUReadHalfWord(src);
 		src+=2;
-		s16 ry = CPUReadHalfWord(src);
+		int16_t ry = CPUReadHalfWord(src);
 		src+=2;
-		u16 theta = CPUReadHalfWord(src)>>8;
+		uint16_t theta = CPUReadHalfWord(src)>>8;
 		src+=4; /* keep structure alignment */
-		s32 a = fast_cos(theta);
-		s32 b = fast_sin(theta);
+		int32_t a = fast_cos(theta);
+		int32_t b = fast_sin(theta);
 
-		s16 dx =  (rx * a)>>14;
-		s16 dmx = (rx * b)>>14;
-		s16 dy =  (ry * b)>>14;
-		s16 dmy = (ry * a)>>14;
+		int16_t dx =  (rx * a)>>14;
+		int16_t dmx = (rx * b)>>14;
+		int16_t dy =  (ry * b)>>14;
+		int16_t dmy = (ry * a)>>14;
 
 		CPUWriteHalfWord(dest, dx);
 		dest += 2;
@@ -1612,8 +1612,8 @@ static void BIOS_BgAffineSet (void)
 
 		dest += 2;
 
-		s32 startx = cx - dx * dispx + dmx * dispy;
-		s32 starty = cy - dy * dispx - dmy * dispy;
+		int32_t startx = cx - dx * dispx + dmx * dispy;
+		int32_t starty = cy - dy * dispx - dmy * dispy;
 
 		CPUWriteMemory(dest, startx);
 		dest += 4;
@@ -1624,9 +1624,9 @@ static void BIOS_BgAffineSet (void)
 
 static void BIOS_CpuSet (void)
 {
-	u32 source = bus.reg[0].I;
-	u32 dest   = bus.reg[1].I;
-	u32 cnt    = bus.reg[2].I;
+	uint32_t source = bus.reg[0].I;
+	uint32_t dest   = bus.reg[1].I;
+	uint32_t cnt    = bus.reg[2].I;
 	int count  = cnt & 0x1FFFFF;
 
 	/* 32-bit ? */
@@ -1637,7 +1637,7 @@ static void BIOS_CpuSet (void)
 		dest   &= 0xFFFFFFFC;
 		/* fill ? */
 		if((cnt >> 24) & 1) {
-			u32 value = (source>0x0EFFFFFF ? 0x1CAD1CAD : CPUReadMemory(source));
+			uint32_t value = (source>0x0EFFFFFF ? 0x1CAD1CAD : CPUReadMemory(source));
 			while(count > 0) {
 				CPUWriteMemory(dest, value);
 				dest += 4;
@@ -1674,7 +1674,7 @@ static void BIOS_CpuSet (void)
 	{
 		/* 16-bit fill? */
 		if((cnt >> 24) & 1) {
-			u16 value = (source>0x0EFFFFFF ? 0x1CAD : CPUReadHalfWord(source));
+			uint16_t value = (source>0x0EFFFFFF ? 0x1CAD : CPUReadHalfWord(source));
 			while(count > 0) {
 				CPUWriteHalfWord(dest, value);
 				dest += 2;
@@ -1711,9 +1711,9 @@ static void BIOS_CpuSet (void)
 
 static void BIOS_CpuFastSet (void)
 {
-	u32 source = bus.reg[0].I;
-	u32 dest   = bus.reg[1].I;
-	u32 cnt    = bus.reg[2].I;
+	uint32_t source = bus.reg[0].I;
+	uint32_t dest   = bus.reg[1].I;
+	uint32_t cnt    = bus.reg[2].I;
 
 	/* needed for 32-bit mode! */
 	source    &= 0xFFFFFFFC;
@@ -1725,7 +1725,7 @@ static void BIOS_CpuFastSet (void)
 	if((cnt >> 24) & 1) {
 		while(count > 0) {
 			/* BIOS always transfers 32 bytes at a time */
-			u32 value = (source>0x0EFFFFFF ? 0xBAFFFFFB : CPUReadMemory(source));
+			uint32_t value = (source>0x0EFFFFFF ? 0xBAFFFFFB : CPUReadMemory(source));
 			for(int i = 0; i < 8; i++) {
 				CPUWriteMemory(dest, value);
 				dest += 4;
@@ -1769,9 +1769,9 @@ static void BIOS_CpuFastSet (void)
 
 static void BIOS_Diff8bitUnFilterWram (void)
 {
-	u32 source = bus.reg[0].I;
-	u32 dest   = bus.reg[1].I;
-	u32 header = CPUReadMemory(source);
+	uint32_t source = bus.reg[0].I;
+	uint32_t dest   = bus.reg[1].I;
+	uint32_t header = CPUReadMemory(source);
 	source    += 4;
 
 	if(((source & 0xe000000) == 0) ||
@@ -1780,12 +1780,12 @@ static void BIOS_Diff8bitUnFilterWram (void)
 
 	int len = header >> 8;
 
-	u8 data = CPUReadByte(source++);
+	uint8_t data = CPUReadByte(source++);
 	CPUWriteByte(dest++, data);
 	len--;
 
 	while(len > 0) {
-		u8 diff = CPUReadByte(source++);
+		uint8_t diff = CPUReadByte(source++);
 		data += diff;
 		CPUWriteByte(dest++, data);
 		len--;
@@ -1794,10 +1794,10 @@ static void BIOS_Diff8bitUnFilterWram (void)
 
 static void BIOS_Diff8bitUnFilterVram (void)
 {
-	u32 source = bus.reg[0].I;
-	u32 dest = bus.reg[1].I;
+	uint32_t source = bus.reg[0].I;
+	uint32_t dest = bus.reg[1].I;
 
-	u32 header = CPUReadMemory(source);
+	uint32_t header = CPUReadMemory(source);
 	source += 4;
 
 	if(((source & 0xe000000) == 0) ||
@@ -1806,13 +1806,13 @@ static void BIOS_Diff8bitUnFilterVram (void)
 
 	int len = header >> 8;
 
-	u8 data = CPUReadByte(source++);
-	u16 writeData = data;
+	uint8_t data = CPUReadByte(source++);
+	uint16_t writeData = data;
 	int shift = 8;
 	int bytes = 1;
 
 	while(len >= 2) {
-		u8 diff = CPUReadByte(source++);
+		uint8_t diff = CPUReadByte(source++);
 		data += diff;
 		writeData |= (data << shift);
 		bytes++;
@@ -1830,10 +1830,10 @@ static void BIOS_Diff8bitUnFilterVram (void)
 
 static void BIOS_Diff16bitUnFilter (void)
 {
-	u32 source = bus.reg[0].I;
-	u32 dest = bus.reg[1].I;
+	uint32_t source = bus.reg[0].I;
+	uint32_t dest = bus.reg[1].I;
 
-	u32 header = CPUReadMemory(source);
+	uint32_t header = CPUReadMemory(source);
 	source += 4;
 
 	if(((source & 0xe000000) == 0) ||
@@ -1842,14 +1842,14 @@ static void BIOS_Diff16bitUnFilter (void)
 
 	int len = header >> 8;
 
-	u16 data = CPUReadHalfWord(source);
+	uint16_t data = CPUReadHalfWord(source);
 	source += 2;
 	CPUWriteHalfWord(dest, data);
 	dest += 2;
 	len -= 2;
 
 	while(len >= 2) {
-		u16 diff = CPUReadHalfWord(source);
+		uint16_t diff = CPUReadHalfWord(source);
 		source += 2;
 		data += diff;
 		CPUWriteHalfWord(dest, data);
@@ -1860,35 +1860,35 @@ static void BIOS_Diff16bitUnFilter (void)
 
 static void BIOS_HuffUnComp (void)
 {
-	u32 source = bus.reg[0].I;
-	u32 dest = bus.reg[1].I;
+	uint32_t source = bus.reg[0].I;
+	uint32_t dest = bus.reg[1].I;
 
-	u32 header = CPUReadMemory(source);
+	uint32_t header = CPUReadMemory(source);
 	source += 4;
 
 	if(((source & 0xe000000) == 0) ||
 	((source + ((header >> 8) & 0x1fffff)) & 0xe000000) == 0)
 		return;
 
-	u8 treeSize = CPUReadByte(source++);
+	uint8_t treeSize = CPUReadByte(source++);
 
-	u32 treeStart = source;
+	uint32_t treeStart = source;
 
 	source += ((treeSize+1)<<1)-1; /* minus because we already skipped one byte */
 
 	int len = header >> 8;
 
-	u32 mask = 0x80000000;
-	u32 data = CPUReadMemory(source);
+	uint32_t mask = 0x80000000;
+	uint32_t data = CPUReadMemory(source);
 	source += 4;
 
 	int pos = 0;
-	u8 rootNode = CPUReadByte(treeStart);
-	u8 currentNode = rootNode;
+	uint8_t rootNode = CPUReadByte(treeStart);
+	uint8_t currentNode = rootNode;
 	bool writeData = false;
 	int byteShift = 0;
 	int byteCount = 0;
-	u32 writeValue = 0;
+	uint32_t writeValue = 0;
 
 	if((header & 0x0F) == 8) {
 		while(len > 0) {
@@ -1998,10 +1998,10 @@ static void BIOS_HuffUnComp (void)
 static void BIOS_LZ77UnCompVram (void)
 {
 
-	u32 source = bus.reg[0].I;
-	u32 dest = bus.reg[1].I;
+	uint32_t source = bus.reg[0].I;
+	uint32_t dest = bus.reg[1].I;
 
-	u32 header = CPUReadMemory(source);
+	uint32_t header = CPUReadMemory(source);
 	source += 4;
 
 	if(((source & 0xe000000) == 0) ||
@@ -2010,21 +2010,21 @@ static void BIOS_LZ77UnCompVram (void)
 
 	int byteCount = 0;
 	int byteShift = 0;
-	u32 writeValue = 0;
+	uint32_t writeValue = 0;
 
 	int len = header >> 8;
 
 	while(len > 0) {
-		u8 d = CPUReadByte(source++);
+		uint8_t d = CPUReadByte(source++);
 
 		if(d) {
 			for(int i = 0; i < 8; i++) {
 				if(d & 0x80) {
-					u16 data = CPUReadByte(source++) << 8;
+					uint16_t data = CPUReadByte(source++) << 8;
 					data |= CPUReadByte(source++);
 					int length = (data >> 12) + 3;
 					int offset = (data & 0x0FFF);
-					u32 windowOffset = dest + byteCount - offset - 1;
+					uint32_t windowOffset = dest + byteCount - offset - 1;
 					for(int i2 = 0; i2 < length; i2++) {
 						writeValue |= (CPUReadByte(windowOffset++) << byteShift);
 						byteShift += 8;
@@ -2080,10 +2080,10 @@ static void BIOS_LZ77UnCompVram (void)
 
 static void BIOS_LZ77UnCompWram (void)
 {
-	u32 source = bus.reg[0].I;
-	u32 dest = bus.reg[1].I;
+	uint32_t source = bus.reg[0].I;
+	uint32_t dest = bus.reg[1].I;
 
-	u32 header = CPUReadMemory(source);
+	uint32_t header = CPUReadMemory(source);
 	source += 4;
 
 	if(((source & 0xe000000) == 0) ||
@@ -2093,16 +2093,16 @@ static void BIOS_LZ77UnCompWram (void)
 	int len = header >> 8;
 
 	while(len > 0) {
-		u8 d = CPUReadByte(source++);
+		uint8_t d = CPUReadByte(source++);
 
 		if(d) {
 			for(int i = 0; i < 8; i++) {
 				if(d & 0x80) {
-					u16 data = CPUReadByte(source++) << 8;
+					uint16_t data = CPUReadByte(source++) << 8;
 					data |= CPUReadByte(source++);
 					int length = (data >> 12) + 3;
 					int offset = (data & 0x0FFF);
-					u32 windowOffset = dest - offset - 1;
+					uint32_t windowOffset = dest - offset - 1;
 					for(int i2 = 0; i2 < length; i2++) {
 						CPUWriteByte(dest++, CPUReadByte(windowOffset++));
 						len--;
@@ -2130,26 +2130,26 @@ static void BIOS_LZ77UnCompWram (void)
 
 static void BIOS_ObjAffineSet (void)
 {
-	u32 src = bus.reg[0].I;
-	u32 dest = bus.reg[1].I;
+	uint32_t src = bus.reg[0].I;
+	uint32_t dest = bus.reg[1].I;
 	int num = bus.reg[2].I;
 	int offset = bus.reg[3].I;
 
 	for(int i = 0; i < num; i++) {
-		s16 rx = CPUReadHalfWord(src);
+		int16_t rx = CPUReadHalfWord(src);
 		src+=2;
-		s16 ry = CPUReadHalfWord(src);
+		int16_t ry = CPUReadHalfWord(src);
 		src+=2;
-		u16 theta = CPUReadHalfWord(src)>>8;
+		uint16_t theta = CPUReadHalfWord(src)>>8;
 		src+=4; /* keep structure alignment */
 
-		s32 a = fast_cos(theta);
-		s32 b = fast_sin(theta);
+		int32_t a = fast_cos(theta);
+		int32_t b = fast_sin(theta);
 
-		s16 dx =  ((s32)rx * a)>>14;
-		s16 dmx = ((s32)rx * b)>>14;
-		s16 dy =  ((s32)ry * b)>>14;
-		s16 dmy = ((s32)ry * a)>>14;
+		int16_t dx =  ((int32_t)rx * a)>>14;
+		int16_t dmx = ((int32_t)rx * b)>>14;
+		int16_t dy =  ((int32_t)ry * b)>>14;
+		int16_t dmy = ((int32_t)ry * a)>>14;
 
 		CPUWriteHalfWord(dest, dx);
 		dest += offset;
@@ -2162,7 +2162,7 @@ static void BIOS_ObjAffineSet (void)
 	}
 }
 
-static void BIOS_RegisterRamReset(u32 flags)
+static void BIOS_RegisterRamReset(uint32_t flags)
 {
 	/* no need to trace here. this is only called directly from GBA.cpp */
 	/* to emulate bios initialization */
@@ -2235,10 +2235,10 @@ static void BIOS_RegisterRamReset(u32 flags)
 
 static void BIOS_RLUnCompVram (void)
 {
-	u32 source = bus.reg[0].I;
-	u32 dest = bus.reg[1].I;
+	uint32_t source = bus.reg[0].I;
+	uint32_t dest = bus.reg[1].I;
 
-	u32 header = CPUReadMemory(source & 0xFFFFFFFC);
+	uint32_t header = CPUReadMemory(source & 0xFFFFFFFC);
 	source += 4;
 
 	if(((source & 0xe000000) == 0) ||
@@ -2248,14 +2248,14 @@ static void BIOS_RLUnCompVram (void)
 	int len = header >> 8;
 	int byteCount = 0;
 	int byteShift = 0;
-	u32 writeValue = 0;
+	uint32_t writeValue = 0;
 
 	while(len > 0)
 	{
-		u8 d = CPUReadByte(source++);
+		uint8_t d = CPUReadByte(source++);
 		int l = d & 0x7F;
 		if(d & 0x80) {
-			u8 data = CPUReadByte(source++);
+			uint8_t data = CPUReadByte(source++);
 			l += 3;
 			for(int i = 0;i < l; i++) {
 				writeValue |= (data << byteShift);
@@ -2296,10 +2296,10 @@ static void BIOS_RLUnCompVram (void)
 
 static void BIOS_RLUnCompWram (void)
 {
-	u32 source = bus.reg[0].I;
-	u32 dest = bus.reg[1].I;
+	uint32_t source = bus.reg[0].I;
+	uint32_t dest = bus.reg[1].I;
 
-	u32 header = CPUReadMemory(source & 0xFFFFFFFC);
+	uint32_t header = CPUReadMemory(source & 0xFFFFFFFC);
 	source += 4;
 
 	if(((source & 0xe000000) == 0) ||
@@ -2309,10 +2309,10 @@ static void BIOS_RLUnCompWram (void)
 	int len = header >> 8;
 
 	while(len > 0) {
-		u8 d = CPUReadByte(source++);
+		uint8_t d = CPUReadByte(source++);
 		int l = d & 0x7F;
 		if(d & 0x80) {
-			u8 data = CPUReadByte(source++);
+			uint8_t data = CPUReadByte(source++);
 			l += 3;
 			for(int i = 0;i < l; i++) {
 				CPUWriteByte(dest++, data);
@@ -2347,7 +2347,7 @@ static void BIOS_SoftReset (void)
 	bus.reg[R13_SVC].I = 0x03007FE0;
 	bus.reg[R14_SVC].I = 0x00000000;
 	bus.reg[SPSR_SVC].I = 0x00000000;
-	u8 b = internalRAM[0x7ffa];
+	uint8_t b = internalRAM[0x7ffa];
 
 	memset(&internalRAM[0x7e00], 0, 0x200);
 
@@ -2364,7 +2364,7 @@ static void BIOS_SoftReset (void)
 
 #define BIOS_REGISTER_RAM_RESET() BIOS_RegisterRamReset(bus.reg[0].I);
 
-#define BIOS_SQRT() bus.reg[0].I = (u32)sqrt((float)bus.reg[0].I);
+#define BIOS_SQRT() bus.reg[0].I = (uint32_t)sqrt((float)bus.reg[0].I);
 
 #define BIOS_MIDI_KEY_2_FREQ() \
 { \
@@ -2669,9 +2669,9 @@ static void CPUSoftwareInterrupt(int comment)
  #define offset offset_
 #endif
 
-static void armUnknownInsn(u32 opcode)
+static void armUnknownInsn(uint32_t opcode)
 {
-	u32 PC = bus.reg[15].I;
+	uint32_t PC = bus.reg[15].I;
 	bool savedArmState = armState;
 	if(armMode != 0x1b )
 		CPUSwitchMode(0x1b, true, false);
@@ -2714,11 +2714,11 @@ static void armUnknownInsn(u32 opcode)
 /* C core */
 
 #define C_SETCOND_LOGICAL \
-    N_FLAG = ((s32)res < 0) ? true : false;             \
+    N_FLAG = ((int32_t)res < 0) ? true : false;             \
     Z_FLAG = (res == 0) ? true : false;                 \
     C_FLAG = C_OUT;
 #define C_SETCOND_ADD \
-    N_FLAG = ((s32)res < 0) ? true : false;             \
+    N_FLAG = ((int32_t)res < 0) ? true : false;             \
     Z_FLAG = (res == 0) ? true : false;                 \
     V_FLAG = ((NEG(lhs) & NEG(rhs) & POS(res)) |        \
               (POS(lhs) & POS(rhs) & NEG(res))) ? true : false;\
@@ -2726,7 +2726,7 @@ static void armUnknownInsn(u32 opcode)
               (NEG(lhs) & POS(res)) |                   \
               (NEG(rhs) & POS(res))) ? true : false;
 #define C_SETCOND_SUB \
-    N_FLAG = ((s32)res < 0) ? true : false;             \
+    N_FLAG = ((int32_t)res < 0) ? true : false;             \
     Z_FLAG = (res == 0) ? true : false;                 \
     V_FLAG = ((NEG(lhs) & POS(rhs) & POS(res)) |        \
               (POS(lhs) & NEG(rhs) & NEG(res))) ? true : false;\
@@ -2738,7 +2738,7 @@ static void armUnknownInsn(u32 opcode)
  #define ALU_INIT_C \
     int dest = (opcode>>12) & 15;                       \
     bool C_OUT = C_FLAG;                                \
-    u32 value;
+    uint32_t value;
 #endif
 /* OP Rd,Rb,Rm LSL # */
 #ifndef VALUE_LSL_IMM_C
@@ -2747,7 +2747,7 @@ static void armUnknownInsn(u32 opcode)
     if (!shift) {  /* LSL #0 most common? */    \
         value = bus.reg[opcode & 0x0F].I;                   \
     } else {                                            \
-        u32 v = bus.reg[opcode & 0x0F].I;                   \
+        uint32_t v = bus.reg[opcode & 0x0F].I;                   \
         C_OUT = (v >> (32 - shift)) & 1 ? true : false; \
         value = v << shift;                             \
     }
@@ -2755,8 +2755,8 @@ static void armUnknownInsn(u32 opcode)
 /* OP Rd,Rb,Rm LSL Rs */
 #ifndef VALUE_LSL_REG_C
  #define VALUE_LSL_REG_C \
-    u32 shift = bus.reg[(opcode >> 8) & 15].I & 0xFF;                \
-    u32 rm = bus.reg[opcode & 0x0F].I;                           \
+    uint32_t shift = bus.reg[(opcode >> 8) & 15].I & 0xFF;                \
+    uint32_t rm = bus.reg[opcode & 0x0F].I;                           \
     if ((opcode & 0x0F) == 15) {                             \
         rm += 4;                                             \
     }                                                        \
@@ -2765,7 +2765,7 @@ static void armUnknownInsn(u32 opcode)
             value = 0;                                       \
             C_OUT = (rm & 1 ? true : false);                 \
         } else if (shift < 32) {                     \
-            u32 v = rm;                                      \
+            uint32_t v = rm;                                      \
             C_OUT = (v >> (32 - shift)) & 1 ? true : false;  \
             value = v << shift;                              \
         } else {                                             \
@@ -2779,9 +2779,9 @@ static void armUnknownInsn(u32 opcode)
 /* OP Rd,Rb,Rm LSR # */
 #ifndef VALUE_LSR_IMM_C
  #define VALUE_LSR_IMM_C \
-    u32 shift = (opcode >> 7) & 0x1F;          \
+    uint32_t shift = (opcode >> 7) & 0x1F;          \
     if (shift) {                                \
-        u32 v = bus.reg[opcode & 0x0F].I;                   \
+        uint32_t v = bus.reg[opcode & 0x0F].I;                   \
         C_OUT = (v >> (shift - 1)) & 1 ? true : false;  \
         value = v >> shift;                             \
     } else {                                            \
@@ -2793,7 +2793,7 @@ static void armUnknownInsn(u32 opcode)
 #ifndef VALUE_LSR_REG_C
  #define VALUE_LSR_REG_C \
     unsigned int shift = bus.reg[(opcode >> 8) & 15].I & 0xFF;  \
-    u32 rm = bus.reg[opcode & 0x0F].I;                      \
+    uint32_t rm = bus.reg[opcode & 0x0F].I;                      \
     if ((opcode & 0x0F) == 15) {                        \
         rm += 4;                                        \
     }                                                   \
@@ -2802,7 +2802,7 @@ static void armUnknownInsn(u32 opcode)
             value = 0;                                  \
             C_OUT = (rm & 0x80000000 ? true : false);   \
         } else if (shift < 32) {                \
-            u32 v = rm;                                 \
+            uint32_t v = rm;                                 \
             C_OUT = (v >> (shift - 1)) & 1 ? true : false;\
             value = v >> shift;                         \
         } else {                                        \
@@ -2818,7 +2818,7 @@ static void armUnknownInsn(u32 opcode)
  #define VALUE_ASR_IMM_C \
     unsigned int shift = (opcode >> 7) & 0x1F;          \
     if (shift) {                                        \
-        s32 v = bus.reg[opcode & 0x0F].I;                   \
+        int32_t v = bus.reg[opcode & 0x0F].I;                   \
         C_OUT = (v >> (int)(shift - 1)) & 1 ? true : false;\
         value = v >> (int)shift;                        \
     } else {                                            \
@@ -2835,13 +2835,13 @@ static void armUnknownInsn(u32 opcode)
 #ifndef VALUE_ASR_REG_C
  #define VALUE_ASR_REG_C \
     unsigned int shift = bus.reg[(opcode >> 8)&15].I & 0xFF;    \
-    u32 rm = bus.reg[opcode & 0x0F].I;                      \
+    uint32_t rm = bus.reg[opcode & 0x0F].I;                      \
     if ((opcode & 0x0F) == 15) {                        \
         rm += 4;                                        \
     }                                                   \
     if (shift < 32) {                           \
         if (shift) {                            \
-            s32 v = rm;                                 \
+            int32_t v = rm;                                 \
             C_OUT = (v >> (int)(shift - 1)) & 1 ? true : false;\
             value = v >> (int)shift;                    \
         } else {                                        \
@@ -2862,12 +2862,12 @@ static void armUnknownInsn(u32 opcode)
  #define VALUE_ROR_IMM_C \
     unsigned int shift = (opcode >> 7) & 0x1F;          \
     if (shift) {                                \
-        u32 v = bus.reg[opcode & 0x0F].I;                   \
+        uint32_t v = bus.reg[opcode & 0x0F].I;                   \
         C_OUT = (v >> (shift - 1)) & 1 ? true : false;  \
         value = ((v << (32 - shift)) |                  \
                  (v >> shift));                         \
     } else {                                            \
-        u32 v = bus.reg[opcode & 0x0F].I;                   \
+        uint32_t v = bus.reg[opcode & 0x0F].I;                   \
         C_OUT = (v & 1) ? true : false;                 \
         value = ((v >> 1) |                             \
                  (C_FLAG << 31));                       \
@@ -2877,12 +2877,12 @@ static void armUnknownInsn(u32 opcode)
 #ifndef VALUE_ROR_REG_C
  #define VALUE_ROR_REG_C \
     unsigned int shift = bus.reg[(opcode >> 8)&15].I & 0xFF;    \
-    u32 rm = bus.reg[opcode & 0x0F].I;                      \
+    uint32_t rm = bus.reg[opcode & 0x0F].I;                      \
     if ((opcode & 0x0F) == 15) {                        \
         rm += 4;                                        \
     }                                                   \
     if (shift & 0x1F) {                         \
-        u32 v = rm;                                     \
+        uint32_t v = rm;                                     \
         C_OUT = (v >> (shift - 1)) & 1 ? true : false;  \
         value = ((v << (32 - shift)) |                  \
                  (v >> shift));                         \
@@ -2897,7 +2897,7 @@ static void armUnknownInsn(u32 opcode)
  #define VALUE_IMM_C \
     int shift = (opcode & 0xF00) >> 7;                  \
     if (shift) {                              \
-        u32 v = opcode & 0xFF;                          \
+        uint32_t v = opcode & 0xFF;                          \
         C_OUT = (v >> (shift - 1)) & 1 ? true : false;  \
         value = ((v << (32 - shift)) |                  \
                  (v >> shift));                         \
@@ -2942,7 +2942,7 @@ static void armUnknownInsn(u32 opcode)
 #define C_CHECK_PC(SETCOND) if (dest != 15) { SETCOND }
 #ifndef OP_AND
  #define OP_AND \
-    u32 res = bus.reg[(opcode>>16)&15].I & value;           \
+    uint32_t res = bus.reg[(opcode>>16)&15].I & value;           \
     bus.reg[dest].I = res;
 #endif
 #ifndef OP_ANDS
@@ -2950,7 +2950,7 @@ static void armUnknownInsn(u32 opcode)
 #endif
 #ifndef OP_EOR
  #define OP_EOR \
-    u32 res = bus.reg[(opcode>>16)&15].I ^ value;           \
+    uint32_t res = bus.reg[(opcode>>16)&15].I ^ value;           \
     bus.reg[dest].I = res;
 #endif
 #ifndef OP_EORS
@@ -2958,9 +2958,9 @@ static void armUnknownInsn(u32 opcode)
 #endif
 #ifndef OP_SUB
  #define OP_SUB \
-    u32 lhs = bus.reg[(opcode>>16)&15].I;                   \
-    u32 rhs = value;                                    \
-    u32 res = lhs - rhs;                                \
+    uint32_t lhs = bus.reg[(opcode>>16)&15].I;                   \
+    uint32_t rhs = value;                                    \
+    uint32_t res = lhs - rhs;                                \
     bus.reg[dest].I = res;
 #endif
 #ifndef OP_SUBS
@@ -2968,9 +2968,9 @@ static void armUnknownInsn(u32 opcode)
 #endif
 #ifndef OP_RSB
  #define OP_RSB \
-    u32 lhs = value;                                    \
-    u32 rhs = bus.reg[(opcode>>16)&15].I;               \
-    u32 res = lhs - rhs;                                \
+    uint32_t lhs = value;                                    \
+    uint32_t rhs = bus.reg[(opcode>>16)&15].I;               \
+    uint32_t res = lhs - rhs;                                \
     bus.reg[dest].I = res;
 #endif
 #ifndef OP_RSBS
@@ -2978,9 +2978,9 @@ static void armUnknownInsn(u32 opcode)
 #endif
 #ifndef OP_ADD
  #define OP_ADD \
-    u32 lhs = bus.reg[(opcode>>16)&15].I;                   \
-    u32 rhs = value;                                    \
-    u32 res = lhs + rhs;                                \
+    uint32_t lhs = bus.reg[(opcode>>16)&15].I;                   \
+    uint32_t rhs = value;                                    \
+    uint32_t res = lhs + rhs;                                \
     bus.reg[dest].I = res;
 #endif
 #ifndef OP_ADDS
@@ -2988,9 +2988,9 @@ static void armUnknownInsn(u32 opcode)
 #endif
 #ifndef OP_ADC
  #define OP_ADC \
-    u32 lhs = bus.reg[(opcode>>16)&15].I;                   \
-    u32 rhs = value;                                    \
-    u32 res = lhs + rhs + (u32)C_FLAG;                  \
+    uint32_t lhs = bus.reg[(opcode>>16)&15].I;                   \
+    uint32_t rhs = value;                                    \
+    uint32_t res = lhs + rhs + (uint32_t)C_FLAG;                  \
     bus.reg[dest].I = res;
 #endif
 #ifndef OP_ADCS
@@ -2998,9 +2998,9 @@ static void armUnknownInsn(u32 opcode)
 #endif
 #ifndef OP_SBC
  #define OP_SBC \
-    u32 lhs = bus.reg[(opcode>>16)&15].I;                   \
-    u32 rhs = value;                                    \
-    u32 res = lhs - rhs - !((u32)C_FLAG);               \
+    uint32_t lhs = bus.reg[(opcode>>16)&15].I;                   \
+    uint32_t rhs = value;                                    \
+    uint32_t res = lhs - rhs - !((uint32_t)C_FLAG);               \
     bus.reg[dest].I = res;
 #endif
 #ifndef OP_SBCS
@@ -3008,9 +3008,9 @@ static void armUnknownInsn(u32 opcode)
 #endif
 #ifndef OP_RSC
  #define OP_RSC \
-    u32 lhs = value;                                    \
-    u32 rhs = bus.reg[(opcode>>16)&15].I;                   \
-    u32 res = lhs - rhs - !((u32)C_FLAG);               \
+    uint32_t lhs = value;                                    \
+    uint32_t rhs = bus.reg[(opcode>>16)&15].I;                   \
+    uint32_t res = lhs - rhs - !((uint32_t)C_FLAG);               \
     bus.reg[dest].I = res;
 #endif
 #ifndef OP_RSCS
@@ -3018,31 +3018,31 @@ static void armUnknownInsn(u32 opcode)
 #endif
 #ifndef OP_TST
  #define OP_TST \
-    u32 res = bus.reg[(opcode >> 16) & 0x0F].I & value;     \
+    uint32_t res = bus.reg[(opcode >> 16) & 0x0F].I & value;     \
     C_SETCOND_LOGICAL;
 #endif
 #ifndef OP_TEQ
  #define OP_TEQ \
-    u32 res = bus.reg[(opcode >> 16) & 0x0F].I ^ value;     \
+    uint32_t res = bus.reg[(opcode >> 16) & 0x0F].I ^ value;     \
     C_SETCOND_LOGICAL;
 #endif
 #ifndef OP_CMP
  #define OP_CMP \
-    u32 lhs = bus.reg[(opcode>>16)&15].I;                   \
-    u32 rhs = value;                                    \
-    u32 res = lhs - rhs;                                \
+    uint32_t lhs = bus.reg[(opcode>>16)&15].I;                   \
+    uint32_t rhs = value;                                    \
+    uint32_t res = lhs - rhs;                                \
     C_SETCOND_SUB;
 #endif
 #ifndef OP_CMN
  #define OP_CMN \
-    u32 lhs = bus.reg[(opcode>>16)&15].I;                   \
-    u32 rhs = value;                                    \
-    u32 res = lhs + rhs;                                \
+    uint32_t lhs = bus.reg[(opcode>>16)&15].I;                   \
+    uint32_t rhs = value;                                    \
+    uint32_t res = lhs + rhs;                                \
     C_SETCOND_ADD;
 #endif
 #ifndef OP_ORR
  #define OP_ORR \
-    u32 res = bus.reg[(opcode >> 16) & 0x0F].I | value;     \
+    uint32_t res = bus.reg[(opcode >> 16) & 0x0F].I | value;     \
     bus.reg[dest].I = res;
 #endif
 #ifndef OP_ORRS
@@ -3050,7 +3050,7 @@ static void armUnknownInsn(u32 opcode)
 #endif
 #ifndef OP_MOV
  #define OP_MOV \
-    u32 res = value;                                    \
+    uint32_t res = value;                                    \
     bus.reg[dest].I = res;
 #endif
 #ifndef OP_MOVS
@@ -3058,7 +3058,7 @@ static void armUnknownInsn(u32 opcode)
 #endif
 #ifndef OP_BIC
  #define OP_BIC \
-    u32 res = bus.reg[(opcode >> 16) & 0x0F].I & (~value);  \
+    uint32_t res = bus.reg[(opcode >> 16) & 0x0F].I & (~value);  \
     bus.reg[dest].I = res;
 #endif
 #ifndef OP_BICS
@@ -3066,7 +3066,7 @@ static void armUnknownInsn(u32 opcode)
 #endif
 #ifndef OP_MVN
  #define OP_MVN \
-    u32 res = ~value;                                   \
+    uint32_t res = ~value;                                   \
     bus.reg[dest].I = res;
 #endif
 #ifndef OP_MVNS
@@ -3078,7 +3078,7 @@ static void armUnknownInsn(u32 opcode)
 #endif
 #ifndef SETCOND_MUL
  #define SETCOND_MUL \
-     N_FLAG = ((s32)bus.reg[dest].I < 0) ? true : false;    \
+     N_FLAG = ((int32_t)bus.reg[dest].I < 0) ? true : false;    \
      Z_FLAG = bus.reg[dest].I ? false : true;
 #endif
 #ifndef SETCOND_MULL
@@ -3089,7 +3089,7 @@ static void armUnknownInsn(u32 opcode)
 
 #ifndef ROR_IMM_MSR
  #define ROR_IMM_MSR \
-    u32 v = opcode & 0xff;                              \
+    uint32_t v = opcode & 0xff;                              \
     value = ((v << (32 - shift)) | (v >> shift));
 #endif
 #ifndef ROR_OFFSET
@@ -3134,25 +3134,25 @@ static void armUnknownInsn(u32 opcode)
 #define MODECHANGE_YES if(armMode != (bus.reg[17].I & 0x1f)) CPUSwitchMode(bus.reg[17].I & 0x1f, false, true);
 
 #define DEFINE_ALU_INSN_C(CODE1, CODE2, OP, MODECHANGE) \
-  static  void arm##CODE1##0(u32 opcode) { ALU_INSN(ALU_INIT_C, VALUE_LSL_IMM_C, OP_##OP, MODECHANGE_##MODECHANGE, 0); }\
-  static  void arm##CODE1##1(u32 opcode) { ALU_INSN(ALU_INIT_C, VALUE_LSL_REG_C, OP_##OP, MODECHANGE_##MODECHANGE, 1); }\
-  static  void arm##CODE1##2(u32 opcode) { ALU_INSN(ALU_INIT_C, VALUE_LSR_IMM_C, OP_##OP, MODECHANGE_##MODECHANGE, 0); }\
-  static  void arm##CODE1##3(u32 opcode) { ALU_INSN(ALU_INIT_C, VALUE_LSR_REG_C, OP_##OP, MODECHANGE_##MODECHANGE, 1); }\
-  static  void arm##CODE1##4(u32 opcode) { ALU_INSN(ALU_INIT_C, VALUE_ASR_IMM_C, OP_##OP, MODECHANGE_##MODECHANGE, 0); }\
-  static  void arm##CODE1##5(u32 opcode) { ALU_INSN(ALU_INIT_C, VALUE_ASR_REG_C, OP_##OP, MODECHANGE_##MODECHANGE, 1); }\
-  static  void arm##CODE1##6(u32 opcode) { ALU_INSN(ALU_INIT_C, VALUE_ROR_IMM_C, OP_##OP, MODECHANGE_##MODECHANGE, 0); }\
-  static  void arm##CODE1##7(u32 opcode) { ALU_INSN(ALU_INIT_C, VALUE_ROR_REG_C, OP_##OP, MODECHANGE_##MODECHANGE, 1); }\
-  static  void arm##CODE2##0(u32 opcode) { ALU_INSN(ALU_INIT_C, VALUE_IMM_C,     OP_##OP, MODECHANGE_##MODECHANGE, 0); }
+  static  void arm##CODE1##0(uint32_t opcode) { ALU_INSN(ALU_INIT_C, VALUE_LSL_IMM_C, OP_##OP, MODECHANGE_##MODECHANGE, 0); }\
+  static  void arm##CODE1##1(uint32_t opcode) { ALU_INSN(ALU_INIT_C, VALUE_LSL_REG_C, OP_##OP, MODECHANGE_##MODECHANGE, 1); }\
+  static  void arm##CODE1##2(uint32_t opcode) { ALU_INSN(ALU_INIT_C, VALUE_LSR_IMM_C, OP_##OP, MODECHANGE_##MODECHANGE, 0); }\
+  static  void arm##CODE1##3(uint32_t opcode) { ALU_INSN(ALU_INIT_C, VALUE_LSR_REG_C, OP_##OP, MODECHANGE_##MODECHANGE, 1); }\
+  static  void arm##CODE1##4(uint32_t opcode) { ALU_INSN(ALU_INIT_C, VALUE_ASR_IMM_C, OP_##OP, MODECHANGE_##MODECHANGE, 0); }\
+  static  void arm##CODE1##5(uint32_t opcode) { ALU_INSN(ALU_INIT_C, VALUE_ASR_REG_C, OP_##OP, MODECHANGE_##MODECHANGE, 1); }\
+  static  void arm##CODE1##6(uint32_t opcode) { ALU_INSN(ALU_INIT_C, VALUE_ROR_IMM_C, OP_##OP, MODECHANGE_##MODECHANGE, 0); }\
+  static  void arm##CODE1##7(uint32_t opcode) { ALU_INSN(ALU_INIT_C, VALUE_ROR_REG_C, OP_##OP, MODECHANGE_##MODECHANGE, 1); }\
+  static  void arm##CODE2##0(uint32_t opcode) { ALU_INSN(ALU_INIT_C, VALUE_IMM_C,     OP_##OP, MODECHANGE_##MODECHANGE, 0); }
 #define DEFINE_ALU_INSN_NC(CODE1, CODE2, OP, MODECHANGE) \
-  static  void arm##CODE1##0(u32 opcode) { ALU_INSN(ALU_INIT_NC, VALUE_LSL_IMM_NC, OP_##OP, MODECHANGE_##MODECHANGE, 0); }\
-  static  void arm##CODE1##1(u32 opcode) { ALU_INSN(ALU_INIT_NC, VALUE_LSL_REG_NC, OP_##OP, MODECHANGE_##MODECHANGE, 1); }\
-  static  void arm##CODE1##2(u32 opcode) { ALU_INSN(ALU_INIT_NC, VALUE_LSR_IMM_NC, OP_##OP, MODECHANGE_##MODECHANGE, 0); }\
-  static  void arm##CODE1##3(u32 opcode) { ALU_INSN(ALU_INIT_NC, VALUE_LSR_REG_NC, OP_##OP, MODECHANGE_##MODECHANGE, 1); }\
-  static  void arm##CODE1##4(u32 opcode) { ALU_INSN(ALU_INIT_NC, VALUE_ASR_IMM_NC, OP_##OP, MODECHANGE_##MODECHANGE, 0); }\
-  static  void arm##CODE1##5(u32 opcode) { ALU_INSN(ALU_INIT_NC, VALUE_ASR_REG_NC, OP_##OP, MODECHANGE_##MODECHANGE, 1); }\
-  static  void arm##CODE1##6(u32 opcode) { ALU_INSN(ALU_INIT_NC, VALUE_ROR_IMM_NC, OP_##OP, MODECHANGE_##MODECHANGE, 0); }\
-  static  void arm##CODE1##7(u32 opcode) { ALU_INSN(ALU_INIT_NC, VALUE_ROR_REG_NC, OP_##OP, MODECHANGE_##MODECHANGE, 1); }\
-  static  void arm##CODE2##0(u32 opcode) { ALU_INSN(ALU_INIT_NC, VALUE_IMM_NC,     OP_##OP, MODECHANGE_##MODECHANGE, 0); }
+  static  void arm##CODE1##0(uint32_t opcode) { ALU_INSN(ALU_INIT_NC, VALUE_LSL_IMM_NC, OP_##OP, MODECHANGE_##MODECHANGE, 0); }\
+  static  void arm##CODE1##1(uint32_t opcode) { ALU_INSN(ALU_INIT_NC, VALUE_LSL_REG_NC, OP_##OP, MODECHANGE_##MODECHANGE, 1); }\
+  static  void arm##CODE1##2(uint32_t opcode) { ALU_INSN(ALU_INIT_NC, VALUE_LSR_IMM_NC, OP_##OP, MODECHANGE_##MODECHANGE, 0); }\
+  static  void arm##CODE1##3(uint32_t opcode) { ALU_INSN(ALU_INIT_NC, VALUE_LSR_REG_NC, OP_##OP, MODECHANGE_##MODECHANGE, 1); }\
+  static  void arm##CODE1##4(uint32_t opcode) { ALU_INSN(ALU_INIT_NC, VALUE_ASR_IMM_NC, OP_##OP, MODECHANGE_##MODECHANGE, 0); }\
+  static  void arm##CODE1##5(uint32_t opcode) { ALU_INSN(ALU_INIT_NC, VALUE_ASR_REG_NC, OP_##OP, MODECHANGE_##MODECHANGE, 1); }\
+  static  void arm##CODE1##6(uint32_t opcode) { ALU_INSN(ALU_INIT_NC, VALUE_ROR_IMM_NC, OP_##OP, MODECHANGE_##MODECHANGE, 0); }\
+  static  void arm##CODE1##7(uint32_t opcode) { ALU_INSN(ALU_INIT_NC, VALUE_ROR_REG_NC, OP_##OP, MODECHANGE_##MODECHANGE, 1); }\
+  static  void arm##CODE2##0(uint32_t opcode) { ALU_INSN(ALU_INIT_NC, VALUE_IMM_NC,     OP_##OP, MODECHANGE_##MODECHANGE, 0); }
 
 /* AND */
 DEFINE_ALU_INSN_NC(00, 20, AND,  NO)
@@ -3233,12 +3233,12 @@ DEFINE_ALU_INSN_C (1F, 3F, MVNS, YES)
 /* CYCLES: base cycle count (1, 2, or 3) */
 #define MUL_INSN(OP, SETCOND, CYCLES)                   \
     int mult = (opcode & 0x0F);                         \
-    u32 rs = bus.reg[(opcode >> 8) & 0x0F].I;           \
+    uint32_t rs = bus.reg[(opcode >> 8) & 0x0F].I;           \
     int acc = (opcode >> 12) & 0x0F;   /* or destLo */  \
     int dest = (opcode >> 16) & 0x0F;  /* or destHi */  \
     OP;                                                 \
     SETCOND;                                            \
-    if ((s32)rs < 0)                                    \
+    if ((int32_t)rs < 0)                                    \
         rs = ~rs;                                       \
     if ((rs & 0xFFFFFF00) == 0)                         \
         clockTicks += 0;                                \
@@ -3256,59 +3256,59 @@ DEFINE_ALU_INSN_C (1F, 3F, MVNS, YES)
     bus.reg[dest].I = bus.reg[mult].I * rs;
 #define OP_MLA \
     bus.reg[dest].I = bus.reg[mult].I * rs + bus.reg[acc].I;
-#define OP_MULL(SIGN) \
-    SIGN##64 res = (SIGN##64)(SIGN##32)bus.reg[mult].I      \
-                 * (SIGN##64)(SIGN##32)rs;              \
-    bus.reg[acc].I = (u32)res;                              \
-    bus.reg[dest].I = (u32)(res >> 32);
-#define OP_MLAL(SIGN) \
-    SIGN##64 res = ((SIGN##64)bus.reg[dest].I<<32 | bus.reg[acc].I)\
-                 + ((SIGN##64)(SIGN##32)bus.reg[mult].I     \
-                    * (SIGN##64)(SIGN##32)rs);          \
-    bus.reg[acc].I = (u32)res;                              \
-    bus.reg[dest].I = (u32)(res >> 32);
-#define OP_UMULL OP_MULL(u)
-#define OP_UMLAL OP_MLAL(u)
-#define OP_SMULL OP_MULL(s)
-#define OP_SMLAL OP_MLAL(s)
+#define OP_MULL(T64, T32) \
+    T64 res = (T64)(T32)bus.reg[mult].I      \
+                 * (T64)(T32)rs;              \
+    bus.reg[acc].I = (uint32_t)res;                              \
+    bus.reg[dest].I = (uint32_t)(res >> 32);
+#define OP_MLAL(T64, T32) \
+    T64 res = ((T64)bus.reg[dest].I<<32 | bus.reg[acc].I)\
+                 + ((T64)(T32)bus.reg[mult].I     \
+                    * (T64)(T32)rs);          \
+    bus.reg[acc].I = (uint32_t)res;                              \
+    bus.reg[dest].I = (uint32_t)(res >> 32);
+#define OP_UMULL OP_MULL(uint64_t, uint32_t)
+#define OP_UMLAL OP_MLAL(uint64_t, uint32_t)
+#define OP_SMULL OP_MULL(int64_t, int32_t)
+#define OP_SMLAL OP_MLAL(int64_t, int32_t)
 
 /* MUL Rd, Rm, Rs */
-static  void arm009(u32 opcode) { MUL_INSN(OP_MUL, SETCOND_NONE, 1); }
+static  void arm009(uint32_t opcode) { MUL_INSN(OP_MUL, SETCOND_NONE, 1); }
 /* MULS Rd, Rm, Rs */
-static  void arm019(u32 opcode) { MUL_INSN(OP_MUL, SETCOND_MUL, 1); }
+static  void arm019(uint32_t opcode) { MUL_INSN(OP_MUL, SETCOND_MUL, 1); }
 
 /* MLA Rd, Rm, Rs, Rn */
-static  void arm029(u32 opcode) { MUL_INSN(OP_MLA, SETCOND_NONE, 2); }
+static  void arm029(uint32_t opcode) { MUL_INSN(OP_MLA, SETCOND_NONE, 2); }
 /* MLAS Rd, Rm, Rs, Rn */
-static  void arm039(u32 opcode) { MUL_INSN(OP_MLA, SETCOND_MUL, 2); }
+static  void arm039(uint32_t opcode) { MUL_INSN(OP_MLA, SETCOND_MUL, 2); }
 
 /* UMULL RdLo, RdHi, Rn, Rs */
-static  void arm089(u32 opcode) { MUL_INSN(OP_UMULL, SETCOND_NONE, 2); }
+static  void arm089(uint32_t opcode) { MUL_INSN(OP_UMULL, SETCOND_NONE, 2); }
 /* UMULLS RdLo, RdHi, Rn, Rs */
-static  void arm099(u32 opcode) { MUL_INSN(OP_UMULL, SETCOND_MULL, 2); }
+static  void arm099(uint32_t opcode) { MUL_INSN(OP_UMULL, SETCOND_MULL, 2); }
 
 /* UMLAL RdLo, RdHi, Rn, Rs */
-static  void arm0A9(u32 opcode) { MUL_INSN(OP_UMLAL, SETCOND_NONE, 3); }
+static  void arm0A9(uint32_t opcode) { MUL_INSN(OP_UMLAL, SETCOND_NONE, 3); }
 /* UMLALS RdLo, RdHi, Rn, Rs */
-static  void arm0B9(u32 opcode) { MUL_INSN(OP_UMLAL, SETCOND_MULL, 3); }
+static  void arm0B9(uint32_t opcode) { MUL_INSN(OP_UMLAL, SETCOND_MULL, 3); }
 
 /* SMULL RdLo, RdHi, Rm, Rs */
-static  void arm0C9(u32 opcode) { MUL_INSN(OP_SMULL, SETCOND_NONE, 2); }
+static  void arm0C9(uint32_t opcode) { MUL_INSN(OP_SMULL, SETCOND_NONE, 2); }
 /* SMULLS RdLo, RdHi, Rm, Rs */
-static  void arm0D9(u32 opcode) { MUL_INSN(OP_SMULL, SETCOND_MULL, 2); }
+static  void arm0D9(uint32_t opcode) { MUL_INSN(OP_SMULL, SETCOND_MULL, 2); }
 
 /* SMLAL RdLo, RdHi, Rm, Rs */
-static  void arm0E9(u32 opcode) { MUL_INSN(OP_SMLAL, SETCOND_NONE, 3); }
+static  void arm0E9(uint32_t opcode) { MUL_INSN(OP_SMLAL, SETCOND_NONE, 3); }
 /* SMLALS RdLo, RdHi, Rm, Rs */
-static  void arm0F9(u32 opcode) { MUL_INSN(OP_SMLAL, SETCOND_MULL, 3); }
+static  void arm0F9(uint32_t opcode) { MUL_INSN(OP_SMLAL, SETCOND_MULL, 3); }
 
 /* Misc instructions ////////////////////////////////////////////////////// */
 
 /* SWP Rd, Rm, [Rn] */
-static  void arm109(u32 opcode)
+static  void arm109(uint32_t opcode)
 {
-	u32 address = bus.reg[(opcode >> 16) & 15].I;
-	u32 temp = CPUReadMemory(address);
+	uint32_t address = bus.reg[(opcode >> 16) & 15].I;
+	uint32_t temp = CPUReadMemory(address);
 	CPUWriteMemory(address, bus.reg[opcode&15].I);
 	bus.reg[(opcode >> 12) & 15].I = temp;
 	int dataticks_value = DATATICKS_ACCESS_32BIT(address);
@@ -3317,19 +3317,19 @@ static  void arm109(u32 opcode)
 }
 
 /* SWPB Rd, Rm, [Rn] */
-static  void arm149(u32 opcode)
+static  void arm149(uint32_t opcode)
 {
-	u32 address = bus.reg[(opcode >> 16) & 15].I;
-	u32 temp = CPUReadByte(address);
+	uint32_t address = bus.reg[(opcode >> 16) & 15].I;
+	uint32_t temp = CPUReadByte(address);
 	CPUWriteByte(address, bus.reg[opcode&15].I & 0xFF);
 	bus.reg[(opcode>>12)&15].I = temp;
-	u32 dataticks_value = DATATICKS_ACCESS_32BIT(address);
+	uint32_t dataticks_value = DATATICKS_ACCESS_32BIT(address);
 	DATATICKS_ACCESS_BUS_PREFETCH(address, dataticks_value);
 	clockTicks = 4 + (dataticks_value << 1) + codeTicksAccess(bus.armNextPC, BITS_32);
 }
 
 /* MRS Rd, CPSR */
-static  void arm100(u32 opcode)
+static  void arm100(uint32_t opcode)
 {
 	if ((opcode & 0x0FFF0FFF) == 0x010F0000)
 	{
@@ -3341,7 +3341,7 @@ static  void arm100(u32 opcode)
 }
 
 /* MRS Rd, SPSR */
-static  void arm140(u32 opcode)
+static  void arm140(uint32_t opcode)
 {
 	if ((opcode & 0x0FFF0FFF) == 0x014F0000)
 		bus.reg[(opcode >> 12) & 0x0F].I = bus.reg[17].I;
@@ -3350,13 +3350,13 @@ static  void arm140(u32 opcode)
 }
 
 /* MSR CPSR_fields, Rm */
-static  void arm120(u32 opcode)
+static  void arm120(uint32_t opcode)
 {
     if ((opcode & 0x0FF0FFF0) == 0x0120F000)
     {
 	    CPU_UPDATE_CPSR();
-	    u32 value = bus.reg[opcode & 15].I;
-	    u32 newValue = bus.reg[16].I;
+	    uint32_t value = bus.reg[opcode & 15].I;
+	    uint32_t newValue = bus.reg[16].I;
 	    if (armMode > 0x10) {
 		    if (opcode & 0x00010000)
 			    newValue = (newValue & 0xFFFFFF00) | (value & 0x000000FF);
@@ -3382,11 +3382,11 @@ static  void arm120(u32 opcode)
 }
 
 /* MSR SPSR_fields, Rm */
-static  void arm160(u32 opcode)
+static  void arm160(uint32_t opcode)
 {
 	if ((opcode & 0x0FF0FFF0) == 0x0160F000)
 	{
-		u32 value = bus.reg[opcode & 15].I;
+		uint32_t value = bus.reg[opcode & 15].I;
 		if (armMode > 0x10 && armMode < 0x1F)
 		{
 			if (opcode & 0x00010000)
@@ -3404,17 +3404,17 @@ static  void arm160(u32 opcode)
 }
 
 /* MSR CPSR_fields, # */
-static  void arm320(u32 opcode)
+static  void arm320(uint32_t opcode)
 {
 	if ((opcode & 0x0FF0F000) == 0x0320F000)
 	{
 		CPU_UPDATE_CPSR();
-		u32 value = opcode & 0xFF;
+		uint32_t value = opcode & 0xFF;
 		int shift = (opcode & 0xF00) >> 7;
 		if (shift) {
 			ROR_IMM_MSR;
 		}
-		u32 newValue = bus.reg[16].I;
+		uint32_t newValue = bus.reg[16].I;
 		if (armMode > 0x10) {
 			if (opcode & 0x00010000)
 				newValue = (newValue & 0xFFFFFF00) | (value & 0x000000FF);
@@ -3442,11 +3442,11 @@ static  void arm320(u32 opcode)
 }
 
 /* MSR SPSR_fields, # */
-static  void arm360(u32 opcode)
+static  void arm360(uint32_t opcode)
 {
 	if ((opcode & 0x0FF0F000) == 0x0360F000) {
 		if (armMode > 0x10 && armMode < 0x1F) {
-			u32 value = opcode & 0xFF;
+			uint32_t value = opcode & 0xFF;
 			int shift = (opcode & 0xF00) >> 7;
 			if (shift) {
 				ROR_IMM_MSR;
@@ -3466,7 +3466,7 @@ static  void arm360(u32 opcode)
 }
 
 /* BX Rm */
-static  void arm121(u32 opcode)
+static  void arm121(uint32_t opcode)
 {
 	if ((opcode & 0x0FFFFFF0) == 0x012FFF10) {
 		int base = opcode & 0x0F;
@@ -3507,14 +3507,14 @@ static  void arm121(u32 opcode)
     int shift = (opcode >> 7) & 31;                     \
     int offset;                                         \
     if (shift)                                          \
-        offset = (int)((s32)bus.reg[opcode & 15].I >> shift);\
+        offset = (int)((int32_t)bus.reg[opcode & 15].I >> shift);\
     else if (bus.reg[opcode & 15].I & 0x80000000)           \
         offset = 0xFFFFFFFF;                            \
     else                                                \
         offset = 0;
 #define OFFSET_ROR \
     int shift = (opcode >> 7) & 31;                     \
-    u32 offset = bus.reg[opcode & 15].I;                    \
+    uint32_t offset = bus.reg[opcode & 15].I;                    \
     if (shift) {                                        \
         ROR_OFFSET;                                     \
     } else {                                            \
@@ -3531,8 +3531,8 @@ static  void arm121(u32 opcode)
 #define OP_LDR    bus.reg[dest].I = CPUReadMemory(address)
 #define OP_LDRH   bus.reg[dest].I = CPUReadHalfWord(address)
 #define OP_LDRB   bus.reg[dest].I = CPUReadByte(address)
-#define OP_LDRSH  bus.reg[dest].I = (s16)CPUReadHalfWordSigned(address)
-#define OP_LDRSB  bus.reg[dest].I = (s8)CPUReadByte(address)
+#define OP_LDRSH  bus.reg[dest].I = (int16_t)CPUReadHalfWordSigned(address)
+#define OP_LDRSB  bus.reg[dest].I = (int8_t)CPUReadByte(address)
 
 #define WRITEBACK_NONE     /*nothing*/
 #define WRITEBACK_PRE      bus.reg[base].I = address
@@ -3545,7 +3545,7 @@ static  void arm121(u32 opcode)
     int dest = (opcode >> 12) & 15;                     \
     int base = (opcode >> 16) & 15;                     \
     CALC_OFFSET;                                        \
-    u32 address = CALC_ADDRESS;
+    uint32_t address = CALC_ADDRESS;
 
 #define STR(CALC_OFFSET, CALC_ADDRESS, STORE_DATA, WRITEBACK1, WRITEBACK2, SIZE) \
     LDRSTR_INIT(CALC_OFFSET, CALC_ADDRESS);             \
@@ -3610,347 +3610,347 @@ static  void arm121(u32 opcode)
   LDR(CALC_OFFSET, ADDRESS_PREINC, LOAD_DATA, WRITEBACK_PRE, SIZE)
 
 /* STRH Rd, [Rn], -Rm */
-static  void arm00B(u32 opcode) { STR_POSTDEC(OFFSET_REG, OP_STRH, 16); }
+static  void arm00B(uint32_t opcode) { STR_POSTDEC(OFFSET_REG, OP_STRH, 16); }
 /* STRH Rd, [Rn], #-offset */
-static  void arm04B(u32 opcode) { STR_POSTDEC(OFFSET_IMM8, OP_STRH, 16); }
+static  void arm04B(uint32_t opcode) { STR_POSTDEC(OFFSET_IMM8, OP_STRH, 16); }
 /* STRH Rd, [Rn], Rm */
-static  void arm08B(u32 opcode) { STR_POSTINC(OFFSET_REG, OP_STRH, 16); }
+static  void arm08B(uint32_t opcode) { STR_POSTINC(OFFSET_REG, OP_STRH, 16); }
 /* STRH Rd, [Rn], #offset */
-static  void arm0CB(u32 opcode) { STR_POSTINC(OFFSET_IMM8, OP_STRH, 16); }
+static  void arm0CB(uint32_t opcode) { STR_POSTINC(OFFSET_IMM8, OP_STRH, 16); }
 /* STRH Rd, [Rn, -Rm] */
-static  void arm10B(u32 opcode) { STR_PREDEC(OFFSET_REG, OP_STRH, 16); }
+static  void arm10B(uint32_t opcode) { STR_PREDEC(OFFSET_REG, OP_STRH, 16); }
 /* STRH Rd, [Rn, -Rm]! */
-static  void arm12B(u32 opcode) { STR_PREDEC_WB(OFFSET_REG, OP_STRH, 16); }
+static  void arm12B(uint32_t opcode) { STR_PREDEC_WB(OFFSET_REG, OP_STRH, 16); }
 /* STRH Rd, [Rn, -#offset] */
-static  void arm14B(u32 opcode) { STR_PREDEC(OFFSET_IMM8, OP_STRH, 16); }
+static  void arm14B(uint32_t opcode) { STR_PREDEC(OFFSET_IMM8, OP_STRH, 16); }
 /* STRH Rd, [Rn, -#offset]! */
-static  void arm16B(u32 opcode) { STR_PREDEC_WB(OFFSET_IMM8, OP_STRH, 16); }
+static  void arm16B(uint32_t opcode) { STR_PREDEC_WB(OFFSET_IMM8, OP_STRH, 16); }
 /* STRH Rd, [Rn, Rm] */
-static  void arm18B(u32 opcode) { STR_PREINC(OFFSET_REG, OP_STRH, 16); }
+static  void arm18B(uint32_t opcode) { STR_PREINC(OFFSET_REG, OP_STRH, 16); }
 /* STRH Rd, [Rn, Rm]! */
-static  void arm1AB(u32 opcode) { STR_PREINC_WB(OFFSET_REG, OP_STRH, 16); }
+static  void arm1AB(uint32_t opcode) { STR_PREINC_WB(OFFSET_REG, OP_STRH, 16); }
 /* STRH Rd, [Rn, #offset] */
-static  void arm1CB(u32 opcode) { STR_PREINC(OFFSET_IMM8, OP_STRH, 16); }
+static  void arm1CB(uint32_t opcode) { STR_PREINC(OFFSET_IMM8, OP_STRH, 16); }
 /* STRH Rd, [Rn, #offset]! */
-static  void arm1EB(u32 opcode) { STR_PREINC_WB(OFFSET_IMM8, OP_STRH, 16); }
+static  void arm1EB(uint32_t opcode) { STR_PREINC_WB(OFFSET_IMM8, OP_STRH, 16); }
 
 /* LDRH Rd, [Rn], -Rm */
-static  void arm01B(u32 opcode) { LDR_POSTDEC(OFFSET_REG, OP_LDRH, 16); }
+static  void arm01B(uint32_t opcode) { LDR_POSTDEC(OFFSET_REG, OP_LDRH, 16); }
 /* LDRH Rd, [Rn], #-offset */
-static  void arm05B(u32 opcode) { LDR_POSTDEC(OFFSET_IMM8, OP_LDRH, 16); }
+static  void arm05B(uint32_t opcode) { LDR_POSTDEC(OFFSET_IMM8, OP_LDRH, 16); }
 /* LDRH Rd, [Rn], Rm */
-static  void arm09B(u32 opcode) { LDR_POSTINC(OFFSET_REG, OP_LDRH, 16); }
+static  void arm09B(uint32_t opcode) { LDR_POSTINC(OFFSET_REG, OP_LDRH, 16); }
 /* LDRH Rd, [Rn], #offset */
-static  void arm0DB(u32 opcode) { LDR_POSTINC(OFFSET_IMM8, OP_LDRH, 16); }
+static  void arm0DB(uint32_t opcode) { LDR_POSTINC(OFFSET_IMM8, OP_LDRH, 16); }
 /* LDRH Rd, [Rn, -Rm] */
-static  void arm11B(u32 opcode) { LDR_PREDEC(OFFSET_REG, OP_LDRH, 16); }
+static  void arm11B(uint32_t opcode) { LDR_PREDEC(OFFSET_REG, OP_LDRH, 16); }
 /* LDRH Rd, [Rn, -Rm]! */
-static  void arm13B(u32 opcode) { LDR_PREDEC_WB(OFFSET_REG, OP_LDRH, 16); }
+static  void arm13B(uint32_t opcode) { LDR_PREDEC_WB(OFFSET_REG, OP_LDRH, 16); }
 /* LDRH Rd, [Rn, -#offset] */
-static  void arm15B(u32 opcode) { LDR_PREDEC(OFFSET_IMM8, OP_LDRH, 16); }
+static  void arm15B(uint32_t opcode) { LDR_PREDEC(OFFSET_IMM8, OP_LDRH, 16); }
 /* LDRH Rd, [Rn, -#offset]! */
-static  void arm17B(u32 opcode) { LDR_PREDEC_WB(OFFSET_IMM8, OP_LDRH, 16); }
+static  void arm17B(uint32_t opcode) { LDR_PREDEC_WB(OFFSET_IMM8, OP_LDRH, 16); }
 /* LDRH Rd, [Rn, Rm] */
-static  void arm19B(u32 opcode) { LDR_PREINC(OFFSET_REG, OP_LDRH, 16); }
+static  void arm19B(uint32_t opcode) { LDR_PREINC(OFFSET_REG, OP_LDRH, 16); }
 /* LDRH Rd, [Rn, Rm]! */
-static  void arm1BB(u32 opcode) { LDR_PREINC_WB(OFFSET_REG, OP_LDRH, 16); }
+static  void arm1BB(uint32_t opcode) { LDR_PREINC_WB(OFFSET_REG, OP_LDRH, 16); }
 /* LDRH Rd, [Rn, #offset] */
-static  void arm1DB(u32 opcode) { LDR_PREINC(OFFSET_IMM8, OP_LDRH, 16); }
+static  void arm1DB(uint32_t opcode) { LDR_PREINC(OFFSET_IMM8, OP_LDRH, 16); }
 /* LDRH Rd, [Rn, #offset]! */
-static  void arm1FB(u32 opcode) { LDR_PREINC_WB(OFFSET_IMM8, OP_LDRH, 16); }
+static  void arm1FB(uint32_t opcode) { LDR_PREINC_WB(OFFSET_IMM8, OP_LDRH, 16); }
 
 /* LDRSB Rd, [Rn], -Rm */
-static  void arm01D(u32 opcode) { LDR_POSTDEC(OFFSET_REG, OP_LDRSB, 16); }
+static  void arm01D(uint32_t opcode) { LDR_POSTDEC(OFFSET_REG, OP_LDRSB, 16); }
 /* LDRSB Rd, [Rn], #-offset */
-static  void arm05D(u32 opcode) { LDR_POSTDEC(OFFSET_IMM8, OP_LDRSB, 16); }
+static  void arm05D(uint32_t opcode) { LDR_POSTDEC(OFFSET_IMM8, OP_LDRSB, 16); }
 /* LDRSB Rd, [Rn], Rm */
-static  void arm09D(u32 opcode) { LDR_POSTINC(OFFSET_REG, OP_LDRSB, 16); }
+static  void arm09D(uint32_t opcode) { LDR_POSTINC(OFFSET_REG, OP_LDRSB, 16); }
 /* LDRSB Rd, [Rn], #offset */
-static  void arm0DD(u32 opcode) { LDR_POSTINC(OFFSET_IMM8, OP_LDRSB, 16); }
+static  void arm0DD(uint32_t opcode) { LDR_POSTINC(OFFSET_IMM8, OP_LDRSB, 16); }
 /* LDRSB Rd, [Rn, -Rm] */
-static  void arm11D(u32 opcode) { LDR_PREDEC(OFFSET_REG, OP_LDRSB, 16); }
+static  void arm11D(uint32_t opcode) { LDR_PREDEC(OFFSET_REG, OP_LDRSB, 16); }
 /* LDRSB Rd, [Rn, -Rm]! */
-static  void arm13D(u32 opcode) { LDR_PREDEC_WB(OFFSET_REG, OP_LDRSB, 16); }
+static  void arm13D(uint32_t opcode) { LDR_PREDEC_WB(OFFSET_REG, OP_LDRSB, 16); }
 /* LDRSB Rd, [Rn, -#offset] */
-static  void arm15D(u32 opcode) { LDR_PREDEC(OFFSET_IMM8, OP_LDRSB, 16); }
+static  void arm15D(uint32_t opcode) { LDR_PREDEC(OFFSET_IMM8, OP_LDRSB, 16); }
 /* LDRSB Rd, [Rn, -#offset]! */
-static  void arm17D(u32 opcode) { LDR_PREDEC_WB(OFFSET_IMM8, OP_LDRSB, 16); }
+static  void arm17D(uint32_t opcode) { LDR_PREDEC_WB(OFFSET_IMM8, OP_LDRSB, 16); }
 /* LDRSB Rd, [Rn, Rm] */
-static  void arm19D(u32 opcode) { LDR_PREINC(OFFSET_REG, OP_LDRSB, 16); }
+static  void arm19D(uint32_t opcode) { LDR_PREINC(OFFSET_REG, OP_LDRSB, 16); }
 /* LDRSB Rd, [Rn, Rm]! */
-static  void arm1BD(u32 opcode) { LDR_PREINC_WB(OFFSET_REG, OP_LDRSB, 16); }
+static  void arm1BD(uint32_t opcode) { LDR_PREINC_WB(OFFSET_REG, OP_LDRSB, 16); }
 /* LDRSB Rd, [Rn, #offset] */
-static  void arm1DD(u32 opcode) { LDR_PREINC(OFFSET_IMM8, OP_LDRSB, 16); }
+static  void arm1DD(uint32_t opcode) { LDR_PREINC(OFFSET_IMM8, OP_LDRSB, 16); }
 /* LDRSB Rd, [Rn, #offset]! */
-static  void arm1FD(u32 opcode) { LDR_PREINC_WB(OFFSET_IMM8, OP_LDRSB, 16); }
+static  void arm1FD(uint32_t opcode) { LDR_PREINC_WB(OFFSET_IMM8, OP_LDRSB, 16); }
 
 /* LDRSH Rd, [Rn], -Rm */
-static  void arm01F(u32 opcode) { LDR_POSTDEC(OFFSET_REG, OP_LDRSH, 16); }
+static  void arm01F(uint32_t opcode) { LDR_POSTDEC(OFFSET_REG, OP_LDRSH, 16); }
 /* LDRSH Rd, [Rn], #-offset */
-static  void arm05F(u32 opcode) { LDR_POSTDEC(OFFSET_IMM8, OP_LDRSH, 16); }
+static  void arm05F(uint32_t opcode) { LDR_POSTDEC(OFFSET_IMM8, OP_LDRSH, 16); }
 /* LDRSH Rd, [Rn], Rm */
-static  void arm09F(u32 opcode) { LDR_POSTINC(OFFSET_REG, OP_LDRSH, 16); }
+static  void arm09F(uint32_t opcode) { LDR_POSTINC(OFFSET_REG, OP_LDRSH, 16); }
 /* LDRSH Rd, [Rn], #offset */
-static  void arm0DF(u32 opcode) { LDR_POSTINC(OFFSET_IMM8, OP_LDRSH, 16); }
+static  void arm0DF(uint32_t opcode) { LDR_POSTINC(OFFSET_IMM8, OP_LDRSH, 16); }
 /* LDRSH Rd, [Rn, -Rm] */
-static  void arm11F(u32 opcode) { LDR_PREDEC(OFFSET_REG, OP_LDRSH, 16); }
+static  void arm11F(uint32_t opcode) { LDR_PREDEC(OFFSET_REG, OP_LDRSH, 16); }
 /* LDRSH Rd, [Rn, -Rm]! */
-static  void arm13F(u32 opcode) { LDR_PREDEC_WB(OFFSET_REG, OP_LDRSH, 16); }
+static  void arm13F(uint32_t opcode) { LDR_PREDEC_WB(OFFSET_REG, OP_LDRSH, 16); }
 /* LDRSH Rd, [Rn, -#offset] */
-static  void arm15F(u32 opcode) { LDR_PREDEC(OFFSET_IMM8, OP_LDRSH, 16); }
+static  void arm15F(uint32_t opcode) { LDR_PREDEC(OFFSET_IMM8, OP_LDRSH, 16); }
 /* LDRSH Rd, [Rn, -#offset]! */
-static  void arm17F(u32 opcode) { LDR_PREDEC_WB(OFFSET_IMM8, OP_LDRSH, 16); }
+static  void arm17F(uint32_t opcode) { LDR_PREDEC_WB(OFFSET_IMM8, OP_LDRSH, 16); }
 /* LDRSH Rd, [Rn, Rm] */
-static  void arm19F(u32 opcode) { LDR_PREINC(OFFSET_REG, OP_LDRSH, 16); }
+static  void arm19F(uint32_t opcode) { LDR_PREINC(OFFSET_REG, OP_LDRSH, 16); }
 /* LDRSH Rd, [Rn, Rm]! */
-static  void arm1BF(u32 opcode) { LDR_PREINC_WB(OFFSET_REG, OP_LDRSH, 16); }
+static  void arm1BF(uint32_t opcode) { LDR_PREINC_WB(OFFSET_REG, OP_LDRSH, 16); }
 /* LDRSH Rd, [Rn, #offset] */
-static  void arm1DF(u32 opcode) { LDR_PREINC(OFFSET_IMM8, OP_LDRSH, 16); }
+static  void arm1DF(uint32_t opcode) { LDR_PREINC(OFFSET_IMM8, OP_LDRSH, 16); }
 /* LDRSH Rd, [Rn, #offset]! */
-static  void arm1FF(u32 opcode) { LDR_PREINC_WB(OFFSET_IMM8, OP_LDRSH, 16); }
+static  void arm1FF(uint32_t opcode) { LDR_PREINC_WB(OFFSET_IMM8, OP_LDRSH, 16); }
 
 /* STR[T] Rd, [Rn], -# */
 /* Note: STR and STRT do the same thing on the GBA (likewise for LDR/LDRT etc) */
-static  void arm400(u32 opcode) { STR_POSTDEC(OFFSET_IMM, OP_STR, 32); }
+static  void arm400(uint32_t opcode) { STR_POSTDEC(OFFSET_IMM, OP_STR, 32); }
 /* LDR[T] Rd, [Rn], -# */
-static  void arm410(u32 opcode) { LDR_POSTDEC(OFFSET_IMM, OP_LDR, 32); }
+static  void arm410(uint32_t opcode) { LDR_POSTDEC(OFFSET_IMM, OP_LDR, 32); }
 /* STRB[T] Rd, [Rn], -# */
-static  void arm440(u32 opcode) { STR_POSTDEC(OFFSET_IMM, OP_STRB, 16); }
+static  void arm440(uint32_t opcode) { STR_POSTDEC(OFFSET_IMM, OP_STRB, 16); }
 /* LDRB[T] Rd, [Rn], -# */
-static  void arm450(u32 opcode) { LDR_POSTDEC(OFFSET_IMM, OP_LDRB, 16); }
+static  void arm450(uint32_t opcode) { LDR_POSTDEC(OFFSET_IMM, OP_LDRB, 16); }
 /* STR[T] Rd, [Rn], # */
-static  void arm480(u32 opcode) { STR_POSTINC(OFFSET_IMM, OP_STR, 32); }
+static  void arm480(uint32_t opcode) { STR_POSTINC(OFFSET_IMM, OP_STR, 32); }
 /* LDR Rd, [Rn], # */
-static  void arm490(u32 opcode) { LDR_POSTINC(OFFSET_IMM, OP_LDR, 32); }
+static  void arm490(uint32_t opcode) { LDR_POSTINC(OFFSET_IMM, OP_LDR, 32); }
 /* STRB[T] Rd, [Rn], # */
-static  void arm4C0(u32 opcode) { STR_POSTINC(OFFSET_IMM, OP_STRB, 16); }
+static  void arm4C0(uint32_t opcode) { STR_POSTINC(OFFSET_IMM, OP_STRB, 16); }
 /* LDRB[T] Rd, [Rn], # */
-static  void arm4D0(u32 opcode) { LDR_POSTINC(OFFSET_IMM, OP_LDRB, 16); }
+static  void arm4D0(uint32_t opcode) { LDR_POSTINC(OFFSET_IMM, OP_LDRB, 16); }
 /* STR Rd, [Rn, -#] */
-static  void arm500(u32 opcode) { STR_PREDEC(OFFSET_IMM, OP_STR, 32); }
+static  void arm500(uint32_t opcode) { STR_PREDEC(OFFSET_IMM, OP_STR, 32); }
 /* LDR Rd, [Rn, -#] */
-static  void arm510(u32 opcode) { LDR_PREDEC(OFFSET_IMM, OP_LDR, 32); }
+static  void arm510(uint32_t opcode) { LDR_PREDEC(OFFSET_IMM, OP_LDR, 32); }
 /* STR Rd, [Rn, -#]! */
-static  void arm520(u32 opcode) { STR_PREDEC_WB(OFFSET_IMM, OP_STR, 32); }
+static  void arm520(uint32_t opcode) { STR_PREDEC_WB(OFFSET_IMM, OP_STR, 32); }
 /* LDR Rd, [Rn, -#]! */
-static  void arm530(u32 opcode) { LDR_PREDEC_WB(OFFSET_IMM, OP_LDR, 32); }
+static  void arm530(uint32_t opcode) { LDR_PREDEC_WB(OFFSET_IMM, OP_LDR, 32); }
 /* STRB Rd, [Rn, -#] */
-static  void arm540(u32 opcode) { STR_PREDEC(OFFSET_IMM, OP_STRB, 16); }
+static  void arm540(uint32_t opcode) { STR_PREDEC(OFFSET_IMM, OP_STRB, 16); }
 /* LDRB Rd, [Rn, -#] */
-static  void arm550(u32 opcode) { LDR_PREDEC(OFFSET_IMM, OP_LDRB, 16); }
+static  void arm550(uint32_t opcode) { LDR_PREDEC(OFFSET_IMM, OP_LDRB, 16); }
 /* STRB Rd, [Rn, -#]! */
-static  void arm560(u32 opcode) { STR_PREDEC_WB(OFFSET_IMM, OP_STRB, 16); }
+static  void arm560(uint32_t opcode) { STR_PREDEC_WB(OFFSET_IMM, OP_STRB, 16); }
 /* LDRB Rd, [Rn, -#]! */
-static  void arm570(u32 opcode) { LDR_PREDEC_WB(OFFSET_IMM, OP_LDRB, 16); }
+static  void arm570(uint32_t opcode) { LDR_PREDEC_WB(OFFSET_IMM, OP_LDRB, 16); }
 /* STR Rd, [Rn, #] */
-static  void arm580(u32 opcode) { STR_PREINC(OFFSET_IMM, OP_STR, 32); }
+static  void arm580(uint32_t opcode) { STR_PREINC(OFFSET_IMM, OP_STR, 32); }
 /* LDR Rd, [Rn, #] */
-static  void arm590(u32 opcode) { LDR_PREINC(OFFSET_IMM, OP_LDR, 32); }
+static  void arm590(uint32_t opcode) { LDR_PREINC(OFFSET_IMM, OP_LDR, 32); }
 /* STR Rd, [Rn, #]! */
-static  void arm5A0(u32 opcode) { STR_PREINC_WB(OFFSET_IMM, OP_STR, 32); }
+static  void arm5A0(uint32_t opcode) { STR_PREINC_WB(OFFSET_IMM, OP_STR, 32); }
 /* LDR Rd, [Rn, #]! */
-static  void arm5B0(u32 opcode) { LDR_PREINC_WB(OFFSET_IMM, OP_LDR, 32); }
+static  void arm5B0(uint32_t opcode) { LDR_PREINC_WB(OFFSET_IMM, OP_LDR, 32); }
 /* STRB Rd, [Rn, #] */
-static  void arm5C0(u32 opcode) { STR_PREINC(OFFSET_IMM, OP_STRB, 16); }
+static  void arm5C0(uint32_t opcode) { STR_PREINC(OFFSET_IMM, OP_STRB, 16); }
 /* LDRB Rd, [Rn, #] */
-static  void arm5D0(u32 opcode) { LDR_PREINC(OFFSET_IMM, OP_LDRB, 16); }
+static  void arm5D0(uint32_t opcode) { LDR_PREINC(OFFSET_IMM, OP_LDRB, 16); }
 /* STRB Rd, [Rn, #]! */
-static  void arm5E0(u32 opcode) { STR_PREINC_WB(OFFSET_IMM, OP_STRB, 16); }
+static  void arm5E0(uint32_t opcode) { STR_PREINC_WB(OFFSET_IMM, OP_STRB, 16); }
 /* LDRB Rd, [Rn, #]! */
-static  void arm5F0(u32 opcode) { LDR_PREINC_WB(OFFSET_IMM, OP_LDRB, 16); }
+static  void arm5F0(uint32_t opcode) { LDR_PREINC_WB(OFFSET_IMM, OP_LDRB, 16); }
 
 /* STR[T] Rd, [Rn], -Rm, LSL # */
-static  void arm600(u32 opcode) { STR_POSTDEC(OFFSET_LSL, OP_STR, 32); }
+static  void arm600(uint32_t opcode) { STR_POSTDEC(OFFSET_LSL, OP_STR, 32); }
 /* STR[T] Rd, [Rn], -Rm, LSR # */
-static  void arm602(u32 opcode) { STR_POSTDEC(OFFSET_LSR, OP_STR, 32); }
+static  void arm602(uint32_t opcode) { STR_POSTDEC(OFFSET_LSR, OP_STR, 32); }
 /* STR[T] Rd, [Rn], -Rm, ASR # */
-static  void arm604(u32 opcode) { STR_POSTDEC(OFFSET_ASR, OP_STR, 32); }
+static  void arm604(uint32_t opcode) { STR_POSTDEC(OFFSET_ASR, OP_STR, 32); }
 /* STR[T] Rd, [Rn], -Rm, ROR # */
-static  void arm606(u32 opcode) { STR_POSTDEC(OFFSET_ROR, OP_STR, 32); }
+static  void arm606(uint32_t opcode) { STR_POSTDEC(OFFSET_ROR, OP_STR, 32); }
 /* LDR[T] Rd, [Rn], -Rm, LSL # */
-static  void arm610(u32 opcode) { LDR_POSTDEC(OFFSET_LSL, OP_LDR, 32); }
+static  void arm610(uint32_t opcode) { LDR_POSTDEC(OFFSET_LSL, OP_LDR, 32); }
 /* LDR[T] Rd, [Rn], -Rm, LSR # */
-static  void arm612(u32 opcode) { LDR_POSTDEC(OFFSET_LSR, OP_LDR, 32); }
+static  void arm612(uint32_t opcode) { LDR_POSTDEC(OFFSET_LSR, OP_LDR, 32); }
 /* LDR[T] Rd, [Rn], -Rm, ASR # */
-static  void arm614(u32 opcode) { LDR_POSTDEC(OFFSET_ASR, OP_LDR, 32); }
+static  void arm614(uint32_t opcode) { LDR_POSTDEC(OFFSET_ASR, OP_LDR, 32); }
 /* LDR[T] Rd, [Rn], -Rm, ROR # */
-static  void arm616(u32 opcode) { LDR_POSTDEC(OFFSET_ROR, OP_LDR, 32); }
+static  void arm616(uint32_t opcode) { LDR_POSTDEC(OFFSET_ROR, OP_LDR, 32); }
 /* STRB[T] Rd, [Rn], -Rm, LSL # */
-static  void arm640(u32 opcode) { STR_POSTDEC(OFFSET_LSL, OP_STRB, 16); }
+static  void arm640(uint32_t opcode) { STR_POSTDEC(OFFSET_LSL, OP_STRB, 16); }
 /* STRB[T] Rd, [Rn], -Rm, LSR # */
-static  void arm642(u32 opcode) { STR_POSTDEC(OFFSET_LSR, OP_STRB, 16); }
+static  void arm642(uint32_t opcode) { STR_POSTDEC(OFFSET_LSR, OP_STRB, 16); }
 /* STRB[T] Rd, [Rn], -Rm, ASR # */
-static  void arm644(u32 opcode) { STR_POSTDEC(OFFSET_ASR, OP_STRB, 16); }
+static  void arm644(uint32_t opcode) { STR_POSTDEC(OFFSET_ASR, OP_STRB, 16); }
 /* STRB[T] Rd, [Rn], -Rm, ROR # */
-static  void arm646(u32 opcode) { STR_POSTDEC(OFFSET_ROR, OP_STRB, 16); }
+static  void arm646(uint32_t opcode) { STR_POSTDEC(OFFSET_ROR, OP_STRB, 16); }
 /* LDRB[T] Rd, [Rn], -Rm, LSL # */
-static  void arm650(u32 opcode) { LDR_POSTDEC(OFFSET_LSL, OP_LDRB, 16); }
+static  void arm650(uint32_t opcode) { LDR_POSTDEC(OFFSET_LSL, OP_LDRB, 16); }
 /* LDRB[T] Rd, [Rn], -Rm, LSR # */
-static  void arm652(u32 opcode) { LDR_POSTDEC(OFFSET_LSR, OP_LDRB, 16); }
+static  void arm652(uint32_t opcode) { LDR_POSTDEC(OFFSET_LSR, OP_LDRB, 16); }
 /* LDRB[T] Rd, [Rn], -Rm, ASR # */
-static  void arm654(u32 opcode) { LDR_POSTDEC(OFFSET_ASR, OP_LDRB, 16); }
+static  void arm654(uint32_t opcode) { LDR_POSTDEC(OFFSET_ASR, OP_LDRB, 16); }
 /* LDRB Rd, [Rn], -Rm, ROR # */
-static  void arm656(u32 opcode) { LDR_POSTDEC(OFFSET_ROR, OP_LDRB, 16); }
+static  void arm656(uint32_t opcode) { LDR_POSTDEC(OFFSET_ROR, OP_LDRB, 16); }
 /* STR[T] Rd, [Rn], Rm, LSL # */
-static  void arm680(u32 opcode) { STR_POSTINC(OFFSET_LSL, OP_STR, 32); }
+static  void arm680(uint32_t opcode) { STR_POSTINC(OFFSET_LSL, OP_STR, 32); }
 /* STR[T] Rd, [Rn], Rm, LSR # */
-static  void arm682(u32 opcode) { STR_POSTINC(OFFSET_LSR, OP_STR, 32); }
+static  void arm682(uint32_t opcode) { STR_POSTINC(OFFSET_LSR, OP_STR, 32); }
 /* STR[T] Rd, [Rn], Rm, ASR # */
-static  void arm684(u32 opcode) { STR_POSTINC(OFFSET_ASR, OP_STR, 32); }
+static  void arm684(uint32_t opcode) { STR_POSTINC(OFFSET_ASR, OP_STR, 32); }
 /* STR[T] Rd, [Rn], Rm, ROR # */
-static  void arm686(u32 opcode) { STR_POSTINC(OFFSET_ROR, OP_STR, 32); }
+static  void arm686(uint32_t opcode) { STR_POSTINC(OFFSET_ROR, OP_STR, 32); }
 /* LDR[T] Rd, [Rn], Rm, LSL # */
-static  void arm690(u32 opcode) { LDR_POSTINC(OFFSET_LSL, OP_LDR, 32); }
+static  void arm690(uint32_t opcode) { LDR_POSTINC(OFFSET_LSL, OP_LDR, 32); }
 /* LDR[T] Rd, [Rn], Rm, LSR # */
-static  void arm692(u32 opcode) { LDR_POSTINC(OFFSET_LSR, OP_LDR, 32); }
+static  void arm692(uint32_t opcode) { LDR_POSTINC(OFFSET_LSR, OP_LDR, 32); }
 /* LDR[T] Rd, [Rn], Rm, ASR # */
-static  void arm694(u32 opcode) { LDR_POSTINC(OFFSET_ASR, OP_LDR, 32); }
+static  void arm694(uint32_t opcode) { LDR_POSTINC(OFFSET_ASR, OP_LDR, 32); }
 /* LDR[T] Rd, [Rn], Rm, ROR # */
-static  void arm696(u32 opcode) { LDR_POSTINC(OFFSET_ROR, OP_LDR, 32); }
+static  void arm696(uint32_t opcode) { LDR_POSTINC(OFFSET_ROR, OP_LDR, 32); }
 /* STRB[T] Rd, [Rn], Rm, LSL # */
-static  void arm6C0(u32 opcode) { STR_POSTINC(OFFSET_LSL, OP_STRB, 16); }
+static  void arm6C0(uint32_t opcode) { STR_POSTINC(OFFSET_LSL, OP_STRB, 16); }
 /* STRB[T] Rd, [Rn], Rm, LSR # */
-static  void arm6C2(u32 opcode) { STR_POSTINC(OFFSET_LSR, OP_STRB, 16); }
+static  void arm6C2(uint32_t opcode) { STR_POSTINC(OFFSET_LSR, OP_STRB, 16); }
 /* STRB[T] Rd, [Rn], Rm, ASR # */
-static  void arm6C4(u32 opcode) { STR_POSTINC(OFFSET_ASR, OP_STRB, 16); }
+static  void arm6C4(uint32_t opcode) { STR_POSTINC(OFFSET_ASR, OP_STRB, 16); }
 /* STRB[T] Rd, [Rn], Rm, ROR # */
-static  void arm6C6(u32 opcode) { STR_POSTINC(OFFSET_ROR, OP_STRB, 16); }
+static  void arm6C6(uint32_t opcode) { STR_POSTINC(OFFSET_ROR, OP_STRB, 16); }
 /* LDRB[T] Rd, [Rn], Rm, LSL # */
-static  void arm6D0(u32 opcode) { LDR_POSTINC(OFFSET_LSL, OP_LDRB, 16); }
+static  void arm6D0(uint32_t opcode) { LDR_POSTINC(OFFSET_LSL, OP_LDRB, 16); }
 /* LDRB[T] Rd, [Rn], Rm, LSR # */
-static  void arm6D2(u32 opcode) { LDR_POSTINC(OFFSET_LSR, OP_LDRB, 16); }
+static  void arm6D2(uint32_t opcode) { LDR_POSTINC(OFFSET_LSR, OP_LDRB, 16); }
 /* LDRB[T] Rd, [Rn], Rm, ASR # */
-static  void arm6D4(u32 opcode) { LDR_POSTINC(OFFSET_ASR, OP_LDRB, 16); }
+static  void arm6D4(uint32_t opcode) { LDR_POSTINC(OFFSET_ASR, OP_LDRB, 16); }
 /* LDRB[T] Rd, [Rn], Rm, ROR # */
-static  void arm6D6(u32 opcode) { LDR_POSTINC(OFFSET_ROR, OP_LDRB, 16); }
+static  void arm6D6(uint32_t opcode) { LDR_POSTINC(OFFSET_ROR, OP_LDRB, 16); }
 /* STR Rd, [Rn, -Rm, LSL #] */
-static  void arm700(u32 opcode) { STR_PREDEC(OFFSET_LSL, OP_STR, 32); }
+static  void arm700(uint32_t opcode) { STR_PREDEC(OFFSET_LSL, OP_STR, 32); }
 /* STR Rd, [Rn, -Rm, LSR #] */
-static  void arm702(u32 opcode) { STR_PREDEC(OFFSET_LSR, OP_STR, 32); }
+static  void arm702(uint32_t opcode) { STR_PREDEC(OFFSET_LSR, OP_STR, 32); }
 /* STR Rd, [Rn, -Rm, ASR #] */
-static  void arm704(u32 opcode) { STR_PREDEC(OFFSET_ASR, OP_STR, 32); }
+static  void arm704(uint32_t opcode) { STR_PREDEC(OFFSET_ASR, OP_STR, 32); }
 /* STR Rd, [Rn, -Rm, ROR #] */
-static  void arm706(u32 opcode) { STR_PREDEC(OFFSET_ROR, OP_STR, 32); }
+static  void arm706(uint32_t opcode) { STR_PREDEC(OFFSET_ROR, OP_STR, 32); }
 /* LDR Rd, [Rn, -Rm, LSL #] */
-static  void arm710(u32 opcode) { LDR_PREDEC(OFFSET_LSL, OP_LDR, 32); }
+static  void arm710(uint32_t opcode) { LDR_PREDEC(OFFSET_LSL, OP_LDR, 32); }
 /* LDR Rd, [Rn, -Rm, LSR #] */
-static  void arm712(u32 opcode) { LDR_PREDEC(OFFSET_LSR, OP_LDR, 32); }
+static  void arm712(uint32_t opcode) { LDR_PREDEC(OFFSET_LSR, OP_LDR, 32); }
 /* LDR Rd, [Rn, -Rm, ASR #] */
-static  void arm714(u32 opcode) { LDR_PREDEC(OFFSET_ASR, OP_LDR, 32); }
+static  void arm714(uint32_t opcode) { LDR_PREDEC(OFFSET_ASR, OP_LDR, 32); }
 /* LDR Rd, [Rn, -Rm, ROR #] */
-static  void arm716(u32 opcode) { LDR_PREDEC(OFFSET_ROR, OP_LDR, 32); }
+static  void arm716(uint32_t opcode) { LDR_PREDEC(OFFSET_ROR, OP_LDR, 32); }
 /* STR Rd, [Rn, -Rm, LSL #]! */
-static  void arm720(u32 opcode) { STR_PREDEC_WB(OFFSET_LSL, OP_STR, 32); }
+static  void arm720(uint32_t opcode) { STR_PREDEC_WB(OFFSET_LSL, OP_STR, 32); }
 /* STR Rd, [Rn, -Rm, LSR #]! */
-static  void arm722(u32 opcode) { STR_PREDEC_WB(OFFSET_LSR, OP_STR, 32); }
+static  void arm722(uint32_t opcode) { STR_PREDEC_WB(OFFSET_LSR, OP_STR, 32); }
 /* STR Rd, [Rn, -Rm, ASR #]! */
-static  void arm724(u32 opcode) { STR_PREDEC_WB(OFFSET_ASR, OP_STR, 32); }
+static  void arm724(uint32_t opcode) { STR_PREDEC_WB(OFFSET_ASR, OP_STR, 32); }
 /* STR Rd, [Rn, -Rm, ROR #]! */
-static  void arm726(u32 opcode) { STR_PREDEC_WB(OFFSET_ROR, OP_STR, 32); }
+static  void arm726(uint32_t opcode) { STR_PREDEC_WB(OFFSET_ROR, OP_STR, 32); }
 /* LDR Rd, [Rn, -Rm, LSL #]! */
-static  void arm730(u32 opcode) { LDR_PREDEC_WB(OFFSET_LSL, OP_LDR, 32); }
+static  void arm730(uint32_t opcode) { LDR_PREDEC_WB(OFFSET_LSL, OP_LDR, 32); }
 /* LDR Rd, [Rn, -Rm, LSR #]! */
-static  void arm732(u32 opcode) { LDR_PREDEC_WB(OFFSET_LSR, OP_LDR, 32); }
+static  void arm732(uint32_t opcode) { LDR_PREDEC_WB(OFFSET_LSR, OP_LDR, 32); }
 /* LDR Rd, [Rn, -Rm, ASR #]! */
-static  void arm734(u32 opcode) { LDR_PREDEC_WB(OFFSET_ASR, OP_LDR, 32); }
+static  void arm734(uint32_t opcode) { LDR_PREDEC_WB(OFFSET_ASR, OP_LDR, 32); }
 /* LDR Rd, [Rn, -Rm, ROR #]! */
-static  void arm736(u32 opcode) { LDR_PREDEC_WB(OFFSET_ROR, OP_LDR, 32); }
+static  void arm736(uint32_t opcode) { LDR_PREDEC_WB(OFFSET_ROR, OP_LDR, 32); }
 /* STRB Rd, [Rn, -Rm, LSL #] */
-static  void arm740(u32 opcode) { STR_PREDEC(OFFSET_LSL, OP_STRB, 16); }
+static  void arm740(uint32_t opcode) { STR_PREDEC(OFFSET_LSL, OP_STRB, 16); }
 /* STRB Rd, [Rn, -Rm, LSR #] */
-static  void arm742(u32 opcode) { STR_PREDEC(OFFSET_LSR, OP_STRB, 16); }
+static  void arm742(uint32_t opcode) { STR_PREDEC(OFFSET_LSR, OP_STRB, 16); }
 /* STRB Rd, [Rn, -Rm, ASR #] */
-static  void arm744(u32 opcode) { STR_PREDEC(OFFSET_ASR, OP_STRB, 16); }
+static  void arm744(uint32_t opcode) { STR_PREDEC(OFFSET_ASR, OP_STRB, 16); }
 /* STRB Rd, [Rn, -Rm, ROR #] */
-static  void arm746(u32 opcode) { STR_PREDEC(OFFSET_ROR, OP_STRB, 16); }
+static  void arm746(uint32_t opcode) { STR_PREDEC(OFFSET_ROR, OP_STRB, 16); }
 /* LDRB Rd, [Rn, -Rm, LSL #] */
-static  void arm750(u32 opcode) { LDR_PREDEC(OFFSET_LSL, OP_LDRB, 16); }
+static  void arm750(uint32_t opcode) { LDR_PREDEC(OFFSET_LSL, OP_LDRB, 16); }
 /* LDRB Rd, [Rn, -Rm, LSR #] */
-static  void arm752(u32 opcode) { LDR_PREDEC(OFFSET_LSR, OP_LDRB, 16); }
+static  void arm752(uint32_t opcode) { LDR_PREDEC(OFFSET_LSR, OP_LDRB, 16); }
 /* LDRB Rd, [Rn, -Rm, ASR #] */
-static  void arm754(u32 opcode) { LDR_PREDEC(OFFSET_ASR, OP_LDRB, 16); }
+static  void arm754(uint32_t opcode) { LDR_PREDEC(OFFSET_ASR, OP_LDRB, 16); }
 /* LDRB Rd, [Rn, -Rm, ROR #] */
-static  void arm756(u32 opcode) { LDR_PREDEC(OFFSET_ROR, OP_LDRB, 16); }
+static  void arm756(uint32_t opcode) { LDR_PREDEC(OFFSET_ROR, OP_LDRB, 16); }
 /* STRB Rd, [Rn, -Rm, LSL #]! */
-static  void arm760(u32 opcode) { STR_PREDEC_WB(OFFSET_LSL, OP_STRB, 16); }
+static  void arm760(uint32_t opcode) { STR_PREDEC_WB(OFFSET_LSL, OP_STRB, 16); }
 /* STRB Rd, [Rn, -Rm, LSR #]! */
-static  void arm762(u32 opcode) { STR_PREDEC_WB(OFFSET_LSR, OP_STRB, 16); }
+static  void arm762(uint32_t opcode) { STR_PREDEC_WB(OFFSET_LSR, OP_STRB, 16); }
 /* STRB Rd, [Rn, -Rm, ASR #]! */
-static  void arm764(u32 opcode) { STR_PREDEC_WB(OFFSET_ASR, OP_STRB, 16); }
+static  void arm764(uint32_t opcode) { STR_PREDEC_WB(OFFSET_ASR, OP_STRB, 16); }
 /* STRB Rd, [Rn, -Rm, ROR #]! */
-static  void arm766(u32 opcode) { STR_PREDEC_WB(OFFSET_ROR, OP_STRB, 16); }
+static  void arm766(uint32_t opcode) { STR_PREDEC_WB(OFFSET_ROR, OP_STRB, 16); }
 /* LDRB Rd, [Rn, -Rm, LSL #]! */
-static  void arm770(u32 opcode) { LDR_PREDEC_WB(OFFSET_LSL, OP_LDRB, 16); }
+static  void arm770(uint32_t opcode) { LDR_PREDEC_WB(OFFSET_LSL, OP_LDRB, 16); }
 /* LDRB Rd, [Rn, -Rm, LSR #]! */
-static  void arm772(u32 opcode) { LDR_PREDEC_WB(OFFSET_LSR, OP_LDRB, 16); }
+static  void arm772(uint32_t opcode) { LDR_PREDEC_WB(OFFSET_LSR, OP_LDRB, 16); }
 /* LDRB Rd, [Rn, -Rm, ASR #]! */
-static  void arm774(u32 opcode) { LDR_PREDEC_WB(OFFSET_ASR, OP_LDRB, 16); }
+static  void arm774(uint32_t opcode) { LDR_PREDEC_WB(OFFSET_ASR, OP_LDRB, 16); }
 /* LDRB Rd, [Rn, -Rm, ROR #]! */
-static  void arm776(u32 opcode) { LDR_PREDEC_WB(OFFSET_ROR, OP_LDRB, 16); }
+static  void arm776(uint32_t opcode) { LDR_PREDEC_WB(OFFSET_ROR, OP_LDRB, 16); }
 /* STR Rd, [Rn, Rm, LSL #] */
-static  void arm780(u32 opcode) { STR_PREINC(OFFSET_LSL, OP_STR, 32); }
+static  void arm780(uint32_t opcode) { STR_PREINC(OFFSET_LSL, OP_STR, 32); }
 /* STR Rd, [Rn, Rm, LSR #] */
-static  void arm782(u32 opcode) { STR_PREINC(OFFSET_LSR, OP_STR, 32); }
+static  void arm782(uint32_t opcode) { STR_PREINC(OFFSET_LSR, OP_STR, 32); }
 /* STR Rd, [Rn, Rm, ASR #] */
-static  void arm784(u32 opcode) { STR_PREINC(OFFSET_ASR, OP_STR, 32); }
+static  void arm784(uint32_t opcode) { STR_PREINC(OFFSET_ASR, OP_STR, 32); }
 /* STR Rd, [Rn, Rm, ROR #] */
-static  void arm786(u32 opcode) { STR_PREINC(OFFSET_ROR, OP_STR, 32); }
+static  void arm786(uint32_t opcode) { STR_PREINC(OFFSET_ROR, OP_STR, 32); }
 /* LDR Rd, [Rn, Rm, LSL #] */
-static  void arm790(u32 opcode) { LDR_PREINC(OFFSET_LSL, OP_LDR, 32); }
+static  void arm790(uint32_t opcode) { LDR_PREINC(OFFSET_LSL, OP_LDR, 32); }
 /* LDR Rd, [Rn, Rm, LSR #] */
-static  void arm792(u32 opcode) { LDR_PREINC(OFFSET_LSR, OP_LDR, 32); }
+static  void arm792(uint32_t opcode) { LDR_PREINC(OFFSET_LSR, OP_LDR, 32); }
 /* LDR Rd, [Rn, Rm, ASR #] */
-static  void arm794(u32 opcode) { LDR_PREINC(OFFSET_ASR, OP_LDR, 32); }
+static  void arm794(uint32_t opcode) { LDR_PREINC(OFFSET_ASR, OP_LDR, 32); }
 /* LDR Rd, [Rn, Rm, ROR #] */
-static  void arm796(u32 opcode) { LDR_PREINC(OFFSET_ROR, OP_LDR, 32); }
+static  void arm796(uint32_t opcode) { LDR_PREINC(OFFSET_ROR, OP_LDR, 32); }
 /* STR Rd, [Rn, Rm, LSL #]! */
-static  void arm7A0(u32 opcode) { STR_PREINC_WB(OFFSET_LSL, OP_STR, 32); }
+static  void arm7A0(uint32_t opcode) { STR_PREINC_WB(OFFSET_LSL, OP_STR, 32); }
 /* STR Rd, [Rn, Rm, LSR #]! */
-static  void arm7A2(u32 opcode) { STR_PREINC_WB(OFFSET_LSR, OP_STR, 32); }
+static  void arm7A2(uint32_t opcode) { STR_PREINC_WB(OFFSET_LSR, OP_STR, 32); }
 /* STR Rd, [Rn, Rm, ASR #]! */
-static  void arm7A4(u32 opcode) { STR_PREINC_WB(OFFSET_ASR, OP_STR, 32); }
+static  void arm7A4(uint32_t opcode) { STR_PREINC_WB(OFFSET_ASR, OP_STR, 32); }
 /* STR Rd, [Rn, Rm, ROR #]! */
-static  void arm7A6(u32 opcode) { STR_PREINC_WB(OFFSET_ROR, OP_STR, 32); }
+static  void arm7A6(uint32_t opcode) { STR_PREINC_WB(OFFSET_ROR, OP_STR, 32); }
 /* LDR Rd, [Rn, Rm, LSL #]! */
-static  void arm7B0(u32 opcode) { LDR_PREINC_WB(OFFSET_LSL, OP_LDR, 32); }
+static  void arm7B0(uint32_t opcode) { LDR_PREINC_WB(OFFSET_LSL, OP_LDR, 32); }
 /* LDR Rd, [Rn, Rm, LSR #]! */
-static  void arm7B2(u32 opcode) { LDR_PREINC_WB(OFFSET_LSR, OP_LDR, 32); }
+static  void arm7B2(uint32_t opcode) { LDR_PREINC_WB(OFFSET_LSR, OP_LDR, 32); }
 /* LDR Rd, [Rn, Rm, ASR #]! */
-static  void arm7B4(u32 opcode) { LDR_PREINC_WB(OFFSET_ASR, OP_LDR, 32); }
+static  void arm7B4(uint32_t opcode) { LDR_PREINC_WB(OFFSET_ASR, OP_LDR, 32); }
 /* LDR Rd, [Rn, Rm, ROR #]! */
-static  void arm7B6(u32 opcode) { LDR_PREINC_WB(OFFSET_ROR, OP_LDR, 32); }
+static  void arm7B6(uint32_t opcode) { LDR_PREINC_WB(OFFSET_ROR, OP_LDR, 32); }
 /* STRB Rd, [Rn, Rm, LSL #] */
-static  void arm7C0(u32 opcode) { STR_PREINC(OFFSET_LSL, OP_STRB, 16); }
+static  void arm7C0(uint32_t opcode) { STR_PREINC(OFFSET_LSL, OP_STRB, 16); }
 /* STRB Rd, [Rn, Rm, LSR #] */
-static  void arm7C2(u32 opcode) { STR_PREINC(OFFSET_LSR, OP_STRB, 16); }
+static  void arm7C2(uint32_t opcode) { STR_PREINC(OFFSET_LSR, OP_STRB, 16); }
 /* STRB Rd, [Rn, Rm, ASR #] */
-static  void arm7C4(u32 opcode) { STR_PREINC(OFFSET_ASR, OP_STRB, 16); }
+static  void arm7C4(uint32_t opcode) { STR_PREINC(OFFSET_ASR, OP_STRB, 16); }
 /* STRB Rd, [Rn, Rm, ROR #] */
-static  void arm7C6(u32 opcode) { STR_PREINC(OFFSET_ROR, OP_STRB, 16); }
+static  void arm7C6(uint32_t opcode) { STR_PREINC(OFFSET_ROR, OP_STRB, 16); }
 /* LDRB Rd, [Rn, Rm, LSL #] */
-static  void arm7D0(u32 opcode) { LDR_PREINC(OFFSET_LSL, OP_LDRB, 16); }
+static  void arm7D0(uint32_t opcode) { LDR_PREINC(OFFSET_LSL, OP_LDRB, 16); }
 /* LDRB Rd, [Rn, Rm, LSR #] */
-static  void arm7D2(u32 opcode) { LDR_PREINC(OFFSET_LSR, OP_LDRB, 16); }
+static  void arm7D2(uint32_t opcode) { LDR_PREINC(OFFSET_LSR, OP_LDRB, 16); }
 /* LDRB Rd, [Rn, Rm, ASR #] */
-static  void arm7D4(u32 opcode) { LDR_PREINC(OFFSET_ASR, OP_LDRB, 16); }
+static  void arm7D4(uint32_t opcode) { LDR_PREINC(OFFSET_ASR, OP_LDRB, 16); }
 /* LDRB Rd, [Rn, Rm, ROR #] */
-static  void arm7D6(u32 opcode) { LDR_PREINC(OFFSET_ROR, OP_LDRB, 16); }
+static  void arm7D6(uint32_t opcode) { LDR_PREINC(OFFSET_ROR, OP_LDRB, 16); }
 /* STRB Rd, [Rn, Rm, LSL #]! */
-static  void arm7E0(u32 opcode) { STR_PREINC_WB(OFFSET_LSL, OP_STRB, 16); }
+static  void arm7E0(uint32_t opcode) { STR_PREINC_WB(OFFSET_LSL, OP_STRB, 16); }
 /* STRB Rd, [Rn, Rm, LSR #]! */
-static  void arm7E2(u32 opcode) { STR_PREINC_WB(OFFSET_LSR, OP_STRB, 16); }
+static  void arm7E2(uint32_t opcode) { STR_PREINC_WB(OFFSET_LSR, OP_STRB, 16); }
 /* STRB Rd, [Rn, Rm, ASR #]! */
-static  void arm7E4(u32 opcode) { STR_PREINC_WB(OFFSET_ASR, OP_STRB, 16); }
+static  void arm7E4(uint32_t opcode) { STR_PREINC_WB(OFFSET_ASR, OP_STRB, 16); }
 /* STRB Rd, [Rn, Rm, ROR #]! */
-static  void arm7E6(u32 opcode) { STR_PREINC_WB(OFFSET_ROR, OP_STRB, 16); }
+static  void arm7E6(uint32_t opcode) { STR_PREINC_WB(OFFSET_ROR, OP_STRB, 16); }
 /* LDRB Rd, [Rn, Rm, LSL #]! */
-static  void arm7F0(u32 opcode) { LDR_PREINC_WB(OFFSET_LSL, OP_LDRB, 16); }
+static  void arm7F0(uint32_t opcode) { LDR_PREINC_WB(OFFSET_LSL, OP_LDRB, 16); }
 /* LDRB Rd, [Rn, Rm, LSR #]! */
-static  void arm7F2(u32 opcode) { LDR_PREINC_WB(OFFSET_LSR, OP_LDRB, 16); }
+static  void arm7F2(uint32_t opcode) { LDR_PREINC_WB(OFFSET_LSR, OP_LDRB, 16); }
 /* LDRB Rd, [Rn, Rm, ASR #]! */
-static  void arm7F4(u32 opcode) { LDR_PREINC_WB(OFFSET_ASR, OP_LDRB, 16); }
+static  void arm7F4(uint32_t opcode) { LDR_PREINC_WB(OFFSET_ASR, OP_LDRB, 16); }
 /* LDRB Rd, [Rn, Rm, ROR #]! */
-static  void arm7F6(u32 opcode) { LDR_PREINC_WB(OFFSET_ROR, OP_LDRB, 16); }
+static  void arm7F6(uint32_t opcode) { LDR_PREINC_WB(OFFSET_ROR, OP_LDRB, 16); }
 
 /* STM/LDM //////////////////////////////////////////////////////////////// */
 
@@ -4138,56 +4138,56 @@ static  void arm7F6(u32 opcode) { LDR_PREINC_WB(OFFSET_ROR, OP_LDRB, 16); }
 
 
 /* STMDA Rn, {Rlist} */
-static  void arm800(u32 opcode)
+static  void arm800(uint32_t opcode)
 {
     if (bus.busPrefetchCount == 0)
         bus.busPrefetch = bus.busPrefetchEnable;
     int base = (opcode & 0x000F0000) >> 16;
-    u32 temp = bus.reg[base].I -
+    uint32_t temp = bus.reg[base].I -
         4 * (cpuBitsSet[opcode & 255] + cpuBitsSet[(opcode >> 8) & 255]);
-    u32 address = (temp + 4) & 0xFFFFFFFC;
+    uint32_t address = (temp + 4) & 0xFFFFFFFC;
     int count = 0;
     STM_ALL;
     clockTicks += 1 + codeTicksAccess(bus.armNextPC, BITS_32);
 }
 
 /* LDMDA Rn, {Rlist} */
-static  void arm810(u32 opcode)
+static  void arm810(uint32_t opcode)
 {
     if (bus.busPrefetchCount == 0)
         bus.busPrefetch = bus.busPrefetchEnable;
     int base = (opcode & 0x000F0000) >> 16;
-    u32 temp = bus.reg[base].I -
+    uint32_t temp = bus.reg[base].I -
         4 * (cpuBitsSet[opcode & 255] + cpuBitsSet[(opcode >> 8) & 255]);
-    u32 address = (temp + 4) & 0xFFFFFFFC;
+    uint32_t address = (temp + 4) & 0xFFFFFFFC;
     int count = 0;
     LDM_ALL;
     clockTicks += 2 + codeTicksAccess(bus.armNextPC, BITS_32);
 }
 
 /* STMDA Rn!, {Rlist} */
-static  void arm820(u32 opcode)
+static  void arm820(uint32_t opcode)
 {
     if (bus.busPrefetchCount == 0)
         bus.busPrefetch = bus.busPrefetchEnable;
     int base = (opcode & 0x000F0000) >> 16;
-    u32 temp = bus.reg[base].I -
+    uint32_t temp = bus.reg[base].I -
         4 * (cpuBitsSet[opcode & 255] + cpuBitsSet[(opcode >> 8) & 255]);
-    u32 address = (temp+4) & 0xFFFFFFFC;
+    uint32_t address = (temp+4) & 0xFFFFFFFC;
     int count = 0;
     STMW_ALL;
     clockTicks += 1 + codeTicksAccess(bus.armNextPC, BITS_32);
 }
 
 /* LDMDA Rn!, {Rlist} */
-static  void arm830(u32 opcode)
+static  void arm830(uint32_t opcode)
 {
     if (bus.busPrefetchCount == 0)
         bus.busPrefetch = bus.busPrefetchEnable;
     int base = (opcode & 0x000F0000) >> 16;
-    u32 temp = bus.reg[base].I -
+    uint32_t temp = bus.reg[base].I -
         4 * (cpuBitsSet[opcode & 255] + cpuBitsSet[(opcode >> 8) & 255]);
-    u32 address = (temp + 4) & 0xFFFFFFFC;
+    uint32_t address = (temp + 4) & 0xFFFFFFFC;
     int count = 0;
     LDM_ALL;
     clockTicks += 2 + codeTicksAccess(bus.armNextPC, BITS_32);
@@ -4196,28 +4196,28 @@ static  void arm830(u32 opcode)
 }
 
 /* STMDA Rn, {Rlist}^ */
-static  void arm840(u32 opcode)
+static  void arm840(uint32_t opcode)
 {
     if (bus.busPrefetchCount == 0)
         bus.busPrefetch = bus.busPrefetchEnable;
     int base = (opcode & 0x000F0000) >> 16;
-    u32 temp = bus.reg[base].I -
+    uint32_t temp = bus.reg[base].I -
         4 * (cpuBitsSet[opcode & 255] + cpuBitsSet[(opcode >> 8) & 255]);
-    u32 address = (temp+4) & 0xFFFFFFFC;
+    uint32_t address = (temp+4) & 0xFFFFFFFC;
     int count = 0;
     STM_ALL_2;
     clockTicks += 1 + codeTicksAccess(bus.armNextPC, BITS_32);
 }
 
 /* LDMDA Rn, {Rlist}^ */
-static  void arm850(u32 opcode)
+static  void arm850(uint32_t opcode)
 {
     if (bus.busPrefetchCount == 0)
         bus.busPrefetch = bus.busPrefetchEnable;
     int base = (opcode & 0x000F0000) >> 16;
-    u32 temp = bus.reg[base].I -
+    uint32_t temp = bus.reg[base].I -
         4 * (cpuBitsSet[opcode & 255] + cpuBitsSet[(opcode >> 8) & 255]);
-    u32 address = (temp + 4) & 0xFFFFFFFC;
+    uint32_t address = (temp + 4) & 0xFFFFFFFC;
     int count = 0;
     LDM_ALL_2;
     LDM_ALL_2B;
@@ -4225,28 +4225,28 @@ static  void arm850(u32 opcode)
 }
 
 /* STMDA Rn!, {Rlist}^ */
-static  void arm860(u32 opcode)
+static  void arm860(uint32_t opcode)
 {
     if (bus.busPrefetchCount == 0)
         bus.busPrefetch = bus.busPrefetchEnable;
     int base = (opcode & 0x000F0000) >> 16;
-    u32 temp = bus.reg[base].I -
+    uint32_t temp = bus.reg[base].I -
         4 * (cpuBitsSet[opcode & 255] + cpuBitsSet[(opcode >> 8) & 255]);
-    u32 address = (temp+4) & 0xFFFFFFFC;
+    uint32_t address = (temp+4) & 0xFFFFFFFC;
     int count = 0;
     STMW_ALL_2;
     clockTicks += 1 + codeTicksAccess(bus.armNextPC, BITS_32);
 }
 
 /* LDMDA Rn!, {Rlist}^ */
-static  void arm870(u32 opcode)
+static  void arm870(uint32_t opcode)
 {
     if (bus.busPrefetchCount == 0)
         bus.busPrefetch = bus.busPrefetchEnable;
     int base = (opcode & 0x000F0000) >> 16;
-    u32 temp = bus.reg[base].I -
+    uint32_t temp = bus.reg[base].I -
         4 * (cpuBitsSet[opcode & 255] + cpuBitsSet[(opcode >> 8) & 255]);
-    u32 address = (temp + 4) & 0xFFFFFFFC;
+    uint32_t address = (temp + 4) & 0xFFFFFFFC;
     int count = 0;
     LDM_ALL_2;
     if (!(opcode & (1U << base)))
@@ -4256,52 +4256,52 @@ static  void arm870(u32 opcode)
 }
 
 /* STMIA Rn, {Rlist} */
-static  void arm880(u32 opcode)
+static  void arm880(uint32_t opcode)
 {
     if (bus.busPrefetchCount == 0)
         bus.busPrefetch = bus.busPrefetchEnable;
     int base = (opcode & 0x000F0000) >> 16;
-    u32 address = bus.reg[base].I & 0xFFFFFFFC;
+    uint32_t address = bus.reg[base].I & 0xFFFFFFFC;
     int count = 0;
     STM_ALL;
     clockTicks += 1 + codeTicksAccess(bus.armNextPC, BITS_32);
 }
 
 /* LDMIA Rn, {Rlist} */
-static  void arm890(u32 opcode)
+static  void arm890(uint32_t opcode)
 {
     if (bus.busPrefetchCount == 0)
         bus.busPrefetch = bus.busPrefetchEnable;
     int base = (opcode & 0x000F0000) >> 16;
-    u32 address = bus.reg[base].I & 0xFFFFFFFC;
+    uint32_t address = bus.reg[base].I & 0xFFFFFFFC;
     int count = 0;
     LDM_ALL;
     clockTicks += 2 + codeTicksAccess(bus.armNextPC, BITS_32);
 }
 
 /* STMIA Rn!, {Rlist} */
-static  void arm8A0(u32 opcode)
+static  void arm8A0(uint32_t opcode)
 {
     if (bus.busPrefetchCount == 0)
         bus.busPrefetch = bus.busPrefetchEnable;
     int base = (opcode & 0x000F0000) >> 16;
-    u32 address = bus.reg[base].I & 0xFFFFFFFC;
+    uint32_t address = bus.reg[base].I & 0xFFFFFFFC;
     int count = 0;
-    u32 temp = bus.reg[base].I +
+    uint32_t temp = bus.reg[base].I +
         4 * (cpuBitsSet[opcode & 0xFF] + cpuBitsSet[(opcode >> 8) & 255]);
     STMW_ALL;
     clockTicks += 1 + codeTicksAccess(bus.armNextPC, BITS_32);
 }
 
 /* LDMIA Rn!, {Rlist} */
-static  void arm8B0(u32 opcode)
+static  void arm8B0(uint32_t opcode)
 {
     if (bus.busPrefetchCount == 0)
         bus.busPrefetch = bus.busPrefetchEnable;
     int base = (opcode & 0x000F0000) >> 16;
-    u32 temp = bus.reg[base].I +
+    uint32_t temp = bus.reg[base].I +
         4 * (cpuBitsSet[opcode & 255] + cpuBitsSet[(opcode >> 8) & 255]);
-    u32 address = bus.reg[base].I & 0xFFFFFFFC;
+    uint32_t address = bus.reg[base].I & 0xFFFFFFFC;
     int count = 0;
     LDM_ALL;
     clockTicks += 2 + codeTicksAccess(bus.armNextPC, BITS_32);
@@ -4310,24 +4310,24 @@ static  void arm8B0(u32 opcode)
 }
 
 /* STMIA Rn, {Rlist}^ */
-static  void arm8C0(u32 opcode)
+static  void arm8C0(uint32_t opcode)
 {
     if (bus.busPrefetchCount == 0)
         bus.busPrefetch = bus.busPrefetchEnable;
     int base = (opcode & 0x000F0000) >> 16;
-    u32 address = bus.reg[base].I & 0xFFFFFFFC;
+    uint32_t address = bus.reg[base].I & 0xFFFFFFFC;
     int count = 0;
     STM_ALL_2;
     clockTicks += 1 + codeTicksAccess(bus.armNextPC, BITS_32);
 }
 
 /* LDMIA Rn, {Rlist}^ */
-static  void arm8D0(u32 opcode)
+static  void arm8D0(uint32_t opcode)
 {
     if (bus.busPrefetchCount == 0)
         bus.busPrefetch = bus.busPrefetchEnable;
     int base = (opcode & 0x000F0000) >> 16;
-    u32 address = bus.reg[base].I & 0xFFFFFFFC;
+    uint32_t address = bus.reg[base].I & 0xFFFFFFFC;
     int count = 0;
     LDM_ALL_2;
     LDM_ALL_2B;
@@ -4335,28 +4335,28 @@ static  void arm8D0(u32 opcode)
 }
 
 /* STMIA Rn!, {Rlist}^ */
-static  void arm8E0(u32 opcode)
+static  void arm8E0(uint32_t opcode)
 {
     if (bus.busPrefetchCount == 0)
         bus.busPrefetch = bus.busPrefetchEnable;
     int base = (opcode & 0x000F0000) >> 16;
-    u32 address = bus.reg[base].I & 0xFFFFFFFC;
+    uint32_t address = bus.reg[base].I & 0xFFFFFFFC;
     int count = 0;
-    u32 temp = bus.reg[base].I +
+    uint32_t temp = bus.reg[base].I +
         4 * (cpuBitsSet[opcode & 0xFF] + cpuBitsSet[(opcode >> 8) & 255]);
     STMW_ALL_2;
     clockTicks += 1 + codeTicksAccess(bus.armNextPC, BITS_32);
 }
 
 /* LDMIA Rn!, {Rlist}^ */
-static  void arm8F0(u32 opcode)
+static  void arm8F0(uint32_t opcode)
 {
     if (bus.busPrefetchCount == 0)
         bus.busPrefetch = bus.busPrefetchEnable;
     int base = (opcode & 0x000F0000) >> 16;
-    u32 temp = bus.reg[base].I +
+    uint32_t temp = bus.reg[base].I +
         4 * (cpuBitsSet[opcode & 255] + cpuBitsSet[(opcode >> 8) & 255]);
-    u32 address = bus.reg[base].I & 0xFFFFFFFC;
+    uint32_t address = bus.reg[base].I & 0xFFFFFFFC;
     int count = 0;
     LDM_ALL_2;
     if (!(opcode & (1U << base)))
@@ -4366,56 +4366,56 @@ static  void arm8F0(u32 opcode)
 }
 
 /* STMDB Rn, {Rlist} */
-static  void arm900(u32 opcode)
+static  void arm900(uint32_t opcode)
 {
     if (bus.busPrefetchCount == 0)
         bus.busPrefetch = bus.busPrefetchEnable;
     int base = (opcode & 0x000F0000) >> 16;
-    u32 temp = bus.reg[base].I -
+    uint32_t temp = bus.reg[base].I -
         4 * (cpuBitsSet[opcode & 255] + cpuBitsSet[(opcode >> 8) & 255]);
-    u32 address = temp & 0xFFFFFFFC;
+    uint32_t address = temp & 0xFFFFFFFC;
     int count = 0;
     STM_ALL;
     clockTicks += 1 + codeTicksAccess(bus.armNextPC, BITS_32);
 }
 
 /* LDMDB Rn, {Rlist} */
-static  void arm910(u32 opcode)
+static  void arm910(uint32_t opcode)
 {
     if (bus.busPrefetchCount == 0)
         bus.busPrefetch = bus.busPrefetchEnable;
     int base = (opcode & 0x000F0000) >> 16;
-    u32 temp = bus.reg[base].I -
+    uint32_t temp = bus.reg[base].I -
         4 * (cpuBitsSet[opcode & 255] + cpuBitsSet[(opcode >> 8) & 255]);
-    u32 address = temp & 0xFFFFFFFC;
+    uint32_t address = temp & 0xFFFFFFFC;
     int count = 0;
     LDM_ALL;
     clockTicks += 2 + codeTicksAccess(bus.armNextPC, BITS_32);
 }
 
 /* STMDB Rn!, {Rlist} */
-static  void arm920(u32 opcode)
+static  void arm920(uint32_t opcode)
 {
     if (bus.busPrefetchCount == 0)
         bus.busPrefetch = bus.busPrefetchEnable;
     int base = (opcode & 0x000F0000) >> 16;
-    u32 temp = bus.reg[base].I -
+    uint32_t temp = bus.reg[base].I -
         4 * (cpuBitsSet[opcode & 255] + cpuBitsSet[(opcode >> 8) & 255]);
-    u32 address = temp & 0xFFFFFFFC;
+    uint32_t address = temp & 0xFFFFFFFC;
     int count = 0;
     STMW_ALL;
     clockTicks += 1 + codeTicksAccess(bus.armNextPC, BITS_32);
 }
 
 /* LDMDB Rn!, {Rlist} */
-static  void arm930(u32 opcode)
+static  void arm930(uint32_t opcode)
 {
     if (bus.busPrefetchCount == 0)
         bus.busPrefetch = bus.busPrefetchEnable;
     int base = (opcode & 0x000F0000) >> 16;
-    u32 temp = bus.reg[base].I -
+    uint32_t temp = bus.reg[base].I -
         4 * (cpuBitsSet[opcode & 255] + cpuBitsSet[(opcode >> 8) & 255]);
-    u32 address = temp & 0xFFFFFFFC;
+    uint32_t address = temp & 0xFFFFFFFC;
     int count = 0;
     LDM_ALL;
     clockTicks += 2 + codeTicksAccess(bus.armNextPC, BITS_32);
@@ -4424,28 +4424,28 @@ static  void arm930(u32 opcode)
 }
 
 /* STMDB Rn, {Rlist}^ */
-static  void arm940(u32 opcode)
+static  void arm940(uint32_t opcode)
 {
     if (bus.busPrefetchCount == 0)
         bus.busPrefetch = bus.busPrefetchEnable;
     int base = (opcode & 0x000F0000) >> 16;
-    u32 temp = bus.reg[base].I -
+    uint32_t temp = bus.reg[base].I -
         4 * (cpuBitsSet[opcode & 255] + cpuBitsSet[(opcode >> 8) & 255]);
-    u32 address = temp & 0xFFFFFFFC;
+    uint32_t address = temp & 0xFFFFFFFC;
     int count = 0;
     STM_ALL_2;
     clockTicks += 1 + codeTicksAccess(bus.armNextPC, BITS_32);
 }
 
 /* LDMDB Rn, {Rlist}^ */
-static  void arm950(u32 opcode)
+static  void arm950(uint32_t opcode)
 {
     if (bus.busPrefetchCount == 0)
         bus.busPrefetch = bus.busPrefetchEnable;
     int base = (opcode & 0x000F0000) >> 16;
-    u32 temp = bus.reg[base].I -
+    uint32_t temp = bus.reg[base].I -
         4 * (cpuBitsSet[opcode & 255] + cpuBitsSet[(opcode >> 8) & 255]);
-    u32 address = temp & 0xFFFFFFFC;
+    uint32_t address = temp & 0xFFFFFFFC;
     int count = 0;
     LDM_ALL_2;
     LDM_ALL_2B;
@@ -4453,28 +4453,28 @@ static  void arm950(u32 opcode)
 }
 
 /* STMDB Rn!, {Rlist}^ */
-static  void arm960(u32 opcode)
+static  void arm960(uint32_t opcode)
 {
     if (bus.busPrefetchCount == 0)
         bus.busPrefetch = bus.busPrefetchEnable;
     int base = (opcode & 0x000F0000) >> 16;
-    u32 temp = bus.reg[base].I -
+    uint32_t temp = bus.reg[base].I -
         4 * (cpuBitsSet[opcode & 255] + cpuBitsSet[(opcode >> 8) & 255]);
-    u32 address = temp & 0xFFFFFFFC;
+    uint32_t address = temp & 0xFFFFFFFC;
     int count = 0;
     STMW_ALL_2;
     clockTicks += 1 + codeTicksAccess(bus.armNextPC, BITS_32);
 }
 
 /* LDMDB Rn!, {Rlist}^ */
-static  void arm970(u32 opcode)
+static  void arm970(uint32_t opcode)
 {
     if (bus.busPrefetchCount == 0)
         bus.busPrefetch = bus.busPrefetchEnable;
     int base = (opcode & 0x000F0000) >> 16;
-    u32 temp = bus.reg[base].I -
+    uint32_t temp = bus.reg[base].I -
         4 * (cpuBitsSet[opcode & 255] + cpuBitsSet[(opcode >> 8) & 255]);
-    u32 address = temp & 0xFFFFFFFC;
+    uint32_t address = temp & 0xFFFFFFFC;
     int count = 0;
     LDM_ALL_2;
     if (!(opcode & (1U << base)))
@@ -4484,52 +4484,52 @@ static  void arm970(u32 opcode)
 }
 
 /* STMIB Rn, {Rlist} */
-static  void arm980(u32 opcode)
+static  void arm980(uint32_t opcode)
 {
     if (bus.busPrefetchCount == 0)
         bus.busPrefetch = bus.busPrefetchEnable;
     int base = (opcode & 0x000F0000) >> 16;
-    u32 address = (bus.reg[base].I+4) & 0xFFFFFFFC;
+    uint32_t address = (bus.reg[base].I+4) & 0xFFFFFFFC;
     int count = 0;
     STM_ALL;
     clockTicks += 1 + codeTicksAccess(bus.armNextPC, BITS_32);
 }
 
 /* LDMIB Rn, {Rlist} */
-static  void arm990(u32 opcode)
+static  void arm990(uint32_t opcode)
 {
     if (bus.busPrefetchCount == 0)
         bus.busPrefetch = bus.busPrefetchEnable;
     int base = (opcode & 0x000F0000) >> 16;
-    u32 address = (bus.reg[base].I+4) & 0xFFFFFFFC;
+    uint32_t address = (bus.reg[base].I+4) & 0xFFFFFFFC;
     int count = 0;
     LDM_ALL;
     clockTicks += 2 + codeTicksAccess(bus.armNextPC, BITS_32);
 }
 
 /* STMIB Rn!, {Rlist} */
-static  void arm9A0(u32 opcode)
+static  void arm9A0(uint32_t opcode)
 {
     if (bus.busPrefetchCount == 0)
         bus.busPrefetch = bus.busPrefetchEnable;
     int base = (opcode & 0x000F0000) >> 16;
-    u32 address = (bus.reg[base].I+4) & 0xFFFFFFFC;
+    uint32_t address = (bus.reg[base].I+4) & 0xFFFFFFFC;
     int count = 0;
-    u32 temp = bus.reg[base].I +
+    uint32_t temp = bus.reg[base].I +
         4 * (cpuBitsSet[opcode & 0xFF] + cpuBitsSet[(opcode >> 8) & 255]);
     STMW_ALL;
     clockTicks += 1 + codeTicksAccess(bus.armNextPC, BITS_32);
 }
 
 /* LDMIB Rn!, {Rlist} */
-static  void arm9B0(u32 opcode)
+static  void arm9B0(uint32_t opcode)
 {
     if (bus.busPrefetchCount == 0)
         bus.busPrefetch = bus.busPrefetchEnable;
     int base = (opcode & 0x000F0000) >> 16;
-    u32 temp = bus.reg[base].I +
+    uint32_t temp = bus.reg[base].I +
         4 * (cpuBitsSet[opcode & 255] + cpuBitsSet[(opcode >> 8) & 255]);
-    u32 address = (bus.reg[base].I+4) & 0xFFFFFFFC;
+    uint32_t address = (bus.reg[base].I+4) & 0xFFFFFFFC;
     int count = 0;
     LDM_ALL;
     clockTicks += 2 + codeTicksAccess(bus.armNextPC, BITS_32);
@@ -4538,24 +4538,24 @@ static  void arm9B0(u32 opcode)
 }
 
 /* STMIB Rn, {Rlist}^ */
-static  void arm9C0(u32 opcode)
+static  void arm9C0(uint32_t opcode)
 {
     if (bus.busPrefetchCount == 0)
         bus.busPrefetch = bus.busPrefetchEnable;
     int base = (opcode & 0x000F0000) >> 16;
-    u32 address = (bus.reg[base].I+4) & 0xFFFFFFFC;
+    uint32_t address = (bus.reg[base].I+4) & 0xFFFFFFFC;
     int count = 0;
     STM_ALL_2;
     clockTicks += 1 + codeTicksAccess(bus.armNextPC, BITS_32);
 }
 
 /* LDMIB Rn, {Rlist}^ */
-static  void arm9D0(u32 opcode)
+static  void arm9D0(uint32_t opcode)
 {
     if (bus.busPrefetchCount == 0)
         bus.busPrefetch = bus.busPrefetchEnable;
     int base = (opcode & 0x000F0000) >> 16;
-    u32 address = (bus.reg[base].I+4) & 0xFFFFFFFC;
+    uint32_t address = (bus.reg[base].I+4) & 0xFFFFFFFC;
     int count = 0;
     LDM_ALL_2;
     LDM_ALL_2B;
@@ -4563,28 +4563,28 @@ static  void arm9D0(u32 opcode)
 }
 
 /* STMIB Rn!, {Rlist}^ */
-static  void arm9E0(u32 opcode)
+static  void arm9E0(uint32_t opcode)
 {
 	if (bus.busPrefetchCount == 0)
 		bus.busPrefetch = bus.busPrefetchEnable;
 	int base = (opcode & 0x000F0000) >> 16;
-	u32 address = (bus.reg[base].I+4) & 0xFFFFFFFC;
+	uint32_t address = (bus.reg[base].I+4) & 0xFFFFFFFC;
 	int count = 0;
-	u32 temp = bus.reg[base].I +
+	uint32_t temp = bus.reg[base].I +
 		4 * (cpuBitsSet[opcode & 0xFF] + cpuBitsSet[(opcode >> 8) & 255]);
 	STMW_ALL_2;
 	clockTicks += 1 + codeTicksAccess(bus.armNextPC, BITS_32);
 }
 
 /* LDMIB Rn!, {Rlist}^ */
-static  void arm9F0(u32 opcode)
+static  void arm9F0(uint32_t opcode)
 {
 	if (bus.busPrefetchCount == 0)
 		bus.busPrefetch = bus.busPrefetchEnable;
 	int base = (opcode & 0x000F0000) >> 16;
-	u32 temp = bus.reg[base].I +
+	uint32_t temp = bus.reg[base].I +
 		4 * (cpuBitsSet[opcode & 255] + cpuBitsSet[(opcode >> 8) & 255]);
-	u32 address = (bus.reg[base].I+4) & 0xFFFFFFFC;
+	uint32_t address = (bus.reg[base].I+4) & 0xFFFFFFFC;
 	int count = 0;
 	LDM_ALL_2;
 	if (!(opcode & (1U << base)))
@@ -4596,7 +4596,7 @@ static  void arm9F0(u32 opcode)
 /* B/BL/SWI and (unimplemented) coproc support //////////////////////////// */
 
 /* B <offset> */
-static  void armA00(u32 opcode)
+static  void armA00(uint32_t opcode)
 {
 	int offset = opcode & 0x00FFFFFF;
 	if (offset & 0x00800000)
@@ -4611,7 +4611,7 @@ static  void armA00(u32 opcode)
 }
 
 /* BL <offset> */
-static  void armB00(u32 opcode)
+static  void armB00(uint32_t opcode)
 {
 	int offset = opcode & 0x00FFFFFF;
 	if (offset & 0x00800000)
@@ -4629,7 +4629,7 @@ static  void armB00(u32 opcode)
 #define armE01 armUnknownInsn
 
 /* SWI <comment> */
-static  void armF00(u32 opcode)
+static  void armF00(uint32_t opcode)
 {
 	clockTicks = CLOCKTICKS_UPDATE_TYPE32P;
 	bus.busPrefetchCount = 0;
@@ -4638,7 +4638,7 @@ static  void armF00(u32 opcode)
 
 /* Instruction table ////////////////////////////////////////////////////// */
 
-typedef  void (*insnfunc_t)(u32 opcode);
+typedef  void (*insnfunc_t)(uint32_t opcode);
 #define REP16(insn) \
     insn,insn,insn,insn,insn,insn,insn,insn,\
     insn,insn,insn,insn,insn,insn,insn,insn
@@ -4834,7 +4834,7 @@ static INLINE void cpuMasterCodeCheck()
 {
    if((mastercode) && (mastercode == bus.armNextPC))
    {
-      u32 ext = (joy >> 10);
+      uint32_t ext = (joy >> 10);
       cpuTotalTicks += cheatsCheckKeys(io_registers[REG_P1]^0x3FF, ext);
    }
 }
@@ -4844,8 +4844,8 @@ static int armExecute (void)
 {
    int ct    = 0;
    bool test = false;
-    u32 cond1 = 0;
-	u32 cond2 = 0;
+    uint32_t cond1 = 0;
+	uint32_t cond2 = 0;
 
 	CACHE_PREFETCH(clockTicks);
 
@@ -4861,7 +4861,7 @@ static int armExecute (void)
       if ((bus.armNextPC & 0x0803FFFF) == 0x08020000)
          bus.busPrefetchCount = 0x100;
 
-      u32 opcode = cpuPrefetch[0];
+      uint32_t opcode = cpuPrefetch[0];
       cpuPrefetch[0] = cpuPrefetch[1];
 
       bus.busPrefetch = false;
@@ -4969,9 +4969,9 @@ static int armExecute (void)
 	GBA THUMB CORE
 ============================================================ */
 
-static  void thumbUnknownInsn(u32 opcode)
+static  void thumbUnknownInsn(uint32_t opcode)
 {
-	u32 PC = bus.reg[15].I;
+	uint32_t PC = bus.reg[15].I;
 	bool savedArmState = armState;
 	if(armMode != 0x1b)
 		CPUSwitchMode(0x1b, true, false);
@@ -5017,9 +5017,9 @@ static  void thumbUnknownInsn(u32 opcode)
 #ifndef ADD_RD_RS_RN
  #define ADD_RD_RS_RN(N) \
    {\
-     u32 lhs = bus.reg[source].I;\
-     u32 rhs = bus.reg[N].I;\
-     u32 res = lhs + rhs;\
+     uint32_t lhs = bus.reg[source].I;\
+     uint32_t rhs = bus.reg[N].I;\
+     uint32_t res = lhs + rhs;\
      bus.reg[dest].I = res;\
      Z_FLAG = (res == 0) ? true : false;\
      N_FLAG = NEG(res) ? true : false;\
@@ -5031,9 +5031,9 @@ static  void thumbUnknownInsn(u32 opcode)
 #ifndef ADD_RD_RS_O3
  #define ADD_RD_RS_O3(N) \
    {\
-     u32 lhs = bus.reg[source].I;\
-     u32 rhs = N;\
-     u32 res = lhs + rhs;\
+     uint32_t lhs = bus.reg[source].I;\
+     uint32_t rhs = N;\
+     uint32_t res = lhs + rhs;\
      bus.reg[dest].I = res;\
      Z_FLAG = (res == 0) ? true : false;\
      N_FLAG = NEG(res) ? true : false;\
@@ -5049,9 +5049,9 @@ static  void thumbUnknownInsn(u32 opcode)
 #ifndef ADD_RN_O8
  #define ADD_RN_O8(d) \
    {\
-     u32 lhs = bus.reg[(d)].I;\
-     u32 rhs = (opcode & 255);\
-     u32 res = lhs + rhs;\
+     uint32_t lhs = bus.reg[(d)].I;\
+     uint32_t rhs = (opcode & 255);\
+     uint32_t res = lhs + rhs;\
      bus.reg[(d)].I = res;\
      Z_FLAG = (res == 0) ? true : false;\
      N_FLAG = NEG(res) ? true : false;\
@@ -5063,9 +5063,9 @@ static  void thumbUnknownInsn(u32 opcode)
 #ifndef CMN_RD_RS
  #define CMN_RD_RS \
    {\
-     u32 lhs = bus.reg[dest].I;\
-     u32 rhs = value;\
-     u32 res = lhs + rhs;\
+     uint32_t lhs = bus.reg[dest].I;\
+     uint32_t rhs = value;\
+     uint32_t res = lhs + rhs;\
      Z_FLAG = (res == 0) ? true : false;\
      N_FLAG = NEG(res) ? true : false;\
      ADDCARRY(lhs, rhs, res);\
@@ -5076,9 +5076,9 @@ static  void thumbUnknownInsn(u32 opcode)
 #ifndef ADC_RD_RS
  #define ADC_RD_RS \
    {\
-     u32 lhs = bus.reg[dest].I;\
-     u32 rhs = value;\
-     u32 res = lhs + rhs + (u32)C_FLAG;\
+     uint32_t lhs = bus.reg[dest].I;\
+     uint32_t rhs = value;\
+     uint32_t res = lhs + rhs + (uint32_t)C_FLAG;\
      bus.reg[dest].I = res;\
      Z_FLAG = (res == 0) ? true : false;\
      N_FLAG = NEG(res) ? true : false;\
@@ -5090,9 +5090,9 @@ static  void thumbUnknownInsn(u32 opcode)
 #ifndef SUB_RD_RS_RN
  #define SUB_RD_RS_RN(N) \
    {\
-     u32 lhs = bus.reg[source].I;\
-     u32 rhs = bus.reg[N].I;\
-     u32 res = lhs - rhs;\
+     uint32_t lhs = bus.reg[source].I;\
+     uint32_t rhs = bus.reg[N].I;\
+     uint32_t res = lhs - rhs;\
      bus.reg[dest].I = res;\
      Z_FLAG = (res == 0) ? true : false;\
      N_FLAG = NEG(res) ? true : false;\
@@ -5104,9 +5104,9 @@ static  void thumbUnknownInsn(u32 opcode)
 #ifndef SUB_RD_RS_O3
  #define SUB_RD_RS_O3(N) \
    {\
-     u32 lhs = bus.reg[source].I;\
-     u32 rhs = N;\
-     u32 res = lhs - rhs;\
+     uint32_t lhs = bus.reg[source].I;\
+     uint32_t rhs = N;\
+     uint32_t res = lhs - rhs;\
      bus.reg[dest].I = res;\
      Z_FLAG = (res == 0) ? true : false;\
      N_FLAG = NEG(res) ? true : false;\
@@ -5121,9 +5121,9 @@ static  void thumbUnknownInsn(u32 opcode)
 #ifndef SUB_RN_O8
  #define SUB_RN_O8(d) \
    {\
-     u32 lhs = bus.reg[(d)].I;\
-     u32 rhs = (opcode & 255);\
-     u32 res = lhs - rhs;\
+     uint32_t lhs = bus.reg[(d)].I;\
+     uint32_t rhs = (opcode & 255);\
+     uint32_t res = lhs - rhs;\
      bus.reg[(d)].I = res;\
      Z_FLAG = (res == 0) ? true : false;\
      N_FLAG = NEG(res) ? true : false;\
@@ -5134,7 +5134,7 @@ static  void thumbUnknownInsn(u32 opcode)
 #ifndef MOV_RN_O8
  #define MOV_RN_O8(d) \
    {\
-     u32 val;\
+     uint32_t val;\
 	 val = (opcode & 255);\
      bus.reg[d].I = val;\
      N_FLAG = false;\
@@ -5144,9 +5144,9 @@ static  void thumbUnknownInsn(u32 opcode)
 #ifndef CMP_RN_O8
  #define CMP_RN_O8(d) \
    {\
-     u32 lhs = bus.reg[(d)].I;\
-     u32 rhs = (opcode & 255);\
-     u32 res = lhs - rhs;\
+     uint32_t lhs = bus.reg[(d)].I;\
+     uint32_t rhs = (opcode & 255);\
+     uint32_t res = lhs - rhs;\
      Z_FLAG = (res == 0) ? true : false;\
      N_FLAG = NEG(res) ? true : false;\
      SUBCARRY(lhs, rhs, res);\
@@ -5156,9 +5156,9 @@ static  void thumbUnknownInsn(u32 opcode)
 #ifndef SBC_RD_RS
  #define SBC_RD_RS \
    {\
-     u32 lhs = bus.reg[dest].I;\
-     u32 rhs = value;\
-     u32 res = lhs - rhs - !((u32)C_FLAG);\
+     uint32_t lhs = bus.reg[dest].I;\
+     uint32_t rhs = value;\
+     uint32_t res = lhs - rhs - !((uint32_t)C_FLAG);\
      bus.reg[dest].I = res;\
      Z_FLAG = (res == 0) ? true : false;\
      N_FLAG = NEG(res) ? true : false;\
@@ -5197,15 +5197,15 @@ static  void thumbUnknownInsn(u32 opcode)
 #ifndef ASR_RD_RM_I5
  #define ASR_RD_RM_I5 \
    {\
-     C_FLAG = ((s32)bus.reg[source].I >> (int)(shift - 1)) & 1 ? true : false;\
-     value = (s32)bus.reg[source].I >> (int)shift;\
+     C_FLAG = ((int32_t)bus.reg[source].I >> (int)(shift - 1)) & 1 ? true : false;\
+     value = (int32_t)bus.reg[source].I >> (int)shift;\
    }
 #endif
 #ifndef ASR_RD_RS
  #define ASR_RD_RS \
    {\
-     C_FLAG = ((s32)bus.reg[dest].I >> (int)(value - 1)) & 1 ? true : false;\
-     value = (s32)bus.reg[dest].I >> (int)value;\
+     C_FLAG = ((int32_t)bus.reg[dest].I >> (int)(value - 1)) & 1 ? true : false;\
+     value = (int32_t)bus.reg[dest].I >> (int)value;\
    }
 #endif
 #ifndef ROR_RD_RS
@@ -5219,9 +5219,9 @@ static  void thumbUnknownInsn(u32 opcode)
 #ifndef NEG_RD_RS
  #define NEG_RD_RS \
    {\
-     u32 lhs = bus.reg[source].I;\
-     u32 rhs = 0;\
-     u32 res = rhs - lhs;\
+     uint32_t lhs = bus.reg[source].I;\
+     uint32_t rhs = 0;\
+     uint32_t res = rhs - lhs;\
      bus.reg[dest].I = res;\
      Z_FLAG = (res == 0) ? true : false;\
      N_FLAG = NEG(res) ? true : false;\
@@ -5232,9 +5232,9 @@ static  void thumbUnknownInsn(u32 opcode)
 #ifndef CMP_RD_RS
  #define CMP_RD_RS \
    {\
-     u32 lhs = bus.reg[dest].I;\
-     u32 rhs = value;\
-     u32 res = lhs - rhs;\
+     uint32_t lhs = bus.reg[dest].I;\
+     uint32_t rhs = value;\
+     uint32_t res = lhs - rhs;\
      Z_FLAG = (res == 0) ? true : false;\
      N_FLAG = NEG(res) ? true : false;\
      SUBCARRY(lhs, rhs, res);\
@@ -5245,7 +5245,7 @@ static  void thumbUnknownInsn(u32 opcode)
  #define IMM5_INSN(OP,N) \
   int dest = opcode & 0x07;\
   int source = (opcode >> 3) & 0x07;\
-  u32 value;\
+  uint32_t value;\
   OP(N);\
   bus.reg[dest].I = value;\
   N_FLAG = (value & 0x80000000 ? true : false);\
@@ -5253,7 +5253,7 @@ static  void thumbUnknownInsn(u32 opcode)
  #define IMM5_INSN_0(OP) \
   int dest = opcode & 0x07;\
   int source = (opcode >> 3) & 0x07;\
-  u32 value;\
+  uint32_t value;\
   OP;\
   bus.reg[dest].I = value;\
   N_FLAG = (value & 0x80000000 ? true : false);\
@@ -5291,38 +5291,38 @@ static  void thumbUnknownInsn(u32 opcode)
 /* Shift instructions ///////////////////////////////////////////////////// */
 
 #define DEFINE_IMM5_INSN(OP,BASE) \
-  static  void thumb##BASE##_00(u32 opcode) { IMM5_INSN_0(OP##_0); } \
-  static  void thumb##BASE##_01(u32 opcode) { IMM5_INSN(OP, 1); } \
-  static  void thumb##BASE##_02(u32 opcode) { IMM5_INSN(OP, 2); } \
-  static  void thumb##BASE##_03(u32 opcode) { IMM5_INSN(OP, 3); } \
-  static  void thumb##BASE##_04(u32 opcode) { IMM5_INSN(OP, 4); } \
-  static  void thumb##BASE##_05(u32 opcode) { IMM5_INSN(OP, 5); } \
-  static  void thumb##BASE##_06(u32 opcode) { IMM5_INSN(OP, 6); } \
-  static  void thumb##BASE##_07(u32 opcode) { IMM5_INSN(OP, 7); } \
-  static  void thumb##BASE##_08(u32 opcode) { IMM5_INSN(OP, 8); } \
-  static  void thumb##BASE##_09(u32 opcode) { IMM5_INSN(OP, 9); } \
-  static  void thumb##BASE##_0A(u32 opcode) { IMM5_INSN(OP,10); } \
-  static  void thumb##BASE##_0B(u32 opcode) { IMM5_INSN(OP,11); } \
-  static  void thumb##BASE##_0C(u32 opcode) { IMM5_INSN(OP,12); } \
-  static  void thumb##BASE##_0D(u32 opcode) { IMM5_INSN(OP,13); } \
-  static  void thumb##BASE##_0E(u32 opcode) { IMM5_INSN(OP,14); } \
-  static  void thumb##BASE##_0F(u32 opcode) { IMM5_INSN(OP,15); } \
-  static  void thumb##BASE##_10(u32 opcode) { IMM5_INSN(OP,16); } \
-  static  void thumb##BASE##_11(u32 opcode) { IMM5_INSN(OP,17); } \
-  static  void thumb##BASE##_12(u32 opcode) { IMM5_INSN(OP,18); } \
-  static  void thumb##BASE##_13(u32 opcode) { IMM5_INSN(OP,19); } \
-  static  void thumb##BASE##_14(u32 opcode) { IMM5_INSN(OP,20); } \
-  static  void thumb##BASE##_15(u32 opcode) { IMM5_INSN(OP,21); } \
-  static  void thumb##BASE##_16(u32 opcode) { IMM5_INSN(OP,22); } \
-  static  void thumb##BASE##_17(u32 opcode) { IMM5_INSN(OP,23); } \
-  static  void thumb##BASE##_18(u32 opcode) { IMM5_INSN(OP,24); } \
-  static  void thumb##BASE##_19(u32 opcode) { IMM5_INSN(OP,25); } \
-  static  void thumb##BASE##_1A(u32 opcode) { IMM5_INSN(OP,26); } \
-  static  void thumb##BASE##_1B(u32 opcode) { IMM5_INSN(OP,27); } \
-  static  void thumb##BASE##_1C(u32 opcode) { IMM5_INSN(OP,28); } \
-  static  void thumb##BASE##_1D(u32 opcode) { IMM5_INSN(OP,29); } \
-  static  void thumb##BASE##_1E(u32 opcode) { IMM5_INSN(OP,30); } \
-  static  void thumb##BASE##_1F(u32 opcode) { IMM5_INSN(OP,31); }
+  static  void thumb##BASE##_00(uint32_t opcode) { IMM5_INSN_0(OP##_0); } \
+  static  void thumb##BASE##_01(uint32_t opcode) { IMM5_INSN(OP, 1); } \
+  static  void thumb##BASE##_02(uint32_t opcode) { IMM5_INSN(OP, 2); } \
+  static  void thumb##BASE##_03(uint32_t opcode) { IMM5_INSN(OP, 3); } \
+  static  void thumb##BASE##_04(uint32_t opcode) { IMM5_INSN(OP, 4); } \
+  static  void thumb##BASE##_05(uint32_t opcode) { IMM5_INSN(OP, 5); } \
+  static  void thumb##BASE##_06(uint32_t opcode) { IMM5_INSN(OP, 6); } \
+  static  void thumb##BASE##_07(uint32_t opcode) { IMM5_INSN(OP, 7); } \
+  static  void thumb##BASE##_08(uint32_t opcode) { IMM5_INSN(OP, 8); } \
+  static  void thumb##BASE##_09(uint32_t opcode) { IMM5_INSN(OP, 9); } \
+  static  void thumb##BASE##_0A(uint32_t opcode) { IMM5_INSN(OP,10); } \
+  static  void thumb##BASE##_0B(uint32_t opcode) { IMM5_INSN(OP,11); } \
+  static  void thumb##BASE##_0C(uint32_t opcode) { IMM5_INSN(OP,12); } \
+  static  void thumb##BASE##_0D(uint32_t opcode) { IMM5_INSN(OP,13); } \
+  static  void thumb##BASE##_0E(uint32_t opcode) { IMM5_INSN(OP,14); } \
+  static  void thumb##BASE##_0F(uint32_t opcode) { IMM5_INSN(OP,15); } \
+  static  void thumb##BASE##_10(uint32_t opcode) { IMM5_INSN(OP,16); } \
+  static  void thumb##BASE##_11(uint32_t opcode) { IMM5_INSN(OP,17); } \
+  static  void thumb##BASE##_12(uint32_t opcode) { IMM5_INSN(OP,18); } \
+  static  void thumb##BASE##_13(uint32_t opcode) { IMM5_INSN(OP,19); } \
+  static  void thumb##BASE##_14(uint32_t opcode) { IMM5_INSN(OP,20); } \
+  static  void thumb##BASE##_15(uint32_t opcode) { IMM5_INSN(OP,21); } \
+  static  void thumb##BASE##_16(uint32_t opcode) { IMM5_INSN(OP,22); } \
+  static  void thumb##BASE##_17(uint32_t opcode) { IMM5_INSN(OP,23); } \
+  static  void thumb##BASE##_18(uint32_t opcode) { IMM5_INSN(OP,24); } \
+  static  void thumb##BASE##_19(uint32_t opcode) { IMM5_INSN(OP,25); } \
+  static  void thumb##BASE##_1A(uint32_t opcode) { IMM5_INSN(OP,26); } \
+  static  void thumb##BASE##_1B(uint32_t opcode) { IMM5_INSN(OP,27); } \
+  static  void thumb##BASE##_1C(uint32_t opcode) { IMM5_INSN(OP,28); } \
+  static  void thumb##BASE##_1D(uint32_t opcode) { IMM5_INSN(OP,29); } \
+  static  void thumb##BASE##_1E(uint32_t opcode) { IMM5_INSN(OP,30); } \
+  static  void thumb##BASE##_1F(uint32_t opcode) { IMM5_INSN(OP,31); }
 
 /* LSL Rd, Rm, #Imm 5 */
 DEFINE_IMM5_INSN(IMM5_LSL,00)
@@ -5334,24 +5334,24 @@ DEFINE_IMM5_INSN(IMM5_ASR,10)
 /* 3-argument ADD/SUB ///////////////////////////////////////////////////// */
 
 #define DEFINE_REG3_INSN(OP,BASE) \
-  static  void thumb##BASE##_0(u32 opcode) { THREEARG_INSN(OP,0); } \
-  static  void thumb##BASE##_1(u32 opcode) { THREEARG_INSN(OP,1); } \
-  static  void thumb##BASE##_2(u32 opcode) { THREEARG_INSN(OP,2); } \
-  static  void thumb##BASE##_3(u32 opcode) { THREEARG_INSN(OP,3); } \
-  static  void thumb##BASE##_4(u32 opcode) { THREEARG_INSN(OP,4); } \
-  static  void thumb##BASE##_5(u32 opcode) { THREEARG_INSN(OP,5); } \
-  static  void thumb##BASE##_6(u32 opcode) { THREEARG_INSN(OP,6); } \
-  static  void thumb##BASE##_7(u32 opcode) { THREEARG_INSN(OP,7); }
+  static  void thumb##BASE##_0(uint32_t opcode) { THREEARG_INSN(OP,0); } \
+  static  void thumb##BASE##_1(uint32_t opcode) { THREEARG_INSN(OP,1); } \
+  static  void thumb##BASE##_2(uint32_t opcode) { THREEARG_INSN(OP,2); } \
+  static  void thumb##BASE##_3(uint32_t opcode) { THREEARG_INSN(OP,3); } \
+  static  void thumb##BASE##_4(uint32_t opcode) { THREEARG_INSN(OP,4); } \
+  static  void thumb##BASE##_5(uint32_t opcode) { THREEARG_INSN(OP,5); } \
+  static  void thumb##BASE##_6(uint32_t opcode) { THREEARG_INSN(OP,6); } \
+  static  void thumb##BASE##_7(uint32_t opcode) { THREEARG_INSN(OP,7); }
 
 #define DEFINE_IMM3_INSN(OP,BASE) \
-  static  void thumb##BASE##_0(u32 opcode) { THREEARG_INSN(OP##_0,0); } \
-  static  void thumb##BASE##_1(u32 opcode) { THREEARG_INSN(OP,1); } \
-  static  void thumb##BASE##_2(u32 opcode) { THREEARG_INSN(OP,2); } \
-  static  void thumb##BASE##_3(u32 opcode) { THREEARG_INSN(OP,3); } \
-  static  void thumb##BASE##_4(u32 opcode) { THREEARG_INSN(OP,4); } \
-  static  void thumb##BASE##_5(u32 opcode) { THREEARG_INSN(OP,5); } \
-  static  void thumb##BASE##_6(u32 opcode) { THREEARG_INSN(OP,6); } \
-  static  void thumb##BASE##_7(u32 opcode) { THREEARG_INSN(OP,7); }
+  static  void thumb##BASE##_0(uint32_t opcode) { THREEARG_INSN(OP##_0,0); } \
+  static  void thumb##BASE##_1(uint32_t opcode) { THREEARG_INSN(OP,1); } \
+  static  void thumb##BASE##_2(uint32_t opcode) { THREEARG_INSN(OP,2); } \
+  static  void thumb##BASE##_3(uint32_t opcode) { THREEARG_INSN(OP,3); } \
+  static  void thumb##BASE##_4(uint32_t opcode) { THREEARG_INSN(OP,4); } \
+  static  void thumb##BASE##_5(uint32_t opcode) { THREEARG_INSN(OP,5); } \
+  static  void thumb##BASE##_6(uint32_t opcode) { THREEARG_INSN(OP,6); } \
+  static  void thumb##BASE##_7(uint32_t opcode) { THREEARG_INSN(OP,7); }
 
 /* ADD Rd, Rs, Rn */
 DEFINE_REG3_INSN(ADD_RD_RS_RN,18)
@@ -5365,80 +5365,80 @@ DEFINE_IMM3_INSN(SUB_RD_RS_O3,1E)
 /* MOV/CMP/ADD/SUB immediate ////////////////////////////////////////////// */
 
 /* MOV R0, #Offset8 */
-static  void thumb20(u32 opcode) { MOV_RN_O8(0); }
+static  void thumb20(uint32_t opcode) { MOV_RN_O8(0); }
 /* MOV R1, #Offset8 */
-static  void thumb21(u32 opcode) { MOV_RN_O8(1); }
+static  void thumb21(uint32_t opcode) { MOV_RN_O8(1); }
 /* MOV R2, #Offset8 */
-static  void thumb22(u32 opcode) { MOV_RN_O8(2); }
+static  void thumb22(uint32_t opcode) { MOV_RN_O8(2); }
 /* MOV R3, #Offset8 */
-static  void thumb23(u32 opcode) { MOV_RN_O8(3); }
+static  void thumb23(uint32_t opcode) { MOV_RN_O8(3); }
 /* MOV R4, #Offset8 */
-static  void thumb24(u32 opcode) { MOV_RN_O8(4); }
+static  void thumb24(uint32_t opcode) { MOV_RN_O8(4); }
 /* MOV R5, #Offset8 */
-static  void thumb25(u32 opcode) { MOV_RN_O8(5); }
+static  void thumb25(uint32_t opcode) { MOV_RN_O8(5); }
 /* MOV R6, #Offset8 */
-static  void thumb26(u32 opcode) { MOV_RN_O8(6); }
+static  void thumb26(uint32_t opcode) { MOV_RN_O8(6); }
 /* MOV R7, #Offset8 */
-static  void thumb27(u32 opcode) { MOV_RN_O8(7); }
+static  void thumb27(uint32_t opcode) { MOV_RN_O8(7); }
 
 /* CMP R0, #Offset8 */
-static  void thumb28(u32 opcode) { CMP_RN_O8(0); }
+static  void thumb28(uint32_t opcode) { CMP_RN_O8(0); }
 /* CMP R1, #Offset8 */
-static  void thumb29(u32 opcode) { CMP_RN_O8(1); }
+static  void thumb29(uint32_t opcode) { CMP_RN_O8(1); }
 /* CMP R2, #Offset8 */
-static  void thumb2A(u32 opcode) { CMP_RN_O8(2); }
+static  void thumb2A(uint32_t opcode) { CMP_RN_O8(2); }
 /* CMP R3, #Offset8 */
-static  void thumb2B(u32 opcode) { CMP_RN_O8(3); }
+static  void thumb2B(uint32_t opcode) { CMP_RN_O8(3); }
 /* CMP R4, #Offset8 */
-static  void thumb2C(u32 opcode) { CMP_RN_O8(4); }
+static  void thumb2C(uint32_t opcode) { CMP_RN_O8(4); }
 /* CMP R5, #Offset8 */
-static  void thumb2D(u32 opcode) { CMP_RN_O8(5); }
+static  void thumb2D(uint32_t opcode) { CMP_RN_O8(5); }
 /* CMP R6, #Offset8 */
-static  void thumb2E(u32 opcode) { CMP_RN_O8(6); }
+static  void thumb2E(uint32_t opcode) { CMP_RN_O8(6); }
 /* CMP R7, #Offset8 */
-static  void thumb2F(u32 opcode) { CMP_RN_O8(7); }
+static  void thumb2F(uint32_t opcode) { CMP_RN_O8(7); }
 
 /* ADD R0,#Offset8 */
-static  void thumb30(u32 opcode) { ADD_RN_O8(0); }
+static  void thumb30(uint32_t opcode) { ADD_RN_O8(0); }
 /* ADD R1,#Offset8 */
-static  void thumb31(u32 opcode) { ADD_RN_O8(1); }
+static  void thumb31(uint32_t opcode) { ADD_RN_O8(1); }
 /* ADD R2,#Offset8 */
-static  void thumb32(u32 opcode) { ADD_RN_O8(2); }
+static  void thumb32(uint32_t opcode) { ADD_RN_O8(2); }
 /* ADD R3,#Offset8 */
-static  void thumb33(u32 opcode) { ADD_RN_O8(3); }
+static  void thumb33(uint32_t opcode) { ADD_RN_O8(3); }
 /* ADD R4,#Offset8 */
-static  void thumb34(u32 opcode) { ADD_RN_O8(4); }
+static  void thumb34(uint32_t opcode) { ADD_RN_O8(4); }
 /* ADD R5,#Offset8 */
-static  void thumb35(u32 opcode) { ADD_RN_O8(5); }
+static  void thumb35(uint32_t opcode) { ADD_RN_O8(5); }
 /* ADD R6,#Offset8 */
-static  void thumb36(u32 opcode) { ADD_RN_O8(6); }
+static  void thumb36(uint32_t opcode) { ADD_RN_O8(6); }
 /* ADD R7,#Offset8 */
-static  void thumb37(u32 opcode) { ADD_RN_O8(7); }
+static  void thumb37(uint32_t opcode) { ADD_RN_O8(7); }
 
 /* SUB R0,#Offset8 */
-static  void thumb38(u32 opcode) { SUB_RN_O8(0); }
+static  void thumb38(uint32_t opcode) { SUB_RN_O8(0); }
 /* SUB R1,#Offset8 */
-static  void thumb39(u32 opcode) { SUB_RN_O8(1); }
+static  void thumb39(uint32_t opcode) { SUB_RN_O8(1); }
 /* SUB R2,#Offset8 */
-static  void thumb3A(u32 opcode) { SUB_RN_O8(2); }
+static  void thumb3A(uint32_t opcode) { SUB_RN_O8(2); }
 /* SUB R3,#Offset8 */
-static  void thumb3B(u32 opcode) { SUB_RN_O8(3); }
+static  void thumb3B(uint32_t opcode) { SUB_RN_O8(3); }
 /* SUB R4,#Offset8 */
-static  void thumb3C(u32 opcode) { SUB_RN_O8(4); }
+static  void thumb3C(uint32_t opcode) { SUB_RN_O8(4); }
 /* SUB R5,#Offset8 */
-static  void thumb3D(u32 opcode) { SUB_RN_O8(5); }
+static  void thumb3D(uint32_t opcode) { SUB_RN_O8(5); }
 /* SUB R6,#Offset8 */
-static  void thumb3E(u32 opcode) { SUB_RN_O8(6); }
+static  void thumb3E(uint32_t opcode) { SUB_RN_O8(6); }
 /* SUB R7,#Offset8 */
-static  void thumb3F(u32 opcode) { SUB_RN_O8(7); }
+static  void thumb3F(uint32_t opcode) { SUB_RN_O8(7); }
 
 /* ALU operations ///////////////////////////////////////////////////////// */
 
 /* AND Rd, Rs */
-static  void thumb40_0(u32 opcode)
+static  void thumb40_0(uint32_t opcode)
 {
   int dest = opcode & 7;
-  u32 val = (bus.reg[dest].I & bus.reg[(opcode >> 3)&7].I);
+  uint32_t val = (bus.reg[dest].I & bus.reg[(opcode >> 3)&7].I);
 
   /*bus.reg[dest].I &= bus.reg[(opcode >> 3)&7].I; */
   N_FLAG = val & 0x80000000 ? true : false;
@@ -5449,7 +5449,7 @@ static  void thumb40_0(u32 opcode)
 }
 
 /* EOR Rd, Rs */
-static  void thumb40_1(u32 opcode)
+static  void thumb40_1(uint32_t opcode)
 {
   int dest = opcode & 7;
   bus.reg[dest].I ^= bus.reg[(opcode >> 3)&7].I;
@@ -5458,11 +5458,11 @@ static  void thumb40_1(u32 opcode)
 }
 
 /* LSL Rd, Rs */
-static  void thumb40_2(u32 opcode)
+static  void thumb40_2(uint32_t opcode)
 {
   int dest = opcode & 7;
-  u32 value = bus.reg[(opcode >> 3)&7].I & 0xFF;
-  u32 val = value;
+  uint32_t value = bus.reg[(opcode >> 3)&7].I & 0xFF;
+  uint32_t val = value;
   if(val) {
     if(val == 32) {
       value = 0;
@@ -5481,11 +5481,11 @@ static  void thumb40_2(u32 opcode)
 }
 
 /* LSR Rd, Rs */
-static  void thumb40_3(u32 opcode)
+static  void thumb40_3(uint32_t opcode)
 {
   int dest = opcode & 7;
-  u32 value = bus.reg[(opcode >> 3)&7].I & 0xFF;
-  u32 val = value;
+  uint32_t value = bus.reg[(opcode >> 3)&7].I & 0xFF;
+  uint32_t val = value;
   if(val) {
     if(val == 32) {
       value = 0;
@@ -5504,10 +5504,10 @@ static  void thumb40_3(u32 opcode)
 }
 
 /* ASR Rd, Rs */
-static  void thumb41_0(u32 opcode)
+static  void thumb41_0(uint32_t opcode)
 {
   int dest = opcode & 7;
-  u32 value = bus.reg[(opcode >> 3)&7].I & 0xFF;
+  uint32_t value = bus.reg[(opcode >> 3)&7].I & 0xFF;
 
   if(value) {
     if(value < 32) {
@@ -5529,27 +5529,27 @@ static  void thumb41_0(u32 opcode)
 }
 
 /* ADC Rd, Rs */
-static  void thumb41_1(u32 opcode)
+static  void thumb41_1(uint32_t opcode)
 {
   int dest = opcode & 0x07;
-  u32 value = bus.reg[(opcode >> 3)&7].I;
+  uint32_t value = bus.reg[(opcode >> 3)&7].I;
   ADC_RD_RS;
 }
 
 /* SBC Rd, Rs */
-static  void thumb41_2(u32 opcode)
+static  void thumb41_2(uint32_t opcode)
 {
   int dest = opcode & 0x07;
-  u32 value = bus.reg[(opcode >> 3)&7].I;
+  uint32_t value = bus.reg[(opcode >> 3)&7].I;
   SBC_RD_RS;
 }
 
 /* ROR Rd, Rs */
-static  void thumb41_3(u32 opcode)
+static  void thumb41_3(uint32_t opcode)
 {
   int dest = opcode & 7;
-  u32 value = bus.reg[(opcode >> 3)&7].I & 0xFF;
-  u32 val = value;
+  uint32_t value = bus.reg[(opcode >> 3)&7].I & 0xFF;
+  uint32_t val = value;
   if(val) {
     value = value & 0x1f;
     if(val == 0) {
@@ -5565,15 +5565,15 @@ static  void thumb41_3(u32 opcode)
 }
 
 /* TST Rd, Rs */
-static  void thumb42_0(u32 opcode)
+static  void thumb42_0(uint32_t opcode)
 {
-  u32 value = bus.reg[opcode & 7].I & bus.reg[(opcode >> 3) & 7].I;
+  uint32_t value = bus.reg[opcode & 7].I & bus.reg[(opcode >> 3) & 7].I;
   N_FLAG = value & 0x80000000 ? true : false;
   Z_FLAG = value ? false : true;
 }
 
 /* NEG Rd, Rs */
-static  void thumb42_1(u32 opcode)
+static  void thumb42_1(uint32_t opcode)
 {
   int dest = opcode & 7;
   int source = (opcode >> 3) & 7;
@@ -5581,23 +5581,23 @@ static  void thumb42_1(u32 opcode)
 }
 
 /* CMP Rd, Rs */
-static  void thumb42_2(u32 opcode)
+static  void thumb42_2(uint32_t opcode)
 {
   int dest = opcode & 7;
-  u32 value = bus.reg[(opcode >> 3)&7].I;
+  uint32_t value = bus.reg[(opcode >> 3)&7].I;
   CMP_RD_RS;
 }
 
 /* CMN Rd, Rs */
-static  void thumb42_3(u32 opcode)
+static  void thumb42_3(uint32_t opcode)
 {
   int dest = opcode & 7;
-  u32 value = bus.reg[(opcode >> 3)&7].I;
+  uint32_t value = bus.reg[(opcode >> 3)&7].I;
   CMN_RD_RS;
 }
 
 /* ORR Rd, Rs */
-static  void thumb43_0(u32 opcode)
+static  void thumb43_0(uint32_t opcode)
 {
   int dest = opcode & 7;
   bus.reg[dest].I |= bus.reg[(opcode >> 3) & 7].I;
@@ -5606,13 +5606,13 @@ static  void thumb43_0(u32 opcode)
 }
 
 /* MUL Rd, Rs */
-static  void thumb43_1(u32 opcode)
+static  void thumb43_1(uint32_t opcode)
 {
   clockTicks = 1;
   int dest = opcode & 7;
-  u32 rm = bus.reg[dest].I;
+  uint32_t rm = bus.reg[dest].I;
   bus.reg[dest].I = bus.reg[(opcode >> 3) & 7].I * rm;
-  if (((s32)rm) < 0)
+  if (((int32_t)rm) < 0)
     rm = ~rm;
   if ((rm & 0xFFFFFF00) == 0) {
     /* clockTicks += 0; */
@@ -5629,7 +5629,7 @@ static  void thumb43_1(u32 opcode)
 }
 
 /* BIC Rd, Rs */
-static  void thumb43_2(u32 opcode)
+static  void thumb43_2(uint32_t opcode)
 {
   int dest = opcode & 7;
   bus.reg[dest].I &= (~bus.reg[(opcode >> 3) & 7].I);
@@ -5638,7 +5638,7 @@ static  void thumb43_2(u32 opcode)
 }
 
 /* MVN Rd, Rs */
-static  void thumb43_3(u32 opcode)
+static  void thumb43_3(uint32_t opcode)
 {
   int dest = opcode & 7;
   bus.reg[dest].I = ~bus.reg[(opcode >> 3) & 7].I;
@@ -5649,13 +5649,13 @@ static  void thumb43_3(u32 opcode)
 /* High-register instructions and BX ////////////////////////////////////// */
 
 /* ADD Rd, Hs */
-static  void thumb44_1(u32 opcode)
+static  void thumb44_1(uint32_t opcode)
 {
   bus.reg[opcode&7].I += bus.reg[((opcode>>3)&7)+8].I;
 }
 
 /* ADD Hd, Rs */
-static  void thumb44_2(u32 opcode)
+static  void thumb44_2(uint32_t opcode)
 {
   bus.reg[(opcode&7)+8].I += bus.reg[(opcode>>3)&7].I;
   if((opcode&7) == 7) {
@@ -5668,7 +5668,7 @@ static  void thumb44_2(u32 opcode)
 }
 
 /* ADD Hd, Hs */
-static  void thumb44_3(u32 opcode)
+static  void thumb44_3(uint32_t opcode)
 {
   bus.reg[(opcode&7)+8].I += bus.reg[((opcode>>3)&7)+8].I;
   if((opcode&7) == 7) {
@@ -5681,31 +5681,31 @@ static  void thumb44_3(u32 opcode)
 }
 
 /* CMP Rd, Hs */
-static  void thumb45_1(u32 opcode)
+static  void thumb45_1(uint32_t opcode)
 {
   int dest = opcode & 7;
-  u32 value = bus.reg[((opcode>>3)&7)+8].I;
+  uint32_t value = bus.reg[((opcode>>3)&7)+8].I;
   CMP_RD_RS;
 }
 
 /* CMP Hd, Rs */
-static  void thumb45_2(u32 opcode)
+static  void thumb45_2(uint32_t opcode)
 {
   int dest = (opcode & 7) + 8;
-  u32 value = bus.reg[(opcode>>3)&7].I;
+  uint32_t value = bus.reg[(opcode>>3)&7].I;
   CMP_RD_RS;
 }
 
 /* CMP Hd, Hs */
-static  void thumb45_3(u32 opcode)
+static  void thumb45_3(uint32_t opcode)
 {
   int dest = (opcode & 7) + 8;
-  u32 value = bus.reg[((opcode>>3)&7)+8].I;
+  uint32_t value = bus.reg[((opcode>>3)&7)+8].I;
   CMP_RD_RS;
 }
 
 /* MOV Rd, Rs */
-static  void thumb46_0(u32 opcode)
+static  void thumb46_0(uint32_t opcode)
 {
   bus.reg[opcode&7].I = bus.reg[((opcode>>3)&7)].I;
   clockTicks = CLOCKTICKS_UPDATE_TYPE16;
@@ -5713,14 +5713,14 @@ static  void thumb46_0(u32 opcode)
 
 
 /* MOV Rd, Hs */
-static  void thumb46_1(u32 opcode)
+static  void thumb46_1(uint32_t opcode)
 {
   bus.reg[opcode&7].I = bus.reg[((opcode>>3)&7)+8].I;
   clockTicks = CLOCKTICKS_UPDATE_TYPE16;
 }
 
 /* MOV Hd, Rs */
-static  void thumb46_2(u32 opcode)
+static  void thumb46_2(uint32_t opcode)
 {
   bus.reg[(opcode&7)+8].I = bus.reg[(opcode>>3)&7].I;
   if((opcode&7) == 7) {
@@ -5733,7 +5733,7 @@ static  void thumb46_2(u32 opcode)
 }
 
 /* MOV Hd, Hs */
-static  void thumb46_3(u32 opcode)
+static  void thumb46_3(uint32_t opcode)
 {
   bus.reg[(opcode&7)+8].I = bus.reg[((opcode>>3)&7)+8].I;
   if((opcode&7) == 7) {
@@ -5747,7 +5747,7 @@ static  void thumb46_3(u32 opcode)
 
 
 /* BX Rs */
-static  void thumb47(u32 opcode)
+static  void thumb47(uint32_t opcode)
 {
 	int base = (opcode >> 3) & 15;
 	bus.busPrefetchCount=0;
@@ -5773,12 +5773,12 @@ static  void thumb47(u32 opcode)
 /* Load/store instructions //////////////////////////////////////////////// */
 
 /* LDR R0~R7,[PC, #Imm] */
-static  void thumb48(u32 opcode)
+static  void thumb48(uint32_t opcode)
 {
-	u8 regist = (opcode >> 8) & 7;
+	uint8_t regist = (opcode >> 8) & 7;
 	if (bus.busPrefetchCount == 0)
 		bus.busPrefetch = bus.busPrefetchEnable;
-	u32 address = (bus.reg[15].I & 0xFFFFFFFC) + ((opcode & 0xFF) << 2);
+	uint32_t address = (bus.reg[15].I & 0xFFFFFFFC) + ((opcode & 0xFF) << 2);
 	bus.reg[regist].I = CPUReadMemoryQuick(address);
 	bus.busPrefetchCount=0;
 	int dataticks_value = DATATICKS_ACCESS_32BIT(address);
@@ -5787,11 +5787,11 @@ static  void thumb48(u32 opcode)
 }
 
 /* STR Rd, [Rs, Rn] */
-static  void thumb50(u32 opcode)
+static  void thumb50(uint32_t opcode)
 {
 	if (bus.busPrefetchCount == 0)
 		bus.busPrefetch = bus.busPrefetchEnable;
-	u32 address = bus.reg[(opcode>>3)&7].I + bus.reg[(opcode>>6)&7].I;
+	uint32_t address = bus.reg[(opcode>>3)&7].I + bus.reg[(opcode>>6)&7].I;
 	CPUWriteMemory(address, bus.reg[opcode & 7].I);
 	int dataticks_value = DATATICKS_ACCESS_32BIT(address);
 	DATATICKS_ACCESS_BUS_PREFETCH(address, dataticks_value);
@@ -5799,11 +5799,11 @@ static  void thumb50(u32 opcode)
 }
 
 /* STRH Rd, [Rs, Rn] */
-static  void thumb52(u32 opcode)
+static  void thumb52(uint32_t opcode)
 {
 	if (bus.busPrefetchCount == 0)
 		bus.busPrefetch = bus.busPrefetchEnable;
-	u32 address = bus.reg[(opcode>>3)&7].I + bus.reg[(opcode>>6)&7].I;
+	uint32_t address = bus.reg[(opcode>>3)&7].I + bus.reg[(opcode>>6)&7].I;
 	CPUWriteHalfWord(address, bus.reg[opcode&7].I & 0xFFFF);
 	int dataticks_value = DATATICKS_ACCESS_16BIT(address);
 	DATATICKS_ACCESS_BUS_PREFETCH(address, dataticks_value);
@@ -5811,11 +5811,11 @@ static  void thumb52(u32 opcode)
 }
 
 /* STRB Rd, [Rs, Rn] */
-static  void thumb54(u32 opcode)
+static  void thumb54(uint32_t opcode)
 {
 	if (bus.busPrefetchCount == 0)
 		bus.busPrefetch = bus.busPrefetchEnable;
-	u32 address = bus.reg[(opcode>>3)&7].I + bus.reg[(opcode >>6)&7].I;
+	uint32_t address = bus.reg[(opcode>>3)&7].I + bus.reg[(opcode >>6)&7].I;
 	CPUWriteByte(address, bus.reg[opcode & 7].I & 0xFF);
 	int dataticks_value = DATATICKS_ACCESS_16BIT(address);
 	DATATICKS_ACCESS_BUS_PREFETCH(address, dataticks_value);
@@ -5823,23 +5823,23 @@ static  void thumb54(u32 opcode)
 }
 
 /* LDSB Rd, [Rs, Rn] */
-static  void thumb56(u32 opcode)
+static  void thumb56(uint32_t opcode)
 {
 	if (bus.busPrefetchCount == 0)
 		bus.busPrefetch = bus.busPrefetchEnable;
-	u32 address = bus.reg[(opcode>>3)&7].I + bus.reg[(opcode>>6)&7].I;
-	bus.reg[opcode&7].I = (s8)CPUReadByte(address);
+	uint32_t address = bus.reg[(opcode>>3)&7].I + bus.reg[(opcode>>6)&7].I;
+	bus.reg[opcode&7].I = (int8_t)CPUReadByte(address);
 	int dataticks_value = DATATICKS_ACCESS_16BIT(address);
 	DATATICKS_ACCESS_BUS_PREFETCH(address, dataticks_value);
 	clockTicks = 3 + dataticks_value + codeTicksAccess(bus.armNextPC, BITS_16);
 }
 
 /* LDR Rd, [Rs, Rn] */
-static  void thumb58(u32 opcode)
+static  void thumb58(uint32_t opcode)
 {
 	if (bus.busPrefetchCount == 0)
 		bus.busPrefetch = bus.busPrefetchEnable;
-	u32 address = bus.reg[(opcode>>3)&7].I + bus.reg[(opcode>>6)&7].I;
+	uint32_t address = bus.reg[(opcode>>3)&7].I + bus.reg[(opcode>>6)&7].I;
 	bus.reg[opcode&7].I = CPUReadMemory(address);
 	int dataticks_value = DATATICKS_ACCESS_32BIT(address);
 	DATATICKS_ACCESS_BUS_PREFETCH(address, dataticks_value);
@@ -5847,11 +5847,11 @@ static  void thumb58(u32 opcode)
 }
 
 /* LDRH Rd, [Rs, Rn] */
-static  void thumb5A(u32 opcode)
+static  void thumb5A(uint32_t opcode)
 {
 	if (bus.busPrefetchCount == 0)
 		bus.busPrefetch = bus.busPrefetchEnable;
-	u32 address = bus.reg[(opcode>>3)&7].I + bus.reg[(opcode>>6)&7].I;
+	uint32_t address = bus.reg[(opcode>>3)&7].I + bus.reg[(opcode>>6)&7].I;
 	bus.reg[opcode&7].I = CPUReadHalfWord(address);
 	int dataticks_value = DATATICKS_ACCESS_32BIT(address);
 	DATATICKS_ACCESS_BUS_PREFETCH(address, dataticks_value);
@@ -5859,11 +5859,11 @@ static  void thumb5A(u32 opcode)
 }
 
 /* LDRB Rd, [Rs, Rn] */
-static  void thumb5C(u32 opcode)
+static  void thumb5C(uint32_t opcode)
 {
 	if (bus.busPrefetchCount == 0)
 		bus.busPrefetch = bus.busPrefetchEnable;
-	u32 address = bus.reg[(opcode>>3)&7].I + bus.reg[(opcode>>6)&7].I;
+	uint32_t address = bus.reg[(opcode>>3)&7].I + bus.reg[(opcode>>6)&7].I;
 	bus.reg[opcode&7].I = CPUReadByte(address);
 	int dataticks_value = DATATICKS_ACCESS_16BIT(address);
 	DATATICKS_ACCESS_BUS_PREFETCH(address, dataticks_value);
@@ -5871,23 +5871,23 @@ static  void thumb5C(u32 opcode)
 }
 
 /* LDSH Rd, [Rs, Rn] */
-static  void thumb5E(u32 opcode)
+static  void thumb5E(uint32_t opcode)
 {
 	if (bus.busPrefetchCount == 0)
 		bus.busPrefetch = bus.busPrefetchEnable;
-	u32 address = bus.reg[(opcode>>3)&7].I + bus.reg[(opcode>>6)&7].I;
-	bus.reg[opcode&7].I = (s16)CPUReadHalfWordSigned(address);
+	uint32_t address = bus.reg[(opcode>>3)&7].I + bus.reg[(opcode>>6)&7].I;
+	bus.reg[opcode&7].I = (int16_t)CPUReadHalfWordSigned(address);
 	int dataticks_value = DATATICKS_ACCESS_16BIT(address);
 	DATATICKS_ACCESS_BUS_PREFETCH(address, dataticks_value);
 	clockTicks = 3 + dataticks_value + codeTicksAccess(bus.armNextPC, BITS_16);
 }
 
 /* STR Rd, [Rs, #Imm] */
-static  void thumb60(u32 opcode)
+static  void thumb60(uint32_t opcode)
 {
 	if (bus.busPrefetchCount == 0)
 		bus.busPrefetch = bus.busPrefetchEnable;
-	u32 address = bus.reg[(opcode>>3)&7].I + (((opcode>>6)&31)<<2);
+	uint32_t address = bus.reg[(opcode>>3)&7].I + (((opcode>>6)&31)<<2);
 	CPUWriteMemory(address, bus.reg[opcode&7].I);
 	int dataticks_value = DATATICKS_ACCESS_32BIT(address);
 	DATATICKS_ACCESS_BUS_PREFETCH(address, dataticks_value);
@@ -5895,11 +5895,11 @@ static  void thumb60(u32 opcode)
 }
 
 /* LDR Rd, [Rs, #Imm] */
-static  void thumb68(u32 opcode)
+static  void thumb68(uint32_t opcode)
 {
 	if (bus.busPrefetchCount == 0)
 		bus.busPrefetch = bus.busPrefetchEnable;
-	u32 address = bus.reg[(opcode>>3)&7].I + (((opcode>>6)&31)<<2);
+	uint32_t address = bus.reg[(opcode>>3)&7].I + (((opcode>>6)&31)<<2);
 	bus.reg[opcode&7].I = CPUReadMemory(address);
 	int dataticks_value = DATATICKS_ACCESS_32BIT(address);
 	DATATICKS_ACCESS_BUS_PREFETCH(address, dataticks_value);
@@ -5907,11 +5907,11 @@ static  void thumb68(u32 opcode)
 }
 
 /* STRB Rd, [Rs, #Imm] */
-static  void thumb70(u32 opcode)
+static  void thumb70(uint32_t opcode)
 {
 	if (bus.busPrefetchCount == 0)
 		bus.busPrefetch = bus.busPrefetchEnable;
-	u32 address = bus.reg[(opcode>>3)&7].I + (((opcode>>6)&31));
+	uint32_t address = bus.reg[(opcode>>3)&7].I + (((opcode>>6)&31));
 	CPUWriteByte(address, bus.reg[opcode&7].I & 0xFF);
 	int dataticks_value = DATATICKS_ACCESS_16BIT(address);
 	DATATICKS_ACCESS_BUS_PREFETCH(address, dataticks_value);
@@ -5919,11 +5919,11 @@ static  void thumb70(u32 opcode)
 }
 
 /* LDRB Rd, [Rs, #Imm] */
-static  void thumb78(u32 opcode)
+static  void thumb78(uint32_t opcode)
 {
 	if (bus.busPrefetchCount == 0)
 		bus.busPrefetch = bus.busPrefetchEnable;
-	u32 address = bus.reg[(opcode>>3)&7].I + (((opcode>>6)&31));
+	uint32_t address = bus.reg[(opcode>>3)&7].I + (((opcode>>6)&31));
 	bus.reg[opcode&7].I = CPUReadByte(address);
 	int dataticks_value = DATATICKS_ACCESS_16BIT(address);
 	DATATICKS_ACCESS_BUS_PREFETCH(address, dataticks_value);
@@ -5931,11 +5931,11 @@ static  void thumb78(u32 opcode)
 }
 
 /* STRH Rd, [Rs, #Imm] */
-static  void thumb80(u32 opcode)
+static  void thumb80(uint32_t opcode)
 {
 	if (bus.busPrefetchCount == 0)
 		bus.busPrefetch = bus.busPrefetchEnable;
-	u32 address = bus.reg[(opcode>>3)&7].I + (((opcode>>6)&31)<<1);
+	uint32_t address = bus.reg[(opcode>>3)&7].I + (((opcode>>6)&31)<<1);
 	CPUWriteHalfWord(address, bus.reg[opcode&7].I & 0xFFFF);
 	int dataticks_value = DATATICKS_ACCESS_16BIT(address);
 	DATATICKS_ACCESS_BUS_PREFETCH(address, dataticks_value);
@@ -5943,11 +5943,11 @@ static  void thumb80(u32 opcode)
 }
 
 /* LDRH Rd, [Rs, #Imm] */
-static  void thumb88(u32 opcode)
+static  void thumb88(uint32_t opcode)
 {
 	if (bus.busPrefetchCount == 0)
 		bus.busPrefetch = bus.busPrefetchEnable;
-	u32 address = bus.reg[(opcode>>3)&7].I + (((opcode>>6)&31)<<1);
+	uint32_t address = bus.reg[(opcode>>3)&7].I + (((opcode>>6)&31)<<1);
 	bus.reg[opcode&7].I = CPUReadHalfWord(address);
 	int dataticks_value = DATATICKS_ACCESS_16BIT(address);
 	DATATICKS_ACCESS_BUS_PREFETCH(address, dataticks_value);
@@ -5955,12 +5955,12 @@ static  void thumb88(u32 opcode)
 }
 
 /* STR R0~R7, [SP, #Imm] */
-static  void thumb90(u32 opcode)
+static  void thumb90(uint32_t opcode)
 {
-	u8 regist = (opcode >> 8) & 7;
+	uint8_t regist = (opcode >> 8) & 7;
 	if (bus.busPrefetchCount == 0)
 		bus.busPrefetch = bus.busPrefetchEnable;
-	u32 address = bus.reg[13].I + ((opcode&255)<<2);
+	uint32_t address = bus.reg[13].I + ((opcode&255)<<2);
 	CPUWriteMemory(address, bus.reg[regist].I);
 	int dataticks_value = DATATICKS_ACCESS_32BIT(address);
 	DATATICKS_ACCESS_BUS_PREFETCH(address, dataticks_value);
@@ -5968,12 +5968,12 @@ static  void thumb90(u32 opcode)
 }
 
 /* LDR R0~R7, [SP, #Imm] */
-static  void thumb98(u32 opcode)
+static  void thumb98(uint32_t opcode)
 {
-	u8 regist = (opcode >> 8) & 7;
+	uint8_t regist = (opcode >> 8) & 7;
 	if (bus.busPrefetchCount == 0)
 		bus.busPrefetch = bus.busPrefetchEnable;
-	u32 address = bus.reg[13].I + ((opcode&255)<<2);
+	uint32_t address = bus.reg[13].I + ((opcode&255)<<2);
 	bus.reg[regist].I = CPUReadMemoryQuick(address);
 	int dataticks_value = DATATICKS_ACCESS_32BIT(address);
 	DATATICKS_ACCESS_BUS_PREFETCH(address, dataticks_value);
@@ -5983,23 +5983,23 @@ static  void thumb98(u32 opcode)
 /* PC/stack-related /////////////////////////////////////////////////////// */
 
 /* ADD R0~R7, PC, Imm */
-static  void thumbA0(u32 opcode)
+static  void thumbA0(uint32_t opcode)
 {
-  u8 regist = (opcode >> 8) & 7;
+  uint8_t regist = (opcode >> 8) & 7;
   bus.reg[regist].I = (bus.reg[15].I & 0xFFFFFFFC) + ((opcode&255)<<2);
   clockTicks = 1 + codeTicksAccess(bus.armNextPC, BITS_16);
 }
 
 /* ADD R0~R7, SP, Imm */
-static  void thumbA8(u32 opcode)
+static  void thumbA8(uint32_t opcode)
 {
-  u8 regist = (opcode >> 8) & 7;
+  uint8_t regist = (opcode >> 8) & 7;
   bus.reg[regist].I = bus.reg[13].I + ((opcode&255)<<2);
   clockTicks = 1 + codeTicksAccess(bus.armNextPC, BITS_16);
 }
 
 /* ADD SP, Imm */
-static  void thumbB0(u32 opcode)
+static  void thumbB0(uint32_t opcode)
 {
   int offset = (opcode & 127) << 2;
   if(opcode & 0x80)
@@ -6031,13 +6031,13 @@ static  void thumbB0(u32 opcode)
   }
 
 /* PUSH {Rlist} */
-static  void thumbB4(u32 opcode)
+static  void thumbB4(uint32_t opcode)
 {
   if (bus.busPrefetchCount == 0)
     bus.busPrefetch = bus.busPrefetchEnable;
   int count = 0;
-  u32 temp = bus.reg[13].I - 4 * cpuBitsSet[opcode & 0xff];
-  u32 address = temp & 0xFFFFFFFC;
+  uint32_t temp = bus.reg[13].I - 4 * cpuBitsSet[opcode & 0xff];
+  uint32_t address = temp & 0xFFFFFFFC;
   PUSH_REG(1, 0);
   PUSH_REG(2, 1);
   PUSH_REG(4, 2);
@@ -6051,13 +6051,13 @@ static  void thumbB4(u32 opcode)
 }
 
 /* PUSH {Rlist, LR} */
-static  void thumbB5(u32 opcode)
+static  void thumbB5(uint32_t opcode)
 {
   if (bus.busPrefetchCount == 0)
     bus.busPrefetch = bus.busPrefetchEnable;
   int count = 0;
-  u32 temp = bus.reg[13].I - 4 - 4 * cpuBitsSet[opcode & 0xff];
-  u32 address = temp & 0xFFFFFFFC;
+  uint32_t temp = bus.reg[13].I - 4 - 4 * cpuBitsSet[opcode & 0xff];
+  uint32_t address = temp & 0xFFFFFFFC;
   PUSH_REG(1, 0);
   PUSH_REG(2, 1);
   PUSH_REG(4, 2);
@@ -6072,13 +6072,13 @@ static  void thumbB5(u32 opcode)
 }
 
 /* POP {Rlist} */
-static  void thumbBC(u32 opcode)
+static  void thumbBC(uint32_t opcode)
 {
   if (bus.busPrefetchCount == 0)
     bus.busPrefetch = bus.busPrefetchEnable;
   int count = 0;
-  u32 address = bus.reg[13].I & 0xFFFFFFFC;
-  u32 temp = bus.reg[13].I + 4*cpuBitsSet[opcode & 0xFF];
+  uint32_t address = bus.reg[13].I & 0xFFFFFFFC;
+  uint32_t temp = bus.reg[13].I + 4*cpuBitsSet[opcode & 0xFF];
   POP_REG(1, 0);
   POP_REG(2, 1);
   POP_REG(4, 2);
@@ -6092,13 +6092,13 @@ static  void thumbBC(u32 opcode)
 }
 
 /* POP {Rlist, PC} */
-static  void thumbBD(u32 opcode)
+static  void thumbBD(uint32_t opcode)
 {
   if (bus.busPrefetchCount == 0)
     bus.busPrefetch = bus.busPrefetchEnable;
   int count = 0;
-  u32 address = bus.reg[13].I & 0xFFFFFFFC;
-  u32 temp = bus.reg[13].I + 4 + 4*cpuBitsSet[opcode & 0xFF];
+  uint32_t address = bus.reg[13].I & 0xFFFFFFFC;
+  uint32_t temp = bus.reg[13].I + 4 + 4*cpuBitsSet[opcode & 0xFF];
   POP_REG(1, 0);
   POP_REG(2, 1);
   POP_REG(4, 2);
@@ -6144,13 +6144,13 @@ static  void thumbBD(u32 opcode)
   }
 
 /* STM R0~7!, {Rlist} */
-static  void thumbC0(u32 opcode)
+static  void thumbC0(uint32_t opcode)
 {
-  u8 regist = (opcode >> 8) & 7;
+  uint8_t regist = (opcode >> 8) & 7;
   if (bus.busPrefetchCount == 0)
     bus.busPrefetch = bus.busPrefetchEnable;
-  u32 address = bus.reg[regist].I & 0xFFFFFFFC;
-  u32 temp = bus.reg[regist].I + 4*cpuBitsSet[opcode & 0xff];
+  uint32_t address = bus.reg[regist].I & 0xFFFFFFFC;
+  uint32_t temp = bus.reg[regist].I + 4*cpuBitsSet[opcode & 0xff];
   int count = 0;
   /* store */
   THUMB_STM_REG(1, 0, regist);
@@ -6165,13 +6165,13 @@ static  void thumbC0(u32 opcode)
 }
 
 /* LDM R0~R7!, {Rlist} */
-static  void thumbC8(u32 opcode)
+static  void thumbC8(uint32_t opcode)
 {
-  u8 regist = (opcode >> 8) & 7;
+  uint8_t regist = (opcode >> 8) & 7;
   if (bus.busPrefetchCount == 0)
     bus.busPrefetch = bus.busPrefetchEnable;
-  u32 address = bus.reg[regist].I & 0xFFFFFFFC;
-  u32 temp = bus.reg[regist].I + 4*cpuBitsSet[opcode & 0xFF];
+  uint32_t address = bus.reg[regist].I & 0xFFFFFFFC;
+  uint32_t temp = bus.reg[regist].I + 4*cpuBitsSet[opcode & 0xFF];
   int count = 0;
   /* load */
   THUMB_LDM_REG(1, 0);
@@ -6190,14 +6190,14 @@ static  void thumbC8(u32 opcode)
 /* Conditional branches /////////////////////////////////////////////////// */
 
 /* BEQ offset */
-static  void thumbD0(u32 opcode)
+static  void thumbD0(uint32_t opcode)
 {
 #if !USE_TWEAK_SPEEDHACK
 	clockTicks = CLOCKTICKS_UPDATE_TYPE16;
 #endif
 	if(Z_FLAG)
 	{
-		bus.reg[15].I += ((s8)(opcode & 0xFF)) << 1;
+		bus.reg[15].I += ((int8_t)(opcode & 0xFF)) << 1;
 		bus.armNextPC = bus.reg[15].I;
 		bus.reg[15].I += 2;
 		THUMB_PREFETCH;
@@ -6211,11 +6211,11 @@ static  void thumbD0(u32 opcode)
 }
 
 /* BNE offset */
-static  void thumbD1(u32 opcode)
+static  void thumbD1(uint32_t opcode)
 {
   clockTicks = CLOCKTICKS_UPDATE_TYPE16;
   if(!Z_FLAG) {
-    bus.reg[15].I += ((s8)(opcode & 0xFF)) << 1;
+    bus.reg[15].I += ((int8_t)(opcode & 0xFF)) << 1;
     bus.armNextPC = bus.reg[15].I;
     bus.reg[15].I += 2;
     THUMB_PREFETCH;
@@ -6225,11 +6225,11 @@ static  void thumbD1(u32 opcode)
 }
 
 /* BCS offset */
-static  void thumbD2(u32 opcode)
+static  void thumbD2(uint32_t opcode)
 {
   clockTicks = CLOCKTICKS_UPDATE_TYPE16;
   if(C_FLAG) {
-    bus.reg[15].I += ((s8)(opcode & 0xFF)) << 1;
+    bus.reg[15].I += ((int8_t)(opcode & 0xFF)) << 1;
     bus.armNextPC = bus.reg[15].I;
     bus.reg[15].I += 2;
     THUMB_PREFETCH;
@@ -6239,11 +6239,11 @@ static  void thumbD2(u32 opcode)
 }
 
 /* BCC offset */
-static  void thumbD3(u32 opcode)
+static  void thumbD3(uint32_t opcode)
 {
   clockTicks = CLOCKTICKS_UPDATE_TYPE16;
   if(!C_FLAG) {
-    bus.reg[15].I += ((s8)(opcode & 0xFF)) << 1;
+    bus.reg[15].I += ((int8_t)(opcode & 0xFF)) << 1;
     bus.armNextPC = bus.reg[15].I;
     bus.reg[15].I += 2;
     THUMB_PREFETCH;
@@ -6253,11 +6253,11 @@ static  void thumbD3(u32 opcode)
 }
 
 /* BMI offset */
-static  void thumbD4(u32 opcode)
+static  void thumbD4(uint32_t opcode)
 {
   clockTicks = CLOCKTICKS_UPDATE_TYPE16;
   if(N_FLAG) {
-    bus.reg[15].I += ((s8)(opcode & 0xFF)) << 1;
+    bus.reg[15].I += ((int8_t)(opcode & 0xFF)) << 1;
     bus.armNextPC = bus.reg[15].I;
     bus.reg[15].I += 2;
     THUMB_PREFETCH;
@@ -6267,11 +6267,11 @@ static  void thumbD4(u32 opcode)
 }
 
 /* BPL offset */
-static  void thumbD5(u32 opcode)
+static  void thumbD5(uint32_t opcode)
 {
   clockTicks = CLOCKTICKS_UPDATE_TYPE16;
   if(!N_FLAG) {
-    bus.reg[15].I += ((s8)(opcode & 0xFF)) << 1;
+    bus.reg[15].I += ((int8_t)(opcode & 0xFF)) << 1;
     bus.armNextPC = bus.reg[15].I;
     bus.reg[15].I += 2;
     THUMB_PREFETCH;
@@ -6281,11 +6281,11 @@ static  void thumbD5(u32 opcode)
 }
 
 /* BVS offset */
-static  void thumbD6(u32 opcode)
+static  void thumbD6(uint32_t opcode)
 {
   clockTicks = CLOCKTICKS_UPDATE_TYPE16;
   if(V_FLAG) {
-    bus.reg[15].I += ((s8)(opcode & 0xFF)) << 1;
+    bus.reg[15].I += ((int8_t)(opcode & 0xFF)) << 1;
     bus.armNextPC = bus.reg[15].I;
     bus.reg[15].I += 2;
     THUMB_PREFETCH;
@@ -6295,11 +6295,11 @@ static  void thumbD6(u32 opcode)
 }
 
 /* BVC offset */
-static  void thumbD7(u32 opcode)
+static  void thumbD7(uint32_t opcode)
 {
   clockTicks = CLOCKTICKS_UPDATE_TYPE16;
   if(!V_FLAG) {
-    bus.reg[15].I += ((s8)(opcode & 0xFF)) << 1;
+    bus.reg[15].I += ((int8_t)(opcode & 0xFF)) << 1;
     bus.armNextPC = bus.reg[15].I;
     bus.reg[15].I += 2;
     THUMB_PREFETCH;
@@ -6309,11 +6309,11 @@ static  void thumbD7(u32 opcode)
 }
 
 /* BHI offset */
-static  void thumbD8(u32 opcode)
+static  void thumbD8(uint32_t opcode)
 {
   clockTicks = CLOCKTICKS_UPDATE_TYPE16;
   if(C_FLAG && !Z_FLAG) {
-    bus.reg[15].I += ((s8)(opcode & 0xFF)) << 1;
+    bus.reg[15].I += ((int8_t)(opcode & 0xFF)) << 1;
     bus.armNextPC = bus.reg[15].I;
     bus.reg[15].I += 2;
     THUMB_PREFETCH;
@@ -6323,11 +6323,11 @@ static  void thumbD8(u32 opcode)
 }
 
 /* BLS offset */
-static  void thumbD9(u32 opcode)
+static  void thumbD9(uint32_t opcode)
 {
   clockTicks = CLOCKTICKS_UPDATE_TYPE16;
   if(!C_FLAG || Z_FLAG) {
-    bus.reg[15].I += ((s8)(opcode & 0xFF)) << 1;
+    bus.reg[15].I += ((int8_t)(opcode & 0xFF)) << 1;
     bus.armNextPC = bus.reg[15].I;
     bus.reg[15].I += 2;
     THUMB_PREFETCH;
@@ -6337,11 +6337,11 @@ static  void thumbD9(u32 opcode)
 }
 
 /* BGE offset */
-static  void thumbDA(u32 opcode)
+static  void thumbDA(uint32_t opcode)
 {
   clockTicks = CLOCKTICKS_UPDATE_TYPE16;
   if(N_FLAG == V_FLAG) {
-    bus.reg[15].I += ((s8)(opcode & 0xFF)) << 1;
+    bus.reg[15].I += ((int8_t)(opcode & 0xFF)) << 1;
     bus.armNextPC = bus.reg[15].I;
     bus.reg[15].I += 2;
     THUMB_PREFETCH;
@@ -6351,11 +6351,11 @@ static  void thumbDA(u32 opcode)
 }
 
 /* BLT offset */
-static  void thumbDB(u32 opcode)
+static  void thumbDB(uint32_t opcode)
 {
   clockTicks = CLOCKTICKS_UPDATE_TYPE16;
   if(N_FLAG != V_FLAG) {
-    bus.reg[15].I += ((s8)(opcode & 0xFF)) << 1;
+    bus.reg[15].I += ((int8_t)(opcode & 0xFF)) << 1;
     bus.armNextPC = bus.reg[15].I;
     bus.reg[15].I += 2;
     THUMB_PREFETCH;
@@ -6365,11 +6365,11 @@ static  void thumbDB(u32 opcode)
 }
 
 /* BGT offset */
-static  void thumbDC(u32 opcode)
+static  void thumbDC(uint32_t opcode)
 {
   clockTicks = CLOCKTICKS_UPDATE_TYPE16;
   if(!Z_FLAG && (N_FLAG == V_FLAG)) {
-    bus.reg[15].I += ((s8)(opcode & 0xFF)) << 1;
+    bus.reg[15].I += ((int8_t)(opcode & 0xFF)) << 1;
     bus.armNextPC = bus.reg[15].I;
     bus.reg[15].I += 2;
     THUMB_PREFETCH;
@@ -6379,11 +6379,11 @@ static  void thumbDC(u32 opcode)
 }
 
 /* BLE offset */
-static  void thumbDD(u32 opcode)
+static  void thumbDD(uint32_t opcode)
 {
   clockTicks = CLOCKTICKS_UPDATE_TYPE16;
   if(Z_FLAG || (N_FLAG != V_FLAG)) {
-    bus.reg[15].I += ((s8)(opcode & 0xFF)) << 1;
+    bus.reg[15].I += ((int8_t)(opcode & 0xFF)) << 1;
     bus.armNextPC = bus.reg[15].I;
     bus.reg[15].I += 2;
     THUMB_PREFETCH;
@@ -6395,7 +6395,7 @@ static  void thumbDD(u32 opcode)
 /* SWI, B, BL ///////////////////////////////////////////////////////////// */
 
 /* SWI #comment */
-static  void thumbDF(u32 opcode)
+static  void thumbDF(uint32_t opcode)
 {
   clockTicks = 3;
   bus.busPrefetchCount=0;
@@ -6403,7 +6403,7 @@ static  void thumbDF(u32 opcode)
 }
 
 /* B offset */
-static  void thumbE0(u32 opcode)
+static  void thumbE0(uint32_t opcode)
 {
   int offset = (opcode & 0x3FF) << 1;
   if(opcode & 0x0400)
@@ -6417,7 +6417,7 @@ static  void thumbE0(u32 opcode)
 }
 
 /* BLL #offset (forward) */
-static  void thumbF0(u32 opcode)
+static  void thumbF0(uint32_t opcode)
 {
   int offset = (opcode & 0x7FF);
   bus.reg[14].I = bus.reg[15].I + (offset << 12);
@@ -6425,7 +6425,7 @@ static  void thumbF0(u32 opcode)
 }
 
 /* BLL #offset (backward) */
-static  void thumbF4(u32 opcode)
+static  void thumbF4(uint32_t opcode)
 {
   int offset = (opcode & 0x7FF);
   bus.reg[14].I = bus.reg[15].I + ((offset << 12) | 0xFF800000);
@@ -6433,10 +6433,10 @@ static  void thumbF4(u32 opcode)
 }
 
 /* BLH #offset */
-static  void thumbF8(u32 opcode)
+static  void thumbF8(uint32_t opcode)
 {
   int offset = (opcode & 0x7FF);
-  u32 temp = bus.reg[15].I-2;
+  uint32_t temp = bus.reg[15].I-2;
   bus.reg[15].I = (bus.reg[14].I + (offset<<1))&0xFFFFFFFE;
   bus.armNextPC = bus.reg[15].I;
   bus.reg[15].I += 2;
@@ -6448,7 +6448,7 @@ static  void thumbF8(u32 opcode)
 
 /* Instruction table ////////////////////////////////////////////////////// */
 
-typedef  void (*insnfunc_t)(u32 opcode);
+typedef  void (*insnfunc_t)(uint32_t opcode);
 #define thumbUI thumbUnknownInsn
 #define thumbBP thumbUnknownInsn
 
@@ -6607,7 +6607,7 @@ static int thumbExecute (void)
          bus.busPrefetchCount=0x100;
 #endif
 
-      u32 opcode = cpuPrefetch[0];
+      uint32_t opcode = cpuPrefetch[0];
       cpuPrefetch[0] = cpuPrefetch[1];
 
       bus.busPrefetch = false;
@@ -6616,7 +6616,7 @@ static int thumbExecute (void)
          bus.busPrefetchCount = 0x100 | (bus.busPrefetchCount & 0xFF);
 #endif
 
-      u32 oldArmNextPC = bus.armNextPC;
+      uint32_t oldArmNextPC = bus.armNextPC;
 
       bus.armNextPC = bus.reg[15].I;
       bus.reg[15].I += 2;
@@ -6649,8 +6649,8 @@ static int thumbExecute (void)
 	GBA GFX
 ============================================================ */
 
-static u32 map_widths [] = { 256, 512, 256, 512 };
-static u32 map_heights[] = { 256, 256, 512, 512 };
+static uint32_t map_widths [] = { 256, 512, 256, 512 };
+static uint32_t map_heights[] = { 256, 256, 512, 512 };
 
 #ifdef TILED_RENDERING
 #ifdef _MSC_VER
@@ -6668,7 +6668,7 @@ union u8h
 #endif
    }
    __pragma(pack(pop));
-   u8 val;
+   uint8_t val;
 };
 #else
 union u8h
@@ -6683,7 +6683,7 @@ union u8h
       /* 4*/	unsigned char hi:4;
 #endif
    } __attribute__ ((packed));
-   u8 val;
+   uint8_t val;
 };
 #endif
 
@@ -6703,22 +6703,22 @@ union TileEntry
       /*14*/	unsigned palette:4;
 #endif
    };
-   u16 val;
+   uint16_t val;
 };
 
 struct TileLine
 {
-   u32 pixels[8];
+   uint32_t pixels[8];
 };
 
-typedef const TileLine (*TileReader) (const u16 *, const int, const u8 *, u16 *, const u32);
+typedef const TileLine (*TileReader) (const uint16_t *, const int, const uint8_t *, uint16_t *, const uint32_t);
 
-static inline void gfxDrawPixel(u32 *dest, const u8 color, const u16 *palette, const u32 prio)
+static inline void gfxDrawPixel(uint32_t *dest, const uint8_t color, const uint16_t *palette, const uint32_t prio)
 {
    *dest = color ? (palette[color] | prio): 0x80000000;
 }
 
-inline const TileLine gfxReadTile(const u16 *screenSource, const int yyy, const u8 *charBase, u16 *palette, const u32 prio)
+inline const TileLine gfxReadTile(const uint16_t *screenSource, const int yyy, const uint8_t *charBase, uint16_t *palette, const uint32_t prio)
 {
    TileEntry tile;
    tile.val = READ16LE(screenSource);
@@ -6727,7 +6727,7 @@ inline const TileLine gfxReadTile(const u16 *screenSource, const int yyy, const 
    if (tile.vFlip) tileY = 7 - tileY;
    TileLine tileLine;
 
-   const u8 *tileBase = &charBase[tile.tileNum * 64 + tileY * 8];
+   const uint8_t *tileBase = &charBase[tile.tileNum * 64 + tileY * 8];
 
    if (!tile.hFlip)
    {
@@ -6755,7 +6755,7 @@ inline const TileLine gfxReadTile(const u16 *screenSource, const int yyy, const 
    return tileLine;
 }
 
-inline const TileLine gfxReadTilePal(const u16 *screenSource, const int yyy, const u8 *charBase, u16 *palette, const u32 prio)
+inline const TileLine gfxReadTilePal(const uint16_t *screenSource, const int yyy, const uint8_t *charBase, uint16_t *palette, const uint32_t prio)
 {
    TileEntry tile;
    tile.val = READ16LE(screenSource);
@@ -6793,7 +6793,7 @@ inline const TileLine gfxReadTilePal(const u16 *screenSource, const int yyy, con
    return tileLine;
 }
 
-static inline void gfxDrawTile(const TileLine &tileLine, u32* _line)
+static inline void gfxDrawTile(const TileLine &tileLine, uint32_t* _line)
 {
 #if HAVE_NEON
    neon_memcpy(_line, tileLine.pixels, sizeof(tileLine.pixels));
@@ -6802,24 +6802,24 @@ static inline void gfxDrawTile(const TileLine &tileLine, u32* _line)
 #endif
 }
 
-static inline void gfxDrawTileClipped(const TileLine &tileLine, u32* _line, const int start, int w)
+static inline void gfxDrawTileClipped(const TileLine &tileLine, uint32_t* _line, const int start, int w)
 {
 #if HAVE_NEON
-   neon_memcpy(_line, tileLine.pixels + start, w * sizeof(u32));
+   neon_memcpy(_line, tileLine.pixels + start, w * sizeof(uint32_t));
 #else
-   memcpy(_line, tileLine.pixels + start, w * sizeof(u32));
+   memcpy(_line, tileLine.pixels + start, w * sizeof(uint32_t));
 #endif
 }
 
 template<TileReader readTile, int layer, int renderer_idx>
-static void gfxDrawTextScreen(u16 control, u16 hofs, u16 vofs)
+static void gfxDrawTextScreen(uint16_t control, uint16_t hofs, uint16_t vofs)
 {
 	INIT_RENDERER_CONTEXT(renderer_idx);
 
-   u16 *palette = PAL_U16;
-   u8 *charBase = &vram[((control >> 2) & 0x03) * 0x4000];
-   u16 *screenBase = (u16 *)&vram[((control >> 8) & 0x1f) * 0x800];
-   u32 prio = ((control & 3)<<25) + 0x1000000;
+   uint16_t *palette = PAL_U16;
+   uint8_t *charBase = &vram[((control >> 2) & 0x03) * 0x4000];
+   uint16_t *screenBase = (uint16_t *)&vram[((control >> 8) & 0x1f) * 0x800];
+   uint32_t prio = ((control & 3)<<25) + 0x1000000;
    int sizeX = 256;
    int sizeY = 256;
    switch ((control >> 14) & 3)
@@ -6867,7 +6867,7 @@ static void gfxDrawTextScreen(u16 control, u16 hofs, u16 vofs)
 
    int yshift = ((yyy>>3)<<5);
 
-   u16 *screenSource = screenBase + 0x400 * (xxx>>8) + ((xxx & 255)>>3) + yshift;
+   uint16_t *screenSource = screenBase + 0x400 * (xxx>>8) + ((xxx & 255)>>3) + yshift;
    int x = 0;
    const int firstTileX = xxx & 7;
 
@@ -6921,7 +6921,7 @@ static void gfxDrawTextScreen(u16 control, u16 hofs, u16 vofs)
 }
 
 template<int layer, int renderer_idx>
-void gfxDrawTextScreen(u16 control, u16 hofs, u16 vofs)
+void gfxDrawTextScreen(uint16_t control, uint16_t hofs, uint16_t vofs)
 {
    if (control & 0x80) /* 1 pal / 256 col */
       gfxDrawTextScreen<gfxReadTile, layer, renderer_idx>(control, hofs, vofs);
@@ -6931,12 +6931,12 @@ void gfxDrawTextScreen(u16 control, u16 hofs, u16 vofs)
 #else
 
 template<int layer, int renderer_idx>
-static inline void gfxDrawTextScreen(u16 control, u16 hofs, u16 vofs)
+static inline void gfxDrawTextScreen(uint16_t control, uint16_t hofs, uint16_t vofs)
 {
-  u16 *palette = PAL_U16;
-  u8 *charBase = &vram[((control >> 2) & 0x03) * 0x4000];
-  u16 *screenBase = (u16 *)&vram[((control >> 8) & 0x1f) * 0x800];
-  u32 prio = ((control & 3)<<25) + 0x1000000;
+  uint16_t *palette = PAL_U16;
+  uint8_t *charBase = &vram[((control >> 2) & 0x03) * 0x4000];
+  uint16_t *screenBase = (uint16_t *)&vram[((control >> 8) & 0x1f) * 0x800];
+  uint32_t prio = ((control & 3)<<25) + 0x1000000;
   int sizeX = 256;
   int sizeY = 256;
   switch((control >> 14) & 3) {
@@ -6980,9 +6980,9 @@ static inline void gfxDrawTextScreen(u16 control, u16 hofs, u16 vofs)
 
   int yshift = ((yyy>>3)<<5);
   if((control) & 0x80) {
-    u16 *screenSource = screenBase + 0x400 * (xxx>>8) + ((xxx & 255)>>3) + yshift;
+    uint16_t *screenSource = screenBase + 0x400 * (xxx>>8) + ((xxx & 255)>>3) + yshift;
     for(int x = 0; x < 240; x++) {
-      u16 data = READ16LE(screenSource);
+      uint16_t data = READ16LE(screenSource);
 
       int tile = data & 0x3FF;
       int tileX = (xxx & 7);
@@ -6996,7 +6996,7 @@ static inline void gfxDrawTextScreen(u16 control, u16 hofs, u16 vofs)
       if(data & 0x0800)
         tileY = 7 - tileY;
 
-      u8 color = charBase[tile * 64 + tileY * 8 + tileX];
+      uint8_t color = charBase[tile * 64 + tileY * 8 + tileX];
 
       RENDERER_LINE[layer][x] = color ? (palette[color] | prio): 0x80000000;
 
@@ -7014,10 +7014,10 @@ static inline void gfxDrawTextScreen(u16 control, u16 hofs, u16 vofs)
       }
     }
   } else {
-    u16 *screenSource = screenBase + 0x400*(xxx>>8)+((xxx&255)>>3) +
+    uint16_t *screenSource = screenBase + 0x400*(xxx>>8)+((xxx&255)>>3) +
       yshift;
     for(int x = 0; x < 240; x++) {
-      u16 data = READ16LE(screenSource);
+      uint16_t data = READ16LE(screenSource);
 
       int tile = data & 0x3FF;
       int tileX = (xxx & 7);
@@ -7031,7 +7031,7 @@ static inline void gfxDrawTextScreen(u16 control, u16 hofs, u16 vofs)
       if(data & 0x0800)
         tileY = 7 - tileY;
 
-      u8 color = charBase[(tile<<5) + (tileY<<2) + (tileX>>1)];
+      uint8_t color = charBase[(tile<<5) + (tileY<<2) + (tileX>>1)];
 
       if(tileX & 1) {
         color = (color >> 4);
@@ -7064,10 +7064,10 @@ static inline void gfxDrawTextScreen(u16 control, u16 hofs, u16 vofs)
 }
 #endif
 
-static u32 map_sizes_rot[] = { 128, 256, 512, 1024 };
+static uint32_t map_sizes_rot[] = { 128, 256, 512, 1024 };
 
 #if THREADED_RENDERER
-static INLINE void fetchDrawRotScreen(u16 control, u16 x_l, u16 x_h, u16 y_l, u16 y_h, u16 pa, u16 pb, u16 pc, u16 pd, int *p_currentX, int *p_currentY, int changed)
+static INLINE void fetchDrawRotScreen(uint16_t control, uint16_t x_l, uint16_t x_h, uint16_t y_l, uint16_t y_h, uint16_t pa, uint16_t pb, uint16_t pc, uint16_t pd, int *p_currentX, int *p_currentY, int changed)
 {
 	int currentX = *p_currentX;
 	int currentY = *p_currentY;
@@ -7193,21 +7193,21 @@ static INLINE void fetchDrawRotScreen16Bit160(int *p_currentX, int *p_currentY, 
 #endif
 
 template<int layer, int renderer_idx>
-static INLINE void gfxDrawRotScreen(u16 control, u16 x_l, u16 x_h, u16 y_l, u16 y_h,
-u16 pa,  u16 pb, u16 pc,  u16 pd, int *p_currentX, int *p_currentY, int changed)
+static INLINE void gfxDrawRotScreen(uint16_t control, uint16_t x_l, uint16_t x_h, uint16_t y_l, uint16_t y_h,
+uint16_t pa,  uint16_t pb, uint16_t pc,  uint16_t pd, int *p_currentX, int *p_currentY, int changed)
 {
 	int currentX = *p_currentX;
 	int currentY = *p_currentY;
 	INIT_RENDERER_CONTEXT(renderer_idx);
 
-	u16 *palette = PAL_U16;
-	u8 *charBase = &vram[((control >> 2) & 0x03) << 14];
-	u8 *screenBase = (u8 *)&vram[((control >> 8) & 0x1f) << 11];
+	uint16_t *palette = PAL_U16;
+	uint8_t *charBase = &vram[((control >> 2) & 0x03) << 14];
+	uint8_t *screenBase = (uint8_t *)&vram[((control >> 8) & 0x1f) << 11];
 	int prio = ((control & 3) << 25) + 0x1000000;
 
-	u32 map_size = (control >> 14) & 3;
-	u32 sizeX = map_sizes_rot[map_size];
-	u32 sizeY = map_sizes_rot[map_size];
+	uint32_t map_size = (control >> 14) & 3;
+	uint32_t sizeX = map_sizes_rot[map_size];
+	uint32_t sizeY = map_sizes_rot[map_size];
 
 	int maskX = sizeX-1;
 	int maskY = sizeY-1;
@@ -7250,7 +7250,7 @@ u16 pa,  u16 pb, u16 pc,  u16 pd, int *p_currentX, int *p_currentY, int changed)
 		realY -= y*dmy;
 	}
 
-	memset(RENDERER_LINE[layer], -1, 240 * sizeof(u32));
+	memset(RENDERER_LINE[layer], -1, 240 * sizeof(uint32_t));
 	if(control & 0x2000) /* Wraparound */
 	{
 		if(dx > 0 && dy == 0) /* Common subcase: no rotation or flipping */
@@ -7260,7 +7260,7 @@ u16 pa,  u16 pb, u16 pc,  u16 pd, int *p_currentX, int *p_currentY, int changed)
 			unsigned tileY = yyy & 7;
 			unsigned tileYshift = (tileY<<3);
 
-			for(u32 x = 0; x < 240u; ++x)
+			for(uint32_t x = 0; x < 240u; ++x)
 			{
 				unsigned xxx = (realX >> 8) & maskX;
 
@@ -7268,7 +7268,7 @@ u16 pa,  u16 pb, u16 pc,  u16 pd, int *p_currentX, int *p_currentY, int changed)
 
 				unsigned tileX = (xxx & 7);
 
-				u8 color = charBase[(tile<<6) | tileYshift | tileX];
+				uint8_t color = charBase[(tile<<6) | tileYshift | tileX];
 
 				if(color) RENDERER_LINE[layer][x] = (palette[color]|prio);
 
@@ -7276,7 +7276,7 @@ u16 pa,  u16 pb, u16 pc,  u16 pd, int *p_currentX, int *p_currentY, int changed)
 			}
 		}
 		else
-			for(u32 x = 0; x < 240u; ++x)
+			for(uint32_t x = 0; x < 240u; ++x)
 			{
 				unsigned xxx = (realX >> 8) & maskX;
 				unsigned yyy = (realY >> 8) & maskY;
@@ -7286,7 +7286,7 @@ u16 pa,  u16 pb, u16 pc,  u16 pd, int *p_currentX, int *p_currentY, int changed)
 				unsigned tileX = (xxx & 7);
 				unsigned tileY = yyy & 7;
 
-				u8 color = charBase[(tile<<6) | (tileY<<3) | tileX];
+				uint8_t color = charBase[(tile<<6) | (tileY<<3) | tileX];
 
 				if(color) RENDERER_LINE[layer][x] = (palette[color]|prio);
 
@@ -7305,12 +7305,12 @@ u16 pa,  u16 pb, u16 pc,  u16 pd, int *p_currentX, int *p_currentY, int changed)
 			unsigned tileY = yyy & 7;
 			unsigned tileYshift = (tileY<<3);
 
-			s32 x0 = max(  0, (s32)(             + (-realX + dx - 1)) / dx);
-			s32 x1 = min(240, (s32)((sizeX << 8) + (-realX + dx - 1)) / dx);
+			int32_t x0 = max(  0, (int32_t)(             + (-realX + dx - 1)) / dx);
+			int32_t x1 = min(240, (int32_t)((sizeX << 8) + (-realX + dx - 1)) / dx);
 
 			realX += dx * x0;
 
-			for(s32 x = x0; x < x1; ++x)
+			for(int32_t x = x0; x < x1; ++x)
 			{
 				unsigned xxx = (realX >> 8);
 
@@ -7318,7 +7318,7 @@ u16 pa,  u16 pb, u16 pc,  u16 pd, int *p_currentX, int *p_currentY, int changed)
 
 				unsigned tileX = (xxx & 7);
 
-				u8 color = charBase[(tile<<6) | tileYshift | tileX];
+				uint8_t color = charBase[(tile<<6) | tileYshift | tileX];
 
 				if(color) RENDERER_LINE[layer][x] = (palette[color]|prio);
 
@@ -7326,7 +7326,7 @@ u16 pa,  u16 pb, u16 pc,  u16 pd, int *p_currentX, int *p_currentY, int changed)
 			}
 		}
 		else
-			for(u32 x = 0; x < 240u; ++x)
+			for(uint32_t x = 0; x < 240u; ++x)
 			{
 				unsigned xxx = (realX >> 8);
 				unsigned yyy = (realY >> 8);
@@ -7338,7 +7338,7 @@ u16 pa,  u16 pb, u16 pc,  u16 pd, int *p_currentX, int *p_currentY, int changed)
 					unsigned tileX = (xxx & 7);
 					unsigned tileY = yyy & 7;
 
-					u8 color = charBase[(tile<<6) | (tileY<<3) | tileX];
+					uint8_t color = charBase[(tile<<6) | (tileY<<3) | tileX];
 
 					if(color) RENDERER_LINE[layer][x] = (palette[color]|prio);
 				}
@@ -7368,11 +7368,11 @@ static INLINE void gfxDrawRotScreen16Bit( int *p_currentX,  int *p_currentY, int
 	int currentY = *p_currentY;
 	INIT_RENDERER_CONTEXT(renderer_idx);
 
-	u16 *screenBase = (u16 *)&vram[0];
+	uint16_t *screenBase = (uint16_t *)&vram[0];
 	int prio = ((RENDERER_IO_REGISTERS[REG_BG2CNT] & 3) << 25) + 0x1000000;
 
-	u32 sizeX = 240;
-	u32 sizeY = 160;
+	uint32_t sizeX = 240;
+	uint32_t sizeY = 160;
 
 	int startX = (BG2X_L) | ((BG2X_H & 0x07FF)<<16);
 	if(BG2X_H & 0x0800)
@@ -7419,8 +7419,8 @@ static INLINE void gfxDrawRotScreen16Bit( int *p_currentX,  int *p_currentY, int
 	unsigned xxx = (realX >> 8);
 	unsigned yyy = (realY >> 8);
 
-	memset(RENDERER_LINE[Layer_BG2], -1, 240 * sizeof(u32));
-	for(u32 x = 0; x < 240u; ++x)
+	memset(RENDERER_LINE[Layer_BG2], -1, 240 * sizeof(uint32_t));
+	for(uint32_t x = 0; x < 240u; ++x)
 	{
 		if(xxx < sizeX && yyy < sizeY)
 			RENDERER_LINE[Layer_BG2][x] = (READ16LE(&screenBase[yyy * sizeX + xxx]) | prio);
@@ -7449,11 +7449,11 @@ static INLINE void gfxDrawRotScreen256(int *p_currentX, int *p_currentY, int cha
 	int currentY = *p_currentY;
 	INIT_RENDERER_CONTEXT(renderer_idx);
 
-	u16 *palette = PAL_U16;
-	u8 *screenBase = (RENDERER_IO_REGISTERS[REG_DISPCNT] & 0x0010) ? &vram[0xA000] : &vram[0x0000];
+	uint16_t *palette = PAL_U16;
+	uint8_t *screenBase = (RENDERER_IO_REGISTERS[REG_DISPCNT] & 0x0010) ? &vram[0xA000] : &vram[0x0000];
 	int prio = ((RENDERER_IO_REGISTERS[REG_BG2CNT] & 3) << 25) + 0x1000000;
-	u32 sizeX = 240;
-	u32 sizeY = 160;
+	uint32_t sizeX = 240;
+	uint32_t sizeY = 160;
 
 	int startX = (BG2X_L) | ((BG2X_H & 0x07FF)<<16);
 	if(BG2X_H & 0x0800)
@@ -7500,11 +7500,11 @@ static INLINE void gfxDrawRotScreen256(int *p_currentX, int *p_currentY, int cha
 	int xxx = (realX >> 8);
 	int yyy = (realY >> 8);
 
-	memset(RENDERER_LINE[Layer_BG2], -1, 240 * sizeof(u32));
-	for(u32 x = 0; x < 240; ++x)
+	memset(RENDERER_LINE[Layer_BG2], -1, 240 * sizeof(uint32_t));
+	for(uint32_t x = 0; x < 240; ++x)
 	{
 		if(unsigned(xxx) < sizeX && unsigned(yyy) < sizeY) {
-			u8 color = screenBase[yyy * 240 + xxx];
+			uint8_t color = screenBase[yyy * 240 + xxx];
 			if (color) RENDERER_LINE[Layer_BG2][x] = (palette[color] | prio);
 		}
 		realX += dx;
@@ -7533,11 +7533,11 @@ static INLINE void gfxDrawRotScreen16Bit160(int *p_currentX, int *p_currentY, in
 	int currentY = *p_currentY;
 	INIT_RENDERER_CONTEXT(renderer_idx);
 
-	u16 *screenBase = (RENDERER_IO_REGISTERS[REG_DISPCNT] & 0x0010) ? (u16 *)&vram[0xa000] :
-		(u16 *)&vram[0];
+	uint16_t *screenBase = (RENDERER_IO_REGISTERS[REG_DISPCNT] & 0x0010) ? (uint16_t *)&vram[0xa000] :
+		(uint16_t *)&vram[0];
 	int prio = ((RENDERER_IO_REGISTERS[REG_BG2CNT] & 3) << 25) + 0x1000000;
-	u32 sizeX = 160;
-	u32 sizeY = 128;
+	uint32_t sizeX = 160;
+	uint32_t sizeY = 128;
 
 	int startX = (BG2X_L) | ((BG2X_H & 0x07FF)<<16);
 	if(BG2X_H & 0x0800)
@@ -7584,8 +7584,8 @@ static INLINE void gfxDrawRotScreen16Bit160(int *p_currentX, int *p_currentY, in
 	int xxx = (realX >> 8);
 	int yyy = (realY >> 8);
 
-	memset(RENDERER_LINE[Layer_BG2], -1, 240 * sizeof(u32));
-	for(u32 x = 0; x < 240u; ++x)
+	memset(RENDERER_LINE[Layer_BG2], -1, 240 * sizeof(uint32_t));
+	for(uint32_t x = 0; x < 240u; ++x)
 	{
 		if(unsigned(xxx) < sizeX && unsigned(yyy) < sizeY)
 			RENDERER_LINE[Layer_BG2][x] = (READ16LE(&screenBase[yyy * sizeX + xxx]) | prio);
@@ -7621,15 +7621,15 @@ static void gfxDrawSprites (void)
 	lineOBJpix = (RENDERER_IO_REGISTERS[REG_DISPCNT] & 0x20) ? 954 : 1226;
 	m = 0;
 
-	u16 *sprites = OAM_U16;
-	u16 *spritePalette = &PAL_U16[256];
+	uint16_t *sprites = OAM_U16;
+	uint16_t *spritePalette = &PAL_U16[256];
 	int mosaicY = ((RENDERER_MOSAIC & 0xF000)>>12) + 1;
 	int mosaicX = ((RENDERER_MOSAIC & 0xF00)>>8) + 1;
-	for(u32 x = 0; x < 128; x++)
+	for(uint32_t x = 0; x < 128; x++)
 	{
-		u16 a0 = *sprites++;
-		u16 a1 = *sprites++;
-		u16 a2 = *sprites++;
+		uint16_t a0 = *sprites++;
+		uint16_t a1 = *sprites++;
+		uint16_t a2 = *sprites++;
 		++sprites;
 
 		RENDERER_LINE_OBJ_PIX_LEFT[x]=lineOBJpix;
@@ -7641,7 +7641,7 @@ static void gfxDrawSprites (void)
 		if ((a0 & 0x0c00) == 0x0c00)
 			a0 &=0xF3FF;
 
-		u16 a0val = a0>>14;
+		uint16_t a0val = a0>>14;
 
 		if (a0val == 3)
 		{
@@ -7649,8 +7649,8 @@ static void gfxDrawSprites (void)
 			a1 &= 0x3FFF;
 		}
 
-		u32 sizeX = 8<<(a1>>14);
-		u32 sizeY = sizeX;
+		uint32_t sizeX = 8<<(a1>>14);
+		uint32_t sizeY = sizeX;
 
 
 		if (a0val & 1)
@@ -7726,8 +7726,8 @@ static void gfxDrawSprites (void)
 
 		if(a0 & 0x0100)
 		{
-			u32 fieldX = sizeX;
-			u32 fieldY = sizeY;
+			uint32_t fieldX = sizeX;
+			uint32_t fieldY = sizeY;
 			if(a0 & 0x0200)
 			{
 				fieldX <<= 1;
@@ -7738,7 +7738,7 @@ static void gfxDrawSprites (void)
 			int t = RENDERER_R_VCOUNT - sy;
 			if(unsigned(t) < fieldY)
 			{
-				u32 startpix = 0;
+				uint32_t startpix = 0;
 				if ((sx+fieldX)> 512)
 					startpix=512-sx;
 
@@ -7746,7 +7746,7 @@ static void gfxDrawSprites (void)
 				{
 					lineOBJpix-=8;
 					int rot = (((a1 >> 9) & 0x1F) << 4);
-					u16 *OAM = OAM_U16;
+					uint16_t *OAM = OAM_U16;
 					int dx  = (int)(int16_t)OAM[3 + rot];
 					int dmx = (int)(int16_t)OAM[7 + rot];
 					int dy  = (int)(int16_t)OAM[11 + rot];
@@ -7758,7 +7758,7 @@ static void gfxDrawSprites (void)
 					int realX = ((sizeX) << 7) - (fieldX >> 1)*dx + ((t - (fieldY>>1))* dmx);
 					int realY = ((sizeY) << 7) - (fieldX >> 1)*dy + ((t - (fieldY>>1))* dmy);
 
-					u32 prio = (((a2 >> 10) & 3) << 25) | ((a0 & 0x0c00)<<6);
+					uint32_t prio = (((a2 >> 10) & 3) << 25) | ((a0 & 0x0c00)<<6);
 
 					int c = (a2 & 0x3FF);
 					if(RENDERER_R_DISPCNT_Video_Mode > 2 && (c < 512))
@@ -7771,7 +7771,7 @@ static void gfxDrawSprites (void)
 							inc = sizeX >> 2;
 						else
 							c &= 0x3FE;
-						for(u32 x = 0; x < fieldX; x++)
+						for(uint32_t x = 0; x < fieldX; x++)
 						{
 							if (x >= startpix)
 								lineOBJpix-=2;
@@ -7780,7 +7780,7 @@ static void gfxDrawSprites (void)
 							if(xxx < sizeX && yyy < sizeY && sx < 240)
 							{
 
-								u32 color = vram[0x10000 + ((((c + (yyy>>3) * inc)<<5)
+								uint32_t color = vram[0x10000 + ((((c + (yyy>>3) * inc)<<5)
 								+ ((yyy & 7)<<3) + ((xxx >> 3)<<6) + (xxx & 7))&0x7FFF)];
 
 								if ((color==0) && (((prio >> 25)&3) < ((RENDERER_LINE[Layer_OBJ][sx]>>25)&3)))
@@ -7810,7 +7810,7 @@ static void gfxDrawSprites (void)
 						if(RENDERER_IO_REGISTERS[REG_DISPCNT] & 0x40)
 							inc = sizeX >> 3;
 						int palette = (a2 >> 8) & 0xF0;
-						for(u32 x = 0; x < fieldX; ++x)
+						for(uint32_t x = 0; x < fieldX; ++x)
 						{
 							if (x >= startpix)
 								lineOBJpix-=2;
@@ -7819,7 +7819,7 @@ static void gfxDrawSprites (void)
 							if(xxx < sizeX && yyy < sizeY && sx < 240)
 							{
 
-								u32 color = vram[0x10000 + ((((c + (yyy>>3) * inc)<<5)
+								uint32_t color = vram[0x10000 + ((((c + (yyy>>3) * inc)<<5)
 											+ ((yyy & 7)<<2) + ((xxx >> 3)<<5)
 											+ ((xxx & 7)>>1))&0x7FFF)];
 								if(xxx & 1)
@@ -7863,7 +7863,7 @@ static void gfxDrawSprites (void)
 			int t = RENDERER_R_VCOUNT - sy;
 			if(unsigned(t) < sizeY)
 			{
-				u32 startpix = 0;
+				uint32_t startpix = 0;
 				if ((sx+sizeX)> 512)
 					startpix=512-sx;
 
@@ -7898,15 +7898,15 @@ static void gfxDrawSprites (void)
 
 						if(a1 & 0x1000)
 							xxx = 7;
-						u32 prio = (((a2 >> 10) & 3) << 25) | ((a0 & 0x0c00)<<6);
+						uint32_t prio = (((a2 >> 10) & 3) << 25) | ((a0 & 0x0c00)<<6);
 
-						for(u32 xx = 0; xx < sizeX; xx++)
+						for(uint32_t xx = 0; xx < sizeX; xx++)
 						{
 							if (xx >= startpix)
 								--lineOBJpix;
 							if(sx < 240)
 							{
-								u8 color = vram[address];
+								uint8_t color = vram[address];
 								if ((color==0) && (((prio >> 25)&3) <
 											((RENDERER_LINE[Layer_OBJ][sx]>>25)&3)))
 								{
@@ -7958,7 +7958,7 @@ static void gfxDrawSprites (void)
 						int address = 0x10000 + ((((c + (t>>3) * inc)<<5)
 									+ ((t & 7)<<2) + ((xxx>>3)<<5) + ((xxx & 7) >> 1))&0x7FFF);
 
-						u32 prio = (((a2 >> 10) & 3) << 25) | ((a0 & 0x0c00)<<6);
+						uint32_t prio = (((a2 >> 10) & 3) << 25) | ((a0 & 0x0c00)<<6);
 						int palette = (a2 >> 8) & 0xF0;
 						if(a1 & 0x1000)
 						{
@@ -7972,7 +7972,7 @@ static void gfxDrawSprites (void)
 								/*  continue; */
 								if(sx < 240)
 								{
-									u8 color = vram[address];
+									uint8_t color = vram[address];
 									if(xx & 1)
 										color >>= 4;
 									else
@@ -8010,7 +8010,7 @@ static void gfxDrawSprites (void)
 						}
 						else
 						{
-							for(u32 xx = 0; xx < sizeX; ++xx)
+							for(uint32_t xx = 0; xx < sizeX; ++xx)
 							{
 								if (xx >= startpix)
 									--lineOBJpix;
@@ -8018,7 +8018,7 @@ static void gfxDrawSprites (void)
 								/*  continue; */
 								if(sx < 240)
 								{
-									u8 color = vram[address];
+									uint8_t color = vram[address];
 									if(xx & 1)
 										color >>= 4;
 									else
@@ -8066,13 +8066,13 @@ static void gfxDrawOBJWin (void)
 {
 	INIT_RENDERER_CONTEXT(renderer_idx);
 
-	u16 *sprites = OAM_U16;
+	uint16_t *sprites = OAM_U16;
 	for(int x = 0; x < 128 ; x++)
 	{
 		int lineOBJpix = RENDERER_LINE_OBJ_PIX_LEFT[x];
-		u16 a0 = *sprites++;
-		u16 a1 = *sprites++;
-		u16 a2 = *sprites++;
+		uint16_t a0 = *sprites++;
+		uint16_t a1 = *sprites++;
+		uint16_t a2 = *sprites++;
 		sprites++;
 
 		if (lineOBJpix<=0)
@@ -8082,7 +8082,7 @@ static void gfxDrawOBJWin (void)
 		if(((a0 & 0x0c00) != 0x0800) || ((a0 & 0x0300) == 0x0200))
 			continue;
 
-		u16 a0val = a0>>14;
+		uint16_t a0val = a0>>14;
 
 		if ((a0 & 0x0c00) == 0x0c00)
 			a0 &=0xF3FF;
@@ -8148,7 +8148,7 @@ static void gfxDrawOBJWin (void)
 					lineOBJpix-=8;
 					/* int t2 = t - (fieldY >> 1); */
 					int rot = (a1 >> 9) & 0x1F;
-					u16 *OAM = OAM_U16;
+					uint16_t *OAM = OAM_U16;
 					int dx = OAM[3 + (rot << 4)];
 					if(dx & 0x8000)
 						dx |= 0xFFFF8000;
@@ -8192,7 +8192,7 @@ static void gfxDrawOBJWin (void)
 
 						if(cont)
 						{
-							u32 color;
+							uint32_t color;
 							if(condition1)
 								color = vram[0x10000 + ((((c + (yyy>>3) * inc)<<5)
 											+ ((yyy & 7)<<3) + ((xxx >> 3)<<6) +
@@ -8262,7 +8262,7 @@ static void gfxDrawOBJWin (void)
 								continue;
 							if(sx < 240)
 							{
-								u8 color = vram[address];
+								uint8_t color = vram[address];
 								if(color)
 									RENDERER_LINE[Layer_WIN_OBJ][sx] = 1;
 							}
@@ -8299,7 +8299,7 @@ static void gfxDrawOBJWin (void)
 							xxx = sizeX - 1;
 						int address = 0x10000 + ((((c + (t>>3) * inc)<<5)
 									+ ((t & 7)<<2) + ((xxx>>3)<<5) + ((xxx & 7) >> 1))&0x7fff);
-						/* u32 prio = (((a2 >> 10) & 3) << 25) | ((a0 & 0x0c00)<<6); */
+						/* uint32_t prio = (((a2 >> 10) & 3) << 25) | ((a0 & 0x0c00)<<6); */
 						/* int palette = (a2 >> 8) & 0xF0; */
 						if(a1 & 0x1000)
 						{
@@ -8312,7 +8312,7 @@ static void gfxDrawOBJWin (void)
 									continue;
 								if(sx < 240)
 								{
-									u8 color = vram[address];
+									uint8_t color = vram[address];
 									if(xx & 1)
 										color = (color >> 4);
 									else
@@ -8343,7 +8343,7 @@ static void gfxDrawOBJWin (void)
 									continue;
 								if(sx < 240)
 								{
-									u8 color = vram[address];
+									uint8_t color = vram[address];
 									if(xx & 1)
 										color = (color >> 4);
 									else
@@ -8964,10 +8964,10 @@ static bool CPUSetupBuffers(void)
 
 	/*CPUUpdateRenderBuffers(true); */
 #if !THREADED_RENDERER
-	memset(line[Layer_BG0], -1, 240 * sizeof(u32));
-	memset(line[Layer_BG1], -1, 240 * sizeof(u32));
-	memset(line[Layer_BG2], -1, 240 * sizeof(u32));
-	memset(line[Layer_BG3], -1, 240 * sizeof(u32));
+	memset(line[Layer_BG0], -1, 240 * sizeof(uint32_t));
+	memset(line[Layer_BG1], -1, 240 * sizeof(uint32_t));
+	memset(line[Layer_BG2], -1, 240 * sizeof(uint32_t));
+	memset(line[Layer_BG3], -1, 240 * sizeof(uint32_t));
 #endif
 
 	return true;
@@ -11203,20 +11203,20 @@ do { \
 	if(renderer_ctx.background_ver < threaded_background_ver) { \
 		renderer_ctx.background_ver = threaded_background_ver; \
 		if(!RENDERER_R_DISPCNT_Screen_Display_BG0) \
-			memset(renderer_ctx.line[Layer_BG0], -1, 240 * sizeof(u32)); \
+			memset(renderer_ctx.line[Layer_BG0], -1, 240 * sizeof(uint32_t)); \
 		if(!RENDERER_R_DISPCNT_Screen_Display_BG1) \
-			memset(renderer_ctx.line[Layer_BG1], -1, 240 * sizeof(u32)); \
+			memset(renderer_ctx.line[Layer_BG1], -1, 240 * sizeof(uint32_t)); \
 		if(!RENDERER_R_DISPCNT_Screen_Display_BG2) \
-			memset(renderer_ctx.line[Layer_BG2], -1, 240 * sizeof(u32)); \
+			memset(renderer_ctx.line[Layer_BG2], -1, 240 * sizeof(uint32_t)); \
 		if(!RENDERER_R_DISPCNT_Screen_Display_BG3) \
-			memset(renderer_ctx.line[Layer_BG3], -1, 240 * sizeof(u32)); \
+			memset(renderer_ctx.line[Layer_BG3], -1, 240 * sizeof(uint32_t)); \
 	} \
 	\
-	memset(RENDERER_LINE[Layer_OBJ], -1, 240 * sizeof(u32)); \
+	memset(RENDERER_LINE[Layer_OBJ], -1, 240 * sizeof(uint32_t)); \
 	if(renderer_ctx.draw_sprites) (*drawSprites)(); \
 	\
 	if(renderer_ctx.renderfunc_type == 2) { \
-		memset(RENDERER_LINE[Layer_WIN_OBJ], -1, 240 * sizeof(u32)); \
+		memset(RENDERER_LINE[Layer_WIN_OBJ], -1, 240 * sizeof(uint32_t)); \
 		if(renderer_ctx.draw_objwin) (*drawOBJWin)(); \
 	} \
 	\
@@ -11561,10 +11561,10 @@ bool CPUReadState(const uint8_t* data, unsigned size)
 	CPUUpdateRender();
 
 #if !THREADED_RENDERER
-	memset(line[Layer_BG0], -1, 240 * sizeof(u32));
-	memset(line[Layer_BG1], -1, 240 * sizeof(u32));
-	memset(line[Layer_BG2], -1, 240 * sizeof(u32));
-	memset(line[Layer_BG3], -1, 240 * sizeof(u32));
+	memset(line[Layer_BG0], -1, 240 * sizeof(uint32_t));
+	memset(line[Layer_BG1], -1, 240 * sizeof(uint32_t));
+	memset(line[Layer_BG2], -1, 240 * sizeof(uint32_t));
+	memset(line[Layer_BG3], -1, 240 * sizeof(uint32_t));
 #endif
 
 	CPUUpdateWindow0();
@@ -12003,13 +12003,13 @@ void CPUUpdateRegister(uint32_t address, uint16_t value)
 					++threaded_background_ver;
 #else
 					if(!R_DISPCNT_Screen_Display_BG0)
-						memset(line[Layer_BG0], -1, 240 * sizeof(u32));
+						memset(line[Layer_BG0], -1, 240 * sizeof(uint32_t));
 					if(!R_DISPCNT_Screen_Display_BG1)
-						memset(line[Layer_BG1], -1, 240 * sizeof(u32));
+						memset(line[Layer_BG1], -1, 240 * sizeof(uint32_t));
 					if(!R_DISPCNT_Screen_Display_BG2)
-						memset(line[Layer_BG2], -1, 240 * sizeof(u32));
+						memset(line[Layer_BG2], -1, 240 * sizeof(uint32_t));
 					if(!R_DISPCNT_Screen_Display_BG3)
-						memset(line[Layer_BG3], -1, 240 * sizeof(u32));
+						memset(line[Layer_BG3], -1, 240 * sizeof(uint32_t));
 #endif
 				}
 				break;
@@ -12701,10 +12701,10 @@ void CPUReset (void)
 	graphics.layerEnable = io_registers[REG_DISPCNT];
 
 #if !THREADED_RENDERER
-	memset(line[Layer_BG0], -1, 240 * sizeof(u32));
-	memset(line[Layer_BG1], -1, 240 * sizeof(u32));
-	memset(line[Layer_BG2], -1, 240 * sizeof(u32));
-	memset(line[Layer_BG3], -1, 240 * sizeof(u32));
+	memset(line[Layer_BG0], -1, 240 * sizeof(uint32_t));
+	memset(line[Layer_BG1], -1, 240 * sizeof(uint32_t));
+	memset(line[Layer_BG2], -1, 240 * sizeof(uint32_t));
+	memset(line[Layer_BG3], -1, 240 * sizeof(uint32_t));
 #endif
 
 	for(int i = 0; i < 256; i++) {
@@ -13021,11 +13021,11 @@ updateLoop:
 						oam_native_sync(oam_native);
 #endif
 
-						memset(RENDERER_LINE[Layer_OBJ], -1, 240 * sizeof(u32));	/* erase all sprites */
+						memset(RENDERER_LINE[Layer_OBJ], -1, 240 * sizeof(uint32_t));	/* erase all sprites */
 						if(draw_sprites) gfxDrawSprites<0>();
 
 						if(renderfunc_type == 2) {
-							memset(RENDERER_LINE[Layer_WIN_OBJ], -1, 240 * sizeof(u32));	/* erase all OBJ Win */
+							memset(RENDERER_LINE[Layer_WIN_OBJ], -1, 240 * sizeof(uint32_t));	/* erase all OBJ Win */
 							if(draw_objwin) gfxDrawOBJWin<0>();
 						}
 
@@ -13472,38 +13472,38 @@ updateLoop:
 
 CheatsData cheatsList[100];
 int cheatsNumber = 0;
-static u32 rompatch2addr [4];
-static u16 rompatch2val [4];
-static u16 rompatch2oldval [4];
+static uint32_t rompatch2addr [4];
+static uint16_t rompatch2val [4];
+static uint16_t rompatch2oldval [4];
 
-static u8 cheatsCBASeedBuffer[0x30];
-static u32 cheatsCBASeed[4];
-static u32 cheatsCBATemporaryValue = 0;
-static u16 cheatsCBATable[256];
+static uint8_t cheatsCBASeedBuffer[0x30];
+static uint32_t cheatsCBASeed[4];
+static uint32_t cheatsCBATemporaryValue = 0;
+static uint16_t cheatsCBATable[256];
 /* (cheatsCBATableGenerated is defined earlier near CPUInit so the init code
  * can reset it on game load.) */
-/* Was `u16 super = 0;` with external linkage - one-letter identifier
+/* Was `uint16_t super = 0;` with external linkage - one-letter identifier
  * collides with reserved words / macros in some platform SDKs. */
-static u16 cba_super_count = 0;
-extern u32 mastercode;
+static uint16_t cba_super_count = 0;
+extern uint32_t mastercode;
 
 #if (0)
 extern GameStorage xStorage;
 #endif
 
-u8 cheatsCBACurrentSeed[12] = {
+uint8_t cheatsCBACurrentSeed[12] = {
   0x00, 0x00, 0x00, 0x00,
   0x00, 0x00, 0x00, 0x00,
   0x00, 0x00, 0x00, 0x00
 };
 
-u32 seeds_v1[4];
-u32 seeds_v3[4];
+uint32_t seeds_v1[4];
+uint32_t seeds_v3[4];
 
-u32 seed_gen(u8 upper, u8 seed, u8 *deadtable1, u8 *deadtable2);
+uint32_t seed_gen(uint8_t upper, uint8_t seed, uint8_t *deadtable1, uint8_t *deadtable2);
 
 /*seed tables for AR v1 */
-u8 v1_deadtable1[256] = {
+uint8_t v1_deadtable1[256] = {
 	0x31, 0x1C, 0x23, 0xE5, 0x89, 0x8E, 0xA1, 0x37, 0x74, 0x6D, 0x67, 0xFC, 0x1F, 0xC0, 0xB1, 0x94,
 	0x3B, 0x05, 0x56, 0x86, 0x00, 0x24, 0xF0, 0x17, 0x72, 0xA2, 0x3D, 0x1B, 0xE3, 0x17, 0xC5, 0x0B,
 	0xB9, 0xE2, 0xBD, 0x58, 0x71, 0x1B, 0x2C, 0xFF, 0xE4, 0xC9, 0x4C, 0x5E, 0xC9, 0x55, 0x33, 0x45,
@@ -13521,7 +13521,7 @@ u8 v1_deadtable1[256] = {
 	0x69, 0x3B, 0x71, 0x00, 0x2F, 0xBB, 0xBA, 0x08, 0xB1, 0xAE, 0xBB, 0xB3, 0xE1, 0xC9, 0xA6, 0x7F,
 	0x17, 0x97, 0x28, 0x72, 0x12, 0x6E, 0x91, 0xAE, 0x3A, 0xA2, 0x35, 0x46, 0x27, 0xF8, 0x12, 0x50
 };
-u8 v1_deadtable2[256] = {
+uint8_t v1_deadtable2[256] = {
 	0xD8, 0x65, 0x04, 0xC2, 0x65, 0xD5, 0xB0, 0x0C, 0xDF, 0x9D, 0xF0, 0xC3, 0x9A, 0x17, 0xC9, 0xA6,
 	0xE1, 0xAC, 0x0D, 0x14, 0x2F, 0x3C, 0x2C, 0x87, 0xA2, 0xBF, 0x4D, 0x5F, 0xAC, 0x2D, 0x9D, 0xE1,
 	0x0C, 0x9C, 0xE7, 0x7F, 0xFC, 0xA8, 0x66, 0x59, 0xAC, 0x18, 0xD7, 0x05, 0xF0, 0xBF, 0xD1, 0x8B,
@@ -13541,7 +13541,7 @@ u8 v1_deadtable2[256] = {
 };
 
 /*seed tables for AR v3 */
-u8 v3_deadtable1[256] = {
+uint8_t v3_deadtable1[256] = {
     0xD0, 0xFF, 0xBA, 0xE5, 0xC1, 0xC7, 0xDB, 0x5B, 0x16, 0xE3, 0x6E, 0x26, 0x62, 0x31, 0x2E, 0x2A,
     0xD1, 0xBB, 0x4A, 0xE6, 0xAE, 0x2F, 0x0A, 0x90, 0x29, 0x90, 0xB6, 0x67, 0x58, 0x2A, 0xB4, 0x45,
     0x7B, 0xCB, 0xF0, 0x73, 0x84, 0x30, 0x81, 0xC2, 0xD7, 0xBE, 0x89, 0xD7, 0x4E, 0x73, 0x5C, 0xC7,
@@ -13559,7 +13559,7 @@ u8 v3_deadtable1[256] = {
     0x0C, 0x22, 0xC9, 0x4A, 0xD8, 0xB1, 0x8D, 0xF0, 0x55, 0x2E, 0x77, 0x50, 0x1C, 0x64, 0x77, 0xAA,
     0x3E, 0xAC, 0xD3, 0x3D, 0xCE, 0x60, 0xCA, 0x5D, 0xA0, 0x92, 0x78, 0xC6, 0x51, 0xFE, 0xF9, 0x30
 };
-u8 v3_deadtable2[256] = {
+uint8_t v3_deadtable2[256] = {
     0xAA, 0xAF, 0xF0, 0x72, 0x90, 0xF7, 0x71, 0x27, 0x06, 0x11, 0xEB, 0x9C, 0x37, 0x12, 0x72, 0xAA,
     0x65, 0xBC, 0x0D, 0x4A, 0x76, 0xF6, 0x5C, 0xAA, 0xB0, 0x7A, 0x7D, 0x81, 0xC1, 0xCE, 0x2F, 0x9F,
     0x02, 0x75, 0x38, 0xC8, 0xFC, 0x66, 0x05, 0xC2, 0x2C, 0xBD, 0x91, 0xAD, 0x03, 0xB1, 0x88, 0x93,
@@ -13600,10 +13600,10 @@ u8 v3_deadtable2[256] = {
 #define CHEAT_IS_HEX(a) ( ((a)>='A' && (a) <='F') || ((a) >='0' && (a) <= '9'))
 
 #define CHEAT_PATCH_ROM_16BIT(a,v) \
-  WRITE16LE(((u16 *)&rom[(a) & 0x1ffffff]), v);
+  WRITE16LE(((uint16_t *)&rom[(a) & 0x1ffffff]), v);
 
 #define CHEAT_PATCH_ROM_32BIT(a,v) \
-  WRITE32LE(((u32 *)&rom[(a) & 0x1ffffff]), v);
+  WRITE32LE(((uint32_t *)&rom[(a) & 0x1ffffff]), v);
 
 static bool isMultilineWithData(int i)
 {
@@ -13863,7 +13863,7 @@ static int getCodeLength(int num)
   return 1;
 }
 
-int cheatsCheckKeys(u32 keys, u32 extended)
+int cheatsCheckKeys(uint32_t keys, uint32_t extended)
 {
   bool onoff = true;
   int ticks = 0;
@@ -13901,8 +13901,8 @@ int cheatsCheckKeys(u32 keys, u32 extended)
     case GSA_8_BIT_SLIDE:
       i++;
       if(i < cheatsNumber) {
-        u32 addr = cheatsList[i-1].value;
-        u8 value = cheatsList[i].rawaddress;
+        uint32_t addr = cheatsList[i-1].value;
+        uint8_t value = cheatsList[i].rawaddress;
         int vinc = (cheatsList[i].value >> 24) & 255;
         int count = (cheatsList[i].value >> 16) & 255;
         int ainc = (cheatsList[i].value & 0xffff);
@@ -13917,8 +13917,8 @@ int cheatsCheckKeys(u32 keys, u32 extended)
     case GSA_16_BIT_SLIDE:
       i++;
       if(i < cheatsNumber) {
-        u32 addr = cheatsList[i-1].value;
-        u16 value = cheatsList[i].rawaddress;
+        uint32_t addr = cheatsList[i-1].value;
+        uint16_t value = cheatsList[i].rawaddress;
         int vinc = (cheatsList[i].value >> 24) & 255;
         int count = (cheatsList[i].value >> 16) & 255;
         int ainc = (cheatsList[i].value & 0xffff)*2;
@@ -13933,8 +13933,8 @@ int cheatsCheckKeys(u32 keys, u32 extended)
     case GSA_32_BIT_SLIDE:
       i++;
       if(i < cheatsNumber) {
-        u32 addr = cheatsList[i-1].value;
-        u32 value = cheatsList[i].rawaddress;
+        uint32_t addr = cheatsList[i-1].value;
+        uint32_t value = cheatsList[i].rawaddress;
         int vinc = (cheatsList[i].value >> 24) & 255;
         int count = (cheatsList[i].value >> 16) & 255;
         int ainc = (cheatsList[i].value & 0xffff)*4;
@@ -14043,8 +14043,8 @@ int cheatsCheckKeys(u32 keys, u32 extended)
         break;
       case CBA_IF_KEYS_PRESSED:
         {
-          u16 value = cheatsList[i].value;
-          u32 addr = cheatsList[i].address;
+          uint16_t value = cheatsList[i].value;
+          uint32_t addr = cheatsList[i].address;
           if((addr & 0xF0) == 0x20) {
             if((keys & value) == 0) {
               i++;
@@ -14067,12 +14067,12 @@ int cheatsCheckKeys(u32 keys, u32 extended)
         break;
       case CBA_SLIDE_CODE:
 		{
-          u32 address = cheatsList[i].address;
-          u16 value = cheatsList[i].value;
+          uint32_t address = cheatsList[i].address;
+          uint16_t value = cheatsList[i].value;
           i++;
           if(i < cheatsNumber) {
             int count = ((cheatsList[i].address - 1) & 0xFFFF);
-            u16 vinc = (cheatsList[i].address >> 16) & 0xFFFF;
+            uint16_t vinc = (cheatsList[i].address >> 16) & 0xFFFF;
             int inc = cheatsList[i].value;
             for(int x = 0; x <= count ; x++) {
               CPUWriteHalfWord(address, value);
@@ -14114,9 +14114,9 @@ int cheatsCheckKeys(u32 keys, u32 extended)
         break;
       case GSA_8_BIT_FILL:
 		{
-          u32 addr = cheatsList[i].address;
-          u8 v = cheatsList[i].value & 0xff;
-          u32 end = addr + (cheatsList[i].value >> 8);
+          uint32_t addr = cheatsList[i].address;
+          uint8_t v = cheatsList[i].value & 0xff;
+          uint32_t end = addr + (cheatsList[i].value >> 8);
           do {
             CPUWriteByte(addr, v);
             addr++;
@@ -14125,9 +14125,9 @@ int cheatsCheckKeys(u32 keys, u32 extended)
         break;
       case GSA_16_BIT_FILL:
 		{
-          u32 addr = cheatsList[i].address;
-          u16 v = cheatsList[i].value & 0xffff;
-          u32 end = addr + ((cheatsList[i].value >> 16) << 1);
+          uint32_t addr = cheatsList[i].address;
+          uint16_t v = cheatsList[i].value & 0xffff;
+          uint32_t end = addr + ((cheatsList[i].value >> 16) << 1);
           do {
             CPUWriteHalfWord(addr, v);
             addr+=2;
@@ -14193,9 +14193,9 @@ int cheatsCheckKeys(u32 keys, u32 extended)
       case CBA_SUPER:
 		{
           int count = 2*((cheatsList[i].value -1) & 0xFFFF)+1;
-          u32 address = cheatsList[i].address;
+          uint32_t address = cheatsList[i].address;
           for(int x = 0; x <= count; x++) {
-            u8 b;
+            uint8_t b;
             int res = x % 6;
 		    if (res==0)
 		 	  i++;
@@ -14341,62 +14341,62 @@ int cheatsCheckKeys(u32 keys, u32 extended)
         i+=2;
         break;
       case GSA_8_BIT_IF_LOWER_S:
-        if (!((s8)CPUReadByte(cheatsList[i].address) < ((s8)cheatsList[i].value & 0xFF))) {
+        if (!((int8_t)CPUReadByte(cheatsList[i].address) < ((int8_t)cheatsList[i].value & 0xFF))) {
           i++;
         }
         break;
       case GSA_16_BIT_IF_LOWER_S:
-        if (!((s16)CPUReadHalfWord(cheatsList[i].address) < ((s16)cheatsList[i].value & 0xFFFF))) {
+        if (!((int16_t)CPUReadHalfWord(cheatsList[i].address) < ((int16_t)cheatsList[i].value & 0xFFFF))) {
           i++;
         }
         break;
       case GSA_32_BIT_IF_LOWER_S:
-        if (!((s32)CPUReadMemory(cheatsList[i].address) < (s32)cheatsList[i].value)) {
+        if (!((int32_t)CPUReadMemory(cheatsList[i].address) < (int32_t)cheatsList[i].value)) {
           i++;
         }
         break;
       case GSA_8_BIT_IF_HIGHER_S:
-        if (!((s8)CPUReadByte(cheatsList[i].address) > ((s8)cheatsList[i].value & 0xFF))) {
+        if (!((int8_t)CPUReadByte(cheatsList[i].address) > ((int8_t)cheatsList[i].value & 0xFF))) {
           i++;
         }
         break;
       case GSA_16_BIT_IF_HIGHER_S:
-        if (!((s16)CPUReadHalfWord(cheatsList[i].address) > ((s16)cheatsList[i].value & 0xFFFF))) {
+        if (!((int16_t)CPUReadHalfWord(cheatsList[i].address) > ((int16_t)cheatsList[i].value & 0xFFFF))) {
           i++;
         }
         break;
       case GSA_32_BIT_IF_HIGHER_S:
-        if (!((s32)CPUReadMemory(cheatsList[i].address) > (s32)cheatsList[i].value)) {
+        if (!((int32_t)CPUReadMemory(cheatsList[i].address) > (int32_t)cheatsList[i].value)) {
           i++;
         }
         break;
       case GSA_8_BIT_IF_LOWER_S2:
-        if (!((s8)CPUReadByte(cheatsList[i].address) < ((s8)cheatsList[i].value & 0xFF))) {
+        if (!((int8_t)CPUReadByte(cheatsList[i].address) < ((int8_t)cheatsList[i].value & 0xFF))) {
           i+=2;
         }
         break;
       case GSA_16_BIT_IF_LOWER_S2:
-        if (!((s16)CPUReadHalfWord(cheatsList[i].address) < ((s16)cheatsList[i].value & 0xFFFF))) {
+        if (!((int16_t)CPUReadHalfWord(cheatsList[i].address) < ((int16_t)cheatsList[i].value & 0xFFFF))) {
           i+=2;
         }
         break;
       case GSA_32_BIT_IF_LOWER_S2:
-        if (!((s32)CPUReadMemory(cheatsList[i].address) < (s32)cheatsList[i].value)) {
+        if (!((int32_t)CPUReadMemory(cheatsList[i].address) < (int32_t)cheatsList[i].value)) {
           i+=2;
         }
         break;
       case GSA_8_BIT_IF_HIGHER_S2:
-        if (!((s8)CPUReadByte(cheatsList[i].address) > ((s8)cheatsList[i].value & 0xFF))) {
+        if (!((int8_t)CPUReadByte(cheatsList[i].address) > ((int8_t)cheatsList[i].value & 0xFF))) {
           i+=2;
         }
         break;
       case GSA_16_BIT_IF_HIGHER_S2:
-        if (!((s16)CPUReadHalfWord(cheatsList[i].address) > ((s16)cheatsList[i].value & 0xFFFF))) {
+        if (!((int16_t)CPUReadHalfWord(cheatsList[i].address) > ((int16_t)cheatsList[i].value & 0xFFFF))) {
           i+=2;
         }
         break;
       case GSA_32_BIT_IF_HIGHER_S2:
-        if (!((s32)CPUReadMemory(cheatsList[i].address) > (s32)cheatsList[i].value)) {
+        if (!((int32_t)CPUReadMemory(cheatsList[i].address) > (int32_t)cheatsList[i].value)) {
           i+=2;
         }
         break;
@@ -14445,32 +14445,32 @@ int cheatsCheckKeys(u32 keys, u32 extended)
         }
         break;
       case GSA_8_BIT_IF_LOWER_S3:
-        if (!((s8)CPUReadByte(cheatsList[i].address) < ((s8)cheatsList[i].value & 0xFF))) {
+        if (!((int8_t)CPUReadByte(cheatsList[i].address) < ((int8_t)cheatsList[i].value & 0xFF))) {
           onoff=false;
         }
         break;
       case GSA_16_BIT_IF_LOWER_S3:
-        if (!((s16)CPUReadHalfWord(cheatsList[i].address) < ((s16)cheatsList[i].value & 0xFFFF))) {
+        if (!((int16_t)CPUReadHalfWord(cheatsList[i].address) < ((int16_t)cheatsList[i].value & 0xFFFF))) {
           onoff=false;
         }
         break;
       case GSA_32_BIT_IF_LOWER_S3:
-        if (!((s32)CPUReadMemory(cheatsList[i].address) < (s32)cheatsList[i].value)) {
+        if (!((int32_t)CPUReadMemory(cheatsList[i].address) < (int32_t)cheatsList[i].value)) {
           onoff=false;
         }
         break;
       case GSA_8_BIT_IF_HIGHER_S3:
-        if (!((s8)CPUReadByte(cheatsList[i].address) > ((s8)cheatsList[i].value & 0xFF))) {
+        if (!((int8_t)CPUReadByte(cheatsList[i].address) > ((int8_t)cheatsList[i].value & 0xFF))) {
           onoff=false;
         }
         break;
       case GSA_16_BIT_IF_HIGHER_S3:
-        if (!((s16)CPUReadHalfWord(cheatsList[i].address) > ((s16)cheatsList[i].value & 0xFFFF))) {
+        if (!((int16_t)CPUReadHalfWord(cheatsList[i].address) > ((int16_t)cheatsList[i].value & 0xFFFF))) {
           onoff=false;
         }
         break;
       case GSA_32_BIT_IF_HIGHER_S3:
-        if (!((s32)CPUReadMemory(cheatsList[i].address) > (s32)cheatsList[i].value)) {
+        if (!((int32_t)CPUReadMemory(cheatsList[i].address) > (int32_t)cheatsList[i].value)) {
           onoff=false;
         }
         break;
@@ -14527,7 +14527,7 @@ int cheatsCheckKeys(u32 keys, u32 extended)
       case GSA_GROUP_WRITE:
       	{
           int count = ((cheatsList[i].address) & 0xFFFE) +1;
-          u32 value = cheatsList[i].value;
+          uint32_t value = cheatsList[i].value;
 		  if (count==0)
 			  i++;
 		  else
@@ -14607,9 +14607,9 @@ int cheatsCheckKeys(u32 keys, u32 extended)
 
 void cheatsAdd(const char *codeStr,
                const char *desc,
-               u32 rawaddress,
-               u32 address,
-               u32 value,
+               uint32_t rawaddress,
+               uint32_t address,
+               uint32_t value,
                int code,
                int size)
 {
@@ -14659,10 +14659,10 @@ void cheatsDelete(int number, bool restore)
     if(restore) {
       switch(cheatsList[x].size) {
       case INT_8_BIT_WRITE:
-        CPUWriteByte(cheatsList[x].address, (u8)cheatsList[x].oldValue);
+        CPUWriteByte(cheatsList[x].address, (uint8_t)cheatsList[x].oldValue);
         break;
       case INT_16_BIT_WRITE:
-        CPUWriteHalfWord(cheatsList[x].address, (u16)cheatsList[x].oldValue);
+        CPUWriteHalfWord(cheatsList[x].address, (uint16_t)cheatsList[x].oldValue);
         break;
       case INT_32_BIT_WRITE:
         CPUWriteMemory(cheatsList[x].address, cheatsList[x].oldValue);
@@ -14780,8 +14780,8 @@ bool cheatsVerifyCheatCode(const char *code, const char *desc)
     }
   }
 
-  u32 address = 0;
-  u32 value = 0;
+  uint32_t address = 0;
+  uint32_t value = 0;
 
   char buffer[10];
   strncpy(buffer, code, 8);
@@ -14824,7 +14824,7 @@ void cheatsAddCheatCode(const char *code, const char *desc)
   cheatsVerifyCheatCode(code, desc);
 }
 
-u16 cheatsGSAGetDeadface(bool v3)
+uint16_t cheatsGSAGetDeadface(bool v3)
 {
   for(int i = cheatsNumber-1; i >= 0; i--)
     if ((cheatsList[i].address == 0xDEADFACE) && (cheatsList[i].code == (v3 ? 257 : 256)))
@@ -14832,28 +14832,28 @@ u16 cheatsGSAGetDeadface(bool v3)
 	return 0;
 }
 
-void cheatsGSAChangeEncryption(u16 value, bool v3) {
+void cheatsGSAChangeEncryption(uint16_t value, bool v3) {
 	int i;
-	u8 *deadtable1, *deadtable2;
+	uint8_t *deadtable1, *deadtable2;
 
 	if (v3) {
-		deadtable1 = (u8*)(&v3_deadtable1);
-		deadtable2 = (u8*)(&v3_deadtable2);
+		deadtable1 = (uint8_t*)(&v3_deadtable1);
+		deadtable2 = (uint8_t*)(&v3_deadtable2);
 	        for (i = 0; i < 4; i++)
 		  seeds_v3[i] = seed_gen(((value & 0xFF00) >> 8), (value & 0xFF) + i, deadtable1, deadtable2);
 	}
 	else {
-		deadtable1 = (u8*)(&v1_deadtable1);
-		deadtable2 = (u8*)(&v1_deadtable2);
+		deadtable1 = (uint8_t*)(&v1_deadtable1);
+		deadtable2 = (uint8_t*)(&v1_deadtable2);
 		for (i = 0; i < 4; i++){
 		  seeds_v1[i] = seed_gen(((value & 0xFF00) >> 8), (value & 0xFF) + i, deadtable1, deadtable2);
 		}
 	}
 }
 
-u32 seed_gen(u8 upper, u8 seed, u8 *deadtable1, u8 *deadtable2) {
+uint32_t seed_gen(uint8_t upper, uint8_t seed, uint8_t *deadtable1, uint8_t *deadtable2) {
 	int i;
-	u32 newseed = 0;
+	uint32_t newseed = 0;
 
 	for (i = 0; i < 4; i++)
 		newseed = ((newseed << 8) | ((deadtable1[(i + upper) & 0xFF] + deadtable2[seed]) & 0xFF));
@@ -14861,10 +14861,10 @@ u32 seed_gen(u8 upper, u8 seed, u8 *deadtable1, u8 *deadtable2) {
 	return newseed;
 }
 
-void cheatsDecryptGSACode(u32& address, u32& value, bool v3)
+void cheatsDecryptGSACode(uint32_t& address, uint32_t& value, bool v3)
 {
-  u32 rollingseed = 0xC6EF3720;
-  u32 *seeds = v3 ? seeds_v3 : seeds_v1;
+  uint32_t rollingseed = 0xC6EF3720;
+  uint32_t *seeds = v3 ? seeds_v3 : seeds_v1;
 
   int bitsleft = 32;
   while (bitsleft > 0) {
@@ -14897,21 +14897,21 @@ void cheatsAddGSACode(const char *code, const char *desc, bool v3)
   char buffer[10];
   strncpy(buffer, code, 8);
   buffer[8] = 0;
-  u32 address;
+  uint32_t address;
   sscanf(buffer, "%x", &address);
   strncpy(buffer, &code[8], 8);
   buffer[8] = 0;
-  u32 value;
+  uint32_t value;
   sscanf(buffer, "%x", &value);
   cheatsGSAChangeEncryption(cheatsGSAGetDeadface (v3), v3);
   cheatsDecryptGSACode(address, value, v3);
 
   if(value == 0x1DC0DE) {
-    u32 gamecode = READ32LE(((u32 *)&rom[0xac]));
+    uint32_t gamecode = READ32LE(((uint32_t *)&rom[0xac]));
     if(gamecode != address) {
       char buffer[5];
-      /* address is a host-byte-order u32 of 4 ASCII chars; write byte-by-byte
-       * to avoid unaligned u32 stores (UB on strict-alignment BE: PPC/Wii/X360)
+      /* address is a host-byte-order uint32_t of 4 ASCII chars; write byte-by-byte
+       * to avoid unaligned uint32_t stores (UB on strict-alignment BE: PPC/Wii/X360)
        * and to keep the ASCII order consistent on both endians. */
       buffer[0] = (char)(address & 0xff);
       buffer[1] = (char)((address >> 8) & 0xff);
@@ -14919,7 +14919,7 @@ void cheatsAddGSACode(const char *code, const char *desc, bool v3)
       buffer[3] = (char)((address >> 24) & 0xff);
       buffer[4] = 0;
       char buffer2[5];
-      u32 gid = READ32LE(((u32 *)&rom[0xac]));
+      uint32_t gid = READ32LE(((uint32_t *)&rom[0xac]));
       buffer2[0] = (char)(gid & 0xff);
       buffer2[1] = (char)((gid >> 8) & 0xff);
       buffer2[2] = (char)((gid >> 16) & 0xff);
@@ -14938,8 +14938,8 @@ void cheatsAddGSACode(const char *code, const char *desc, bool v3)
   }
   if(v3) {
     int type = ((address >> 25) & 127) | ((address >> 17) & 0x80);
-    u32 addr = (address & 0x00F00000) << 4 | (address & 0x0003FFFF);
-    u16 mcode = (address>>24 & 0xFF);
+    uint32_t addr = (address & 0x00F00000) << 4 | (address & 0x0003FFFF);
+    uint16_t mcode = (address>>24 & 0xFF);
 
     if ((mcode & 0xFE) == 0xC4)
     {
@@ -15371,7 +15371,7 @@ void cheatsAddGSACode(const char *code, const char *desc, bool v3)
   }
 }
 
-void cheatsCBAReverseArray(u8 *array, u8 *dest)
+void cheatsCBAReverseArray(uint8_t *array, uint8_t *dest)
 {
   dest[0] = array[3];
   dest[1] = array[2];
@@ -15381,34 +15381,34 @@ void cheatsCBAReverseArray(u8 *array, u8 *dest)
   dest[5] = array[4];
 }
 
-void chatsCBAScramble(u8 *array, int count, u8 b)
+void chatsCBAScramble(uint8_t *array, int count, uint8_t b)
 {
-  u8 *x = array + (count >> 3);
-  u8 *y = array + (b >> 3);
-  u32 z = *x & (1 << (count & 7));
-  u32 x0 = (*x & (~(1 << (count & 7))));
+  uint8_t *x = array + (count >> 3);
+  uint8_t *y = array + (b >> 3);
+  uint32_t z = *x & (1 << (count & 7));
+  uint32_t x0 = (*x & (~(1 << (count & 7))));
   if (z != 0)
     z = 1;
   if ((*y & (1 << (b & 7))) != 0)
     x0 |= (1 << (count & 7));
   *x = x0;
-  u32 temp = *y & (~(1 << (b & 7)));
+  uint32_t temp = *y & (~(1 << (b & 7)));
   if (z != 0)
     temp |= (1 << (b & 7));
   *y = temp;
 }
 
-u32 cheatsCBAGetValue(u8 *array)
+uint32_t cheatsCBAGetValue(uint8_t *array)
 {
   return array[0] | array[1]<<8 | array[2] << 16 | array[3]<<24;
 }
 
-u16 cheatsCBAGetData(u8 *array)
+uint16_t cheatsCBAGetData(uint8_t *array)
 {
   return array[4] | array[5]<<8;
 }
 
-void cheatsCBAArrayToValue(u8 *array, u8 *dest)
+void cheatsCBAArrayToValue(uint8_t *array, uint8_t *dest)
 {
   dest[0] = array[3];
   dest[1] = array[2];
@@ -15418,7 +15418,7 @@ void cheatsCBAArrayToValue(u8 *array, u8 *dest)
   dest[5] = array[4];
 }
 
-void cheatsCBAParseSeedCode(u32 address, u32 value, u32 *array)
+void cheatsCBAParseSeedCode(uint32_t address, uint32_t value, uint32_t *array)
 {
   array[0] = 1;
   array[1] = value & 0xFF;
@@ -15430,11 +15430,11 @@ void cheatsCBAParseSeedCode(u32 address, u32 value, u32 *array)
   array[7] = value;
 }
 
-u32 cheatsCBAEncWorker(void)
+uint32_t cheatsCBAEncWorker(void)
 {
-  u32 x = (cheatsCBATemporaryValue * 0x41c64e6d) + 0x3039;
-  u32 y = (x * 0x41c64e6d) + 0x3039;
-  u32 z = x >> 0x10;
+  uint32_t x = (cheatsCBATemporaryValue * 0x41c64e6d) + 0x3039;
+  uint32_t y = (x * 0x41c64e6d) + 0x3039;
+  uint32_t z = x >> 0x10;
   x = ((y >> 0x10) & 0x7fff) << 0x0f;
   z = (z << 0x1e) | x;
   x = (y * 0x41c64e6d) + 0x3039;
@@ -15444,7 +15444,7 @@ u32 cheatsCBAEncWorker(void)
 
 #define ROR(v, s) (((v) >> (s)) | (((v) & ((1 << (s))-1)) << (32 - (s))))
 
-u32 cheatsCBACalcIndex(u32 x, u32 y)
+uint32_t cheatsCBACalcIndex(uint32_t x, uint32_t y)
 {
   if(y != 0)
   {
@@ -15456,7 +15456,7 @@ u32 cheatsCBACalcIndex(u32 x, u32 y)
       return x;
     else if(x < y)
       return x;
-    u32 x0 = 1;
+    uint32_t x0 = 1;
 
     while(y < 0x10000000) {
       if(y < x) {
@@ -15473,7 +15473,7 @@ u32 cheatsCBACalcIndex(u32 x, u32 y)
     }
 
   loop:
-    u32 z = 0;
+    uint32_t z = 0;
     if(x >= y)
       x -= y;
     if(x >= (y >> 1)) {
@@ -15489,7 +15489,7 @@ u32 cheatsCBACalcIndex(u32 x, u32 y)
       z |= ROR(x0, 3);
     }
 
-    u32 temp = x0;
+    uint32_t temp = x0;
 
     if(x != 0) {
       x0 = x0 >> 4;
@@ -15519,21 +15519,21 @@ u32 cheatsCBACalcIndex(u32 x, u32 y)
   return 0;
 }
 
-void cheatsCBAUpdateSeedBuffer(u32 a, u8 *buffer, int count)
+void cheatsCBAUpdateSeedBuffer(uint32_t a, uint8_t *buffer, int count)
 {
   int i;
   for(i = 0; i < count; i++)
     buffer[i] = i;
-  for(i = 0; (u32)i < a; i++) {
-    u32 a = cheatsCBACalcIndex(cheatsCBAEncWorker(), count);
-    u32 b = cheatsCBACalcIndex(cheatsCBAEncWorker(), count);
-    u32 t = buffer[a];
+  for(i = 0; (uint32_t)i < a; i++) {
+    uint32_t a = cheatsCBACalcIndex(cheatsCBAEncWorker(), count);
+    uint32_t b = cheatsCBACalcIndex(cheatsCBAEncWorker(), count);
+    uint32_t t = buffer[a];
     buffer[a] = buffer[b];
     buffer[b] = t;
   }
 }
 
-void cheatsCBAChangeEncryption(u32 *seed)
+void cheatsCBAChangeEncryption(uint32_t *seed)
 {
   int i;
 
@@ -15541,34 +15541,34 @@ void cheatsCBAChangeEncryption(u32 *seed)
   cheatsCBAUpdateSeedBuffer(0x50, cheatsCBASeedBuffer, 0x30);
   cheatsCBATemporaryValue = 0x4efad1c3;
 
-  for(i = 0; (u32)i < seed[4]; i++)
+  for(i = 0; (uint32_t)i < seed[4]; i++)
     cheatsCBATemporaryValue = cheatsCBAEncWorker();
   cheatsCBASeed[2] = cheatsCBAEncWorker();
   cheatsCBASeed[3] = cheatsCBAEncWorker();
 
   cheatsCBATemporaryValue = seed[3] ^ 0xf254;
 
-  for(i = 0; (u32)i < seed[3]; i++)
+  for(i = 0; (uint32_t)i < seed[3]; i++)
     cheatsCBATemporaryValue = cheatsCBAEncWorker();
 
   cheatsCBASeed[0] = cheatsCBAEncWorker();
   cheatsCBASeed[1] = cheatsCBAEncWorker();
 
-  *((u32 *)&cheatsCBACurrentSeed[0]) = seed[6];
-  *((u32 *)&cheatsCBACurrentSeed[4]) = seed[7];
-  *((u32 *)&cheatsCBACurrentSeed[8]) = 0;
+  *((uint32_t *)&cheatsCBACurrentSeed[0]) = seed[6];
+  *((uint32_t *)&cheatsCBACurrentSeed[4]) = seed[7];
+  *((uint32_t *)&cheatsCBACurrentSeed[8]) = 0;
 }
 
-u16 cheatsCBAGenValue(u32 x, u32 y, u32 z)
+uint16_t cheatsCBAGenValue(uint32_t x, uint32_t y, uint32_t z)
 {
   y <<= 0x10;
   z <<= 0x10;
   x <<= 0x18;
-  u32 x0 = (int)y >> 0x10;
+  uint32_t x0 = (int)y >> 0x10;
   z = (int)z >> 0x10;
   x = (int)x >> 0x10;
   for(int i = 0; i < 8; i++) {
-    u32 temp = z ^ x;
+    uint32_t temp = z ^ x;
     if ((int)temp >= 0)
       temp = z << 0x11;
     else {
@@ -15590,9 +15590,9 @@ void cheatsCBAGenTable(void)
   cheatsCBATableGenerated = true;
 }
 
-u16 cheatsCBACalcCRC(u8 *rom, int count)
+uint16_t cheatsCBACalcCRC(uint8_t *rom, int count)
 {
-  u32 crc = 0xffffffff;
+  uint32_t crc = 0xffffffff;
 
   if (count & 3) {
     /* 0x08000EAE */
@@ -15600,13 +15600,13 @@ u16 cheatsCBACalcCRC(u8 *rom, int count)
     count = (count >> 2) - 1;
     if(count != -1) {
       while(count != -1) {
-        crc = (((crc << 0x08) ^ cheatsCBATable[(((u32)crc << 0x10) >> 0x18)
+        crc = (((crc << 0x08) ^ cheatsCBATable[(((uint32_t)crc << 0x10) >> 0x18)
                                                ^ *rom++]) << 0x10) >> 0x10;
-        crc = (((crc << 0x08) ^ cheatsCBATable[(((u32)crc << 0x10) >> 0x18)
+        crc = (((crc << 0x08) ^ cheatsCBATable[(((uint32_t)crc << 0x10) >> 0x18)
                                                ^ *rom++]) << 0x10) >> 0x10;
-        crc = (((crc << 0x08) ^ cheatsCBATable[(((u32)crc << 0x10) >> 0x18)
+        crc = (((crc << 0x08) ^ cheatsCBATable[(((uint32_t)crc << 0x10) >> 0x18)
                                                ^ *rom++]) << 0x10) >> 0x10;
-        crc = (((crc << 0x08) ^ cheatsCBATable[(((u32)crc << 0x10) >> 0x18)
+        crc = (((crc << 0x08) ^ cheatsCBATable[(((uint32_t)crc << 0x10) >> 0x18)
                                                ^ *rom++]) << 0x10) >> 0x10;
         count--;
       }
@@ -15615,24 +15615,24 @@ u16 cheatsCBACalcCRC(u8 *rom, int count)
   return crc & 0xffff;
 }
 
-void cheatsCBADecrypt(u8 *decrypt)
+void cheatsCBADecrypt(uint8_t *decrypt)
 {
-  u8 buffer[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
-  u8 *array = &buffer[1];
+  uint8_t buffer[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
+  uint8_t *array = &buffer[1];
 
   cheatsCBAReverseArray(decrypt, array);
 
   for(int count = 0x2f; count >= 0; count--)
     chatsCBAScramble(array, count, cheatsCBASeedBuffer[count]);
   cheatsCBAArrayToValue(array, decrypt);
-  *((u32 *)decrypt) = cheatsCBAGetValue(decrypt) ^
+  *((uint32_t *)decrypt) = cheatsCBAGetValue(decrypt) ^
     cheatsCBASeed[0];
-  *((u16 *)(decrypt+4)) = (cheatsCBAGetData(decrypt) ^
+  *((uint16_t *)(decrypt+4)) = (cheatsCBAGetData(decrypt) ^
                            cheatsCBASeed[1]) & 0xffff;
 
   cheatsCBAReverseArray(decrypt, array);
 
-  u32 cs = cheatsCBAGetValue(cheatsCBACurrentSeed);
+  uint32_t cs = cheatsCBAGetValue(cheatsCBACurrentSeed);
   for(int i = 0; i <= 4; i++)
     array[i] = ((cs >> 8) ^ array[i+1]) ^ array[i] ;
 
@@ -15643,9 +15643,9 @@ void cheatsCBADecrypt(u8 *decrypt)
 
   cheatsCBAArrayToValue(array, decrypt);
 
-  *((u32 *)decrypt) = cheatsCBAGetValue(decrypt)
+  *((uint32_t *)decrypt) = cheatsCBAGetValue(decrypt)
     ^ cheatsCBASeed[2];
-  *((u16 *)(decrypt+4)) = (cheatsCBAGetData(decrypt)
+  *((uint16_t *)(decrypt+4)) = (cheatsCBAGetData(decrypt)
                            ^ cheatsCBASeed[3]) & 0xffff;
 }
 
@@ -15703,27 +15703,27 @@ void cheatsAddCBACode(const char *code, const char *desc)
   char buffer[10];
   strncpy(buffer, code, 8);
   buffer[8] = 0;
-  u32 address;
+  uint32_t address;
   sscanf(buffer, "%x", &address);
   strncpy(buffer, &code[9], 4);
   buffer[4] = 0;
-  u32 value;
+  uint32_t value;
   sscanf(buffer, "%x", &value);
 
-  u8 array[8] = {
-    (u8)(address & 255),
-    (u8)((address >> 8) & 255),
-    (u8)((address >> 16) & 255),
-    (u8)((address >> 24) & 255),
-    (u8)(value & 255),
-    (u8)((value >> 8) & 255),
+  uint8_t array[8] = {
+    (uint8_t)(address & 255),
+    (uint8_t)((address >> 8) & 255),
+    (uint8_t)((address >> 16) & 255),
+    (uint8_t)((address >> 24) & 255),
+    (uint8_t)(value & 255),
+    (uint8_t)((value >> 8) & 255),
     0,
     0
   };
 
   if(cheatsCBAGetCount() == 0 &&
      (address >> 28) == 9) {
-    u32 seed[8];
+    uint32_t seed[8];
     cheatsCBAParseSeedCode(address, value, seed);
     cheatsCBAChangeEncryption(seed);
     cheatsAdd(code, desc, address, address & 0x0FFFFFFF, value, 512, UNKNOWN_CODE);
@@ -15731,8 +15731,8 @@ void cheatsAddCBACode(const char *code, const char *desc)
     if(cheatsCBAShouldDecrypt())
       cheatsCBADecrypt(array);
 
-    address = READ32LE(((u32 *)array));
-    value = READ16LE(((u16 *)&array[4]));
+    address = READ32LE(((uint32_t *)array));
+    value = READ16LE(((uint16_t *)&array[4]));
 
     int type = (address >> 28) & 15;
 
@@ -15748,7 +15748,7 @@ void cheatsAddCBACode(const char *code, const char *desc)
       {
         if(!cheatsCBATableGenerated)
           cheatsCBAGenTable();
-        u32 crc = cheatsCBACalcCRC(rom, 0x10000);
+        uint32_t crc = cheatsCBACalcCRC(rom, 0x10000);
         if(crc != address) {
           systemMessage("Warning: Codes seem to be for a different game.\nCodes may not work correctly.");
         }

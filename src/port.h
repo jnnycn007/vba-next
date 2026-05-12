@@ -89,30 +89,30 @@
 #define WRITE16LE( base, value)    ({asm( "sthbrx %0,0,%1" : : "r" (value), "r" (base) );})
 #define WRITE32LE( base, value)    ({asm( "stwbrx %0,0,%1" : : "r" (value), "r" (base) );})
 #elif defined(_XBOX360)
-#define READ16LE( base)	_byteswap_ushort(*((u16 *)(base)))
-#define READ32LE( base) _byteswap_ulong(*((u32 *)(base)))
-#define WRITE16LE(base, value) *((u16 *)(base)) = _byteswap_ushort((value))
-#define WRITE32LE(base, value) *((u32 *)(base)) = _byteswap_ulong((value))
+#define READ16LE( base)	_byteswap_ushort(*((uint16_t *)(base)))
+#define READ32LE( base) _byteswap_ulong(*((uint32_t *)(base)))
+#define WRITE16LE(base, value) *((uint16_t *)(base)) = _byteswap_ushort((value))
+#define WRITE32LE(base, value) *((uint32_t *)(base)) = _byteswap_ulong((value))
 #else
 /* Generic portable fallback: byte-swap via masked shifts.
  * The original generic fallback had a syntax error in READ32LE and was missing
  * byte masks. Reach this only on a BE target without ppc/xbox360 intrinsics. */
-#define READ16LE(x) ((((*((u16 *)(x))) >> 8) & 0x00FF) | (((*((u16 *)(x))) << 8) & 0xFF00))
-#define READ32LE(x) ((((*((u32 *)(x))) >> 24) & 0x000000FF) | \
-                     (((*((u32 *)(x))) >>  8) & 0x0000FF00) | \
-                     (((*((u32 *)(x))) <<  8) & 0x00FF0000) | \
-                     (((*((u32 *)(x))) << 24) & 0xFF000000))
-#define WRITE16LE(x,v) (*((u16 *)(x)) = (u16)((((v) >> 8) & 0x00FF) | (((v) << 8) & 0xFF00)))
-#define WRITE32LE(x,v) (*((u32 *)(x)) = ((((u32)(v)) >> 24) & 0x000000FF) | \
-                                        ((((u32)(v)) >>  8) & 0x0000FF00) | \
-                                        ((((u32)(v)) <<  8) & 0x00FF0000) | \
-                                        ((((u32)(v)) << 24) & 0xFF000000))
+#define READ16LE(x) ((((*((uint16_t *)(x))) >> 8) & 0x00FF) | (((*((uint16_t *)(x))) << 8) & 0xFF00))
+#define READ32LE(x) ((((*((uint32_t *)(x))) >> 24) & 0x000000FF) | \
+                     (((*((uint32_t *)(x))) >>  8) & 0x0000FF00) | \
+                     (((*((uint32_t *)(x))) <<  8) & 0x00FF0000) | \
+                     (((*((uint32_t *)(x))) << 24) & 0xFF000000))
+#define WRITE16LE(x,v) (*((uint16_t *)(x)) = (uint16_t)((((v) >> 8) & 0x00FF) | (((v) << 8) & 0xFF00)))
+#define WRITE32LE(x,v) (*((uint32_t *)(x)) = ((((uint32_t)(v)) >> 24) & 0x000000FF) | \
+                                        ((((uint32_t)(v)) >>  8) & 0x0000FF00) | \
+                                        ((((uint32_t)(v)) <<  8) & 0x00FF0000) | \
+                                        ((((uint32_t)(v)) << 24) & 0xFF000000))
 #endif
 #else
-#define READ16LE(x) *((u16 *)(x))
-#define READ32LE(x) *((u32 *)(x))
-#define WRITE16LE(x,v) *((u16 *)(x)) = (v)
-#define WRITE32LE(x,v) *((u32 *)(x)) = (v)
+#define READ16LE(x) *((uint16_t *)(x))
+#define READ32LE(x) *((uint32_t *)(x))
+#define WRITE16LE(x,v) *((uint16_t *)(x)) = (v)
+#define WRITE32LE(x,v) *((uint32_t *)(x)) = (v)
 #endif
 
 #ifdef INLINE
