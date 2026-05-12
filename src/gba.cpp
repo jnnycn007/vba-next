@@ -8718,18 +8718,15 @@ static INLINE int CPUUpdateTicks (void)
 #define CPUCompareVCOUNT() \
   if(R_VCOUNT == (io_registers[REG_DISPSTAT] >> 8)) \
   { \
-    io_registers[REG_DISPSTAT] |= 4; \
-    UPDATE_REG(0x04, io_registers[REG_DISPSTAT]); \
+    { uint16_t _v = (io_registers[REG_DISPSTAT]) | (4); io_registers[REG_DISPSTAT] = _v; UPDATE_REG(0x04, _v); } \
     if(io_registers[REG_DISPSTAT] & 0x20) \
     { \
-      io_registers[REG_IF] |= 4; \
-      UPDATE_REG(0x202, io_registers[REG_IF]); \
+      { uint16_t _v = (io_registers[REG_IF]) | (4); io_registers[REG_IF] = _v; UPDATE_REG(0x202, _v); } \
     } \
   } \
   else \
   { \
-    io_registers[REG_DISPSTAT] &= 0xFFFB; \
-    UPDATE_REG(0x4, io_registers[REG_DISPSTAT]); \
+    { uint16_t _v = (io_registers[REG_DISPSTAT]) & (0xFFFB); io_registers[REG_DISPSTAT] = _v; UPDATE_REG(0x4, _v); } \
   } \
   if (graphics.layerEnableDelay > 0) \
   { \
@@ -11777,8 +11774,7 @@ void CPUCheckDMA(int reason, int dmamask)
 
 			if(DM0CNT_H & 0x4000)
 			{
-				io_registers[REG_IF] |= 0x0100;
-				UPDATE_REG(0x202, io_registers[REG_IF]);
+				{ uint16_t _v = (io_registers[REG_IF]) | (0x0100); io_registers[REG_IF] = _v; UPDATE_REG(0x202, _v); }
 				cpuNextEvent = cpuTotalTicks;
 			}
 
@@ -11787,8 +11783,7 @@ void CPUCheckDMA(int reason, int dmamask)
 			}
 
 			if(!(DM0CNT_H & 0x0200) || (reason == 0)) {
-				DM0CNT_H &= 0x7FFF;
-				UPDATE_REG(0xBA, DM0CNT_H);
+				{ uint16_t _v = (DM0CNT_H) & (0x7FFF); DM0CNT_H = _v; UPDATE_REG(0xBA, _v); }
 			}
 		}
 	}
@@ -11817,8 +11812,7 @@ void CPUCheckDMA(int reason, int dmamask)
 			doDMA(dma1Source, dma1Dest, sourceIncrement, di_value, c_value, transfer_value);
 
 			if(DM1CNT_H & 0x4000) {
-				io_registers[REG_IF] |= 0x0200;
-				UPDATE_REG(0x202, io_registers[REG_IF]);
+				{ uint16_t _v = (io_registers[REG_IF]) | (0x0200); io_registers[REG_IF] = _v; UPDATE_REG(0x202, _v); }
 				cpuNextEvent = cpuTotalTicks;
 			}
 
@@ -11827,8 +11821,7 @@ void CPUCheckDMA(int reason, int dmamask)
 			}
 
 			if(!(DM1CNT_H & 0x0200) || (reason == 0)) {
-				DM1CNT_H &= 0x7FFF;
-				UPDATE_REG(0xC6, DM1CNT_H);
+				{ uint16_t _v = (DM1CNT_H) & (0x7FFF); DM1CNT_H = _v; UPDATE_REG(0xC6, _v); }
 			}
 		}
 	}
@@ -11857,8 +11850,7 @@ void CPUCheckDMA(int reason, int dmamask)
 			doDMA(dma2Source, dma2Dest, sourceIncrement, di_value, c_value, transfer_value);
 
 			if(DM2CNT_H & 0x4000) {
-				io_registers[REG_IF] |= 0x0400;
-				UPDATE_REG(0x202, io_registers[REG_IF]);
+				{ uint16_t _v = (io_registers[REG_IF]) | (0x0400); io_registers[REG_IF] = _v; UPDATE_REG(0x202, _v); }
 				cpuNextEvent = cpuTotalTicks;
 			}
 
@@ -11867,8 +11859,7 @@ void CPUCheckDMA(int reason, int dmamask)
 			}
 
 			if(!(DM2CNT_H & 0x0200) || (reason == 0)) {
-				DM2CNT_H &= 0x7FFF;
-				UPDATE_REG(0xD2, DM2CNT_H);
+				{ uint16_t _v = (DM2CNT_H) & (0x7FFF); DM2CNT_H = _v; UPDATE_REG(0xD2, _v); }
 			}
 		}
 	}
@@ -11887,8 +11878,7 @@ void CPUCheckDMA(int reason, int dmamask)
 					DM3CNT_L ? DM3CNT_L : 0x10000,
 					DM3CNT_H & 0x0400);
 			if(DM3CNT_H & 0x4000) {
-				io_registers[REG_IF] |= 0x0800;
-				UPDATE_REG(0x202, io_registers[REG_IF]);
+				{ uint16_t _v = (io_registers[REG_IF]) | (0x0800); io_registers[REG_IF] = _v; UPDATE_REG(0x202, _v); }
 				cpuNextEvent = cpuTotalTicks;
 			}
 
@@ -11897,8 +11887,7 @@ void CPUCheckDMA(int reason, int dmamask)
 			}
 
 			if(!(DM3CNT_H & 0x0200) || (reason == 0)) {
-				DM3CNT_H &= 0x7FFF;
-				UPDATE_REG(0xDE, DM3CNT_H);
+				{ uint16_t _v = (DM3CNT_H) & (0x7FFF); DM3CNT_H = _v; UPDATE_REG(0xDE, _v); }
 			}
 		}
 	}
@@ -11922,8 +11911,7 @@ void CPUUpdateRegister(uint32_t address, uint16_t value)
 				bool changeBG = (0 != ((io_registers[REG_DISPCNT] ^ value) & 0x0F00));
 				uint16_t changeBGon = ((~io_registers[REG_DISPCNT]) & value) & 0x0F00; // these layers are being activated
 
-				io_registers[REG_DISPCNT] = (value & 0xFFF7); // bit 3 can only be accessed by the BIOS to enable GBC mode
-				UPDATE_REG(0x00, io_registers[REG_DISPCNT]);
+				{ uint16_t _v = (value & 0xFFF7); io_registers[REG_DISPCNT] = _v; UPDATE_REG(0x00, _v); }
 
 				graphics.layerEnable = value;
 
@@ -11939,8 +11927,7 @@ void CPUUpdateRegister(uint32_t address, uint16_t value)
 					if(!(io_registers[REG_DISPSTAT] & 1))
 					{
 						graphics.lcdTicks = 1008;
-						io_registers[REG_DISPSTAT] &= 0xFFFC;
-						UPDATE_REG(0x04, io_registers[REG_DISPSTAT]);
+						{ uint16_t _v = (io_registers[REG_DISPSTAT]) & (0xFFFC); io_registers[REG_DISPSTAT] = _v; UPDATE_REG(0x04, _v); }
 						CPUCompareVCOUNT();
 					}
 				}
@@ -11966,8 +11953,7 @@ void CPUUpdateRegister(uint32_t address, uint16_t value)
 				break;
 			}
 		case 0x04: /* DISPSTAT */
-			io_registers[REG_DISPSTAT] = (value & 0xFF38) | (io_registers[REG_DISPSTAT] & 7);
-			UPDATE_REG(0x04, io_registers[REG_DISPSTAT]);
+			{ uint16_t _v = (value & 0xFF38) | (io_registers[REG_DISPSTAT] & 7); io_registers[REG_DISPSTAT] = _v; UPDATE_REG(0x04, _v); }
 			break;
 		case 0x06:
 			// not writable
@@ -12010,23 +11996,19 @@ void CPUUpdateRegister(uint32_t address, uint16_t value)
 			UPDATE_REG(address, value);
 			break;
 		case 0x28:
-			BG2X_L = value;
-			UPDATE_REG(0x28, BG2X_L);
+			{ uint16_t _v = value; BG2X_L = _v; UPDATE_REG(0x28, _v); }
 			gfxBG2Changed |= 1;
 			break;
 		case 0x2A:
-			BG2X_H = (value & 0xFFF);
-			UPDATE_REG(0x2A, BG2X_H);
+			{ uint16_t _v = (value & 0xFFF); BG2X_H = _v; UPDATE_REG(0x2A, _v); }
 			gfxBG2Changed |= 1;
 			break;
 		case 0x2C:
-			BG2Y_L = value;
-			UPDATE_REG(0x2C, BG2Y_L);
+			{ uint16_t _v = value; BG2Y_L = _v; UPDATE_REG(0x2C, _v); }
 			gfxBG2Changed |= 2;
 			break;
 		case 0x2E:
-			BG2Y_H = value & 0xFFF;
-			UPDATE_REG(0x2E, BG2Y_H);
+			{ uint16_t _v = value & 0xFFF; BG2Y_H = _v; UPDATE_REG(0x2E, _v); }
 			gfxBG2Changed |= 2;
 			break;
 		case 0x30: /* BG3PA */
@@ -12037,33 +12019,27 @@ void CPUUpdateRegister(uint32_t address, uint16_t value)
 			UPDATE_REG(address, value);
 			break;
 		case 0x38:
-			BG3X_L = value;
-			UPDATE_REG(0x38, BG3X_L);
+			{ uint16_t _v = value; BG3X_L = _v; UPDATE_REG(0x38, _v); }
 			gfxBG3Changed |= 1;
 			break;
 		case 0x3A:
-			BG3X_H = value & 0xFFF;
-			UPDATE_REG(0x3A, BG3X_H);
+			{ uint16_t _v = value & 0xFFF; BG3X_H = _v; UPDATE_REG(0x3A, _v); }
 			gfxBG3Changed |= 1;
 			break;
 		case 0x3C:
-			BG3Y_L = value;
-			UPDATE_REG(0x3C, BG3Y_L);
+			{ uint16_t _v = value; BG3Y_L = _v; UPDATE_REG(0x3C, _v); }
 			gfxBG3Changed |= 2;
 			break;
 		case 0x3E:
-			BG3Y_H = value & 0xFFF;
-			UPDATE_REG(0x3E, BG3Y_H);
+			{ uint16_t _v = value & 0xFFF; BG3Y_H = _v; UPDATE_REG(0x3E, _v); }
 			gfxBG3Changed |= 2;
 			break;
 		case 0x40:
-			io_registers[REG_WIN0H] = value;
-			UPDATE_REG(0x40, io_registers[REG_WIN0H]);
+			{ uint16_t _v = value; io_registers[REG_WIN0H] = _v; UPDATE_REG(0x40, _v); }
 			CPUUpdateWindow0();
 			break;
 		case 0x42:
-			io_registers[REG_WIN1H] = value;
-			UPDATE_REG(0x42, io_registers[REG_WIN1H]);
+			{ uint16_t _v = value; io_registers[REG_WIN1H] = _v; UPDATE_REG(0x42, _v); }
 			CPUUpdateWindow1();
 			break;
 		case 0x44:
@@ -12080,22 +12056,18 @@ void CPUUpdateRegister(uint32_t address, uint16_t value)
 			break;
 		}
 		case 0x4C:
-			MOSAIC = value;
-			UPDATE_REG(0x4C, MOSAIC);
+			{ uint16_t _v = value; MOSAIC = _v; UPDATE_REG(0x4C, _v); }
 			break;
 		case 0x50:
-			BLDMOD = value & 0x3FFF;
-			UPDATE_REG(0x50, BLDMOD);
+			{ uint16_t _v = value & 0x3FFF; BLDMOD = _v; UPDATE_REG(0x50, _v); }
 			fxOn = ((BLDMOD>>6)&3) != 0;
 			CPUUpdateRender();
 			break;
 		case 0x52:
-			COLEV = value & 0x1F1F;
-			UPDATE_REG(0x52, COLEV);
+			{ uint16_t _v = value & 0x1F1F; COLEV = _v; UPDATE_REG(0x52, _v); }
 			break;
 		case 0x54:
-			COLY = value & 0x1F;
-			UPDATE_REG(0x54, COLY);
+			{ uint16_t _v = value & 0x1F; COLY = _v; UPDATE_REG(0x54, _v); }
 			break;
 		case 0x60:
 		case 0x62:
@@ -12129,20 +12101,16 @@ void CPUUpdateRegister(uint32_t address, uint16_t value)
 			soundEvent_u16(address&0xFF, value);
 			break;
 		case 0xB0:
-			DM0SAD_L = value;
-			UPDATE_REG(0xB0, DM0SAD_L);
+			{ uint16_t _v = value; DM0SAD_L = _v; UPDATE_REG(0xB0, _v); }
 			break;
 		case 0xB2:
-			DM0SAD_H = value & 0x07FF;
-			UPDATE_REG(0xB2, DM0SAD_H);
+			{ uint16_t _v = value & 0x07FF; DM0SAD_H = _v; UPDATE_REG(0xB2, _v); }
 			break;
 		case 0xB4:
-			DM0DAD_L = value;
-			UPDATE_REG(0xB4, DM0DAD_L);
+			{ uint16_t _v = value; DM0DAD_L = _v; UPDATE_REG(0xB4, _v); }
 			break;
 		case 0xB6:
-			DM0DAD_H = value & 0x07FF;
-			UPDATE_REG(0xB6, DM0DAD_H);
+			{ uint16_t _v = value & 0x07FF; DM0DAD_H = _v; UPDATE_REG(0xB6, _v); }
 			break;
 		case 0xB8:
 			DM0CNT_L = value & 0x3FFF;
@@ -12153,8 +12121,7 @@ void CPUUpdateRegister(uint32_t address, uint16_t value)
 				bool start = ((DM0CNT_H ^ value) & 0x8000) ? true : false;
 				value &= 0xF7E0;
 
-				DM0CNT_H = value;
-				UPDATE_REG(0xBA, DM0CNT_H);
+				{ uint16_t _v = value; DM0CNT_H = _v; UPDATE_REG(0xBA, _v); }
 
 				if(start && (value & 0x8000))
 				{
@@ -12165,20 +12132,16 @@ void CPUUpdateRegister(uint32_t address, uint16_t value)
 			}
 			break;
 		case 0xBC:
-			DM1SAD_L = value;
-			UPDATE_REG(0xBC, DM1SAD_L);
+			{ uint16_t _v = value; DM1SAD_L = _v; UPDATE_REG(0xBC, _v); }
 			break;
 		case 0xBE:
-			DM1SAD_H = value & 0x0FFF;
-			UPDATE_REG(0xBE, DM1SAD_H);
+			{ uint16_t _v = value & 0x0FFF; DM1SAD_H = _v; UPDATE_REG(0xBE, _v); }
 			break;
 		case 0xC0:
-			DM1DAD_L = value;
-			UPDATE_REG(0xC0, DM1DAD_L);
+			{ uint16_t _v = value; DM1DAD_L = _v; UPDATE_REG(0xC0, _v); }
 			break;
 		case 0xC2:
-			DM1DAD_H = value & 0x07FF;
-			UPDATE_REG(0xC2, DM1DAD_H);
+			{ uint16_t _v = value & 0x07FF; DM1DAD_H = _v; UPDATE_REG(0xC2, _v); }
 			break;
 		case 0xC4:
 			DM1CNT_L = value & 0x3FFF;
@@ -12189,8 +12152,7 @@ void CPUUpdateRegister(uint32_t address, uint16_t value)
 				bool start = ((DM1CNT_H ^ value) & 0x8000) ? true : false;
 				value &= 0xF7E0;
 
-				DM1CNT_H = value;
-				UPDATE_REG(0xC6, DM1CNT_H);
+				{ uint16_t _v = value; DM1CNT_H = _v; UPDATE_REG(0xC6, _v); }
 
 				if(start && (value & 0x8000))
 				{
@@ -12201,20 +12163,16 @@ void CPUUpdateRegister(uint32_t address, uint16_t value)
 			}
 			break;
 		case 0xC8:
-			DM2SAD_L = value;
-			UPDATE_REG(0xC8, DM2SAD_L);
+			{ uint16_t _v = value; DM2SAD_L = _v; UPDATE_REG(0xC8, _v); }
 			break;
 		case 0xCA:
-			DM2SAD_H = value & 0x0FFF;
-			UPDATE_REG(0xCA, DM2SAD_H);
+			{ uint16_t _v = value & 0x0FFF; DM2SAD_H = _v; UPDATE_REG(0xCA, _v); }
 			break;
 		case 0xCC:
-			DM2DAD_L = value;
-			UPDATE_REG(0xCC, DM2DAD_L);
+			{ uint16_t _v = value; DM2DAD_L = _v; UPDATE_REG(0xCC, _v); }
 			break;
 		case 0xCE:
-			DM2DAD_H = value & 0x07FF;
-			UPDATE_REG(0xCE, DM2DAD_H);
+			{ uint16_t _v = value & 0x07FF; DM2DAD_H = _v; UPDATE_REG(0xCE, _v); }
 			break;
 		case 0xD0:
 			DM2CNT_L = value & 0x3FFF;
@@ -12226,8 +12184,7 @@ void CPUUpdateRegister(uint32_t address, uint16_t value)
 
 				value &= 0xF7E0;
 
-				DM2CNT_H = value;
-				UPDATE_REG(0xD2, DM2CNT_H);
+				{ uint16_t _v = value; DM2CNT_H = _v; UPDATE_REG(0xD2, _v); }
 
 				if(start && (value & 0x8000)) {
 					dma2Source = DM2SAD_L | (DM2SAD_H << 16);
@@ -12238,20 +12195,16 @@ void CPUUpdateRegister(uint32_t address, uint16_t value)
 			}
 			break;
 		case 0xD4:
-			DM3SAD_L = value;
-			UPDATE_REG(0xD4, DM3SAD_L);
+			{ uint16_t _v = value; DM3SAD_L = _v; UPDATE_REG(0xD4, _v); }
 			break;
 		case 0xD6:
-			DM3SAD_H = value & 0x0FFF;
-			UPDATE_REG(0xD6, DM3SAD_H);
+			{ uint16_t _v = value & 0x0FFF; DM3SAD_H = _v; UPDATE_REG(0xD6, _v); }
 			break;
 		case 0xD8:
-			DM3DAD_L = value;
-			UPDATE_REG(0xD8, DM3DAD_L);
+			{ uint16_t _v = value; DM3DAD_L = _v; UPDATE_REG(0xD8, _v); }
 			break;
 		case 0xDA:
-			DM3DAD_H = value & 0x0FFF;
-			UPDATE_REG(0xDA, DM3DAD_H);
+			{ uint16_t _v = value & 0x0FFF; DM3DAD_H = _v; UPDATE_REG(0xDA, _v); }
 			break;
 		case 0xDC:
 			DM3CNT_L = value;
@@ -12263,8 +12216,7 @@ void CPUUpdateRegister(uint32_t address, uint16_t value)
 
 				value &= 0xFFE0;
 
-				DM3CNT_H = value;
-				UPDATE_REG(0xDE, DM3CNT_H);
+				{ uint16_t _v = value; DM3CNT_H = _v; UPDATE_REG(0xDE, _v); }
 
 				if(start && (value & 0x8000)) {
 					dma3Source = DM3SAD_L | (DM3SAD_H << 16);
@@ -12306,21 +12258,18 @@ void CPUUpdateRegister(uint32_t address, uint16_t value)
 			cpuNextEvent = cpuTotalTicks;
 			break;
 		case 0x130:
-			io_registers[REG_P1] |= (value & 0x3FF);
-			UPDATE_REG(0x130, io_registers[REG_P1]);
+			{ uint16_t _v = (io_registers[REG_P1]) | ((value & 0x3FF)); io_registers[REG_P1] = _v; UPDATE_REG(0x130, _v); }
 			break;
 		case 0x132:
 			UPDATE_REG(0x132, value & 0xC3FF);
 			break;
 		case 0x200:
-			io_registers[REG_IE] = value & 0x3FFF;
-			UPDATE_REG(0x200, io_registers[REG_IE]);
+			{ uint16_t _v = value & 0x3FFF; io_registers[REG_IE] = _v; UPDATE_REG(0x200, _v); }
 			if ((io_registers[REG_IME] & 1) && (io_registers[REG_IF] & io_registers[REG_IE]) && armIrqEnable)
 				cpuNextEvent = cpuTotalTicks;
 			break;
 		case 0x202:
-			io_registers[REG_IF] ^= (value & io_registers[REG_IF]);
-			UPDATE_REG(0x202, io_registers[REG_IF]);
+			{ uint16_t _v = (io_registers[REG_IF]) ^ ((value & io_registers[REG_IF])); io_registers[REG_IF] = _v; UPDATE_REG(0x202, _v); }
 			break;
 		case 0x204:
 		    memoryWait[0x0e] = memoryWaitSeq[0x0e] = gamepakRamWaitState[value & 3];
@@ -12367,8 +12316,7 @@ void CPUUpdateRegister(uint32_t address, uint16_t value)
 			UPDATE_REG(0x204, value & 0x7FFF);
 			break;
 		case 0x208:
-			io_registers[REG_IME] = value & 1;
-			UPDATE_REG(0x208, io_registers[REG_IME]);
+			{ uint16_t _v = value & 1; io_registers[REG_IME] = _v; UPDATE_REG(0x208, _v); }
 			if ((io_registers[REG_IME] & 1) && (io_registers[REG_IF] & io_registers[REG_IE]) && armIrqEnable)
 				cpuNextEvent = cpuTotalTicks;
 			break;
@@ -12842,13 +12790,11 @@ void UpdateJoypad(void)
       uint16_t p1 = (0x3FF ^ io_registers[REG_P1CNT]) & 0x3FF;
       if(io_registers[REG_P1CNT] & 0x8000) {
          if(p1 == (io_registers[REG_P1CNT] & 0x3FF)) {
-            io_registers[REG_IF] |= 0x1000;
-            UPDATE_REG(0x202, io_registers[REG_IF]);
+            { uint16_t _v = (io_registers[REG_IF]) | (0x1000); io_registers[REG_IF] = _v; UPDATE_REG(0x202, _v); }
          }
       } else {
          if(p1 & io_registers[REG_P1CNT]) {
-            io_registers[REG_IF] |= 0x1000;
-            UPDATE_REG(0x202, io_registers[REG_IF]);
+            { uint16_t _v = (io_registers[REG_IF]) | (0x1000); io_registers[REG_IF] = _v; UPDATE_REG(0x202, _v); }
          }
       }
    }
@@ -12923,39 +12869,32 @@ updateLoop:
 					if(io_registers[REG_DISPSTAT] & 2)
 					{
 						graphics.lcdTicks += 1008;
-						R_VCOUNT += 1;
-						UPDATE_REG(0x06, R_VCOUNT);
-						io_registers[REG_DISPSTAT] &= 0xFFFD;
-						UPDATE_REG(0x04, io_registers[REG_DISPSTAT]);
+						{ uint16_t _v = (R_VCOUNT) + (1); R_VCOUNT = _v; UPDATE_REG(0x06, _v); }
+						{ uint16_t _v = (io_registers[REG_DISPSTAT]) & (0xFFFD); io_registers[REG_DISPSTAT] = _v; UPDATE_REG(0x04, _v); }
 						CPUCompareVCOUNT();
 					}
 					else
 					{
 						graphics.lcdTicks += 224;
-						io_registers[REG_DISPSTAT] |= 2;
-						UPDATE_REG(0x04, io_registers[REG_DISPSTAT]);
+						{ uint16_t _v = (io_registers[REG_DISPSTAT]) | (2); io_registers[REG_DISPSTAT] = _v; UPDATE_REG(0x04, _v); }
 						if(io_registers[REG_DISPSTAT] & 16)
 						{
-							io_registers[REG_IF] |= 2;
-							UPDATE_REG(0x202, io_registers[REG_IF]);
+							{ uint16_t _v = (io_registers[REG_IF]) | (2); io_registers[REG_IF] = _v; UPDATE_REG(0x202, _v); }
 						}
 					}
 
 					if(R_VCOUNT >= 228)
 					{
 						//Reaching last line
-						io_registers[REG_DISPSTAT] &= 0xFFFC;
-						UPDATE_REG(0x04, io_registers[REG_DISPSTAT]);
-						R_VCOUNT = 0;
-						UPDATE_REG(0x06, R_VCOUNT);
+						{ uint16_t _v = (io_registers[REG_DISPSTAT]) & (0xFFFC); io_registers[REG_DISPSTAT] = _v; UPDATE_REG(0x04, _v); }
+						{ uint16_t _v = 0; R_VCOUNT = _v; UPDATE_REG(0x06, _v); }
 						CPUCompareVCOUNT();
 					}
 				}
 				else if(io_registers[REG_DISPSTAT] & 2)
 				{
 					// if in H-Blank, leave it and move to drawing mode
-					R_VCOUNT += 1;
-					UPDATE_REG(0x06, R_VCOUNT);
+					{ uint16_t _v = (R_VCOUNT) + (1); R_VCOUNT = _v; UPDATE_REG(0x06, _v); }
 
 					graphics.lcdTicks += 1008;
 					io_registers[REG_DISPSTAT] &= 0xFFFD;
@@ -12969,12 +12908,10 @@ updateLoop:
 		                	remainingTicks += cheatsCheckKeys(io_registers[REG_P1] ^ 0x3FF, ext);
 #endif
 		            	io_registers[REG_DISPSTAT] |= 1;
-		            	io_registers[REG_DISPSTAT] &= 0xFFFD;
-		            	UPDATE_REG(0x04, io_registers[REG_DISPSTAT]);
+		            	{ uint16_t _v = (io_registers[REG_DISPSTAT]) & (0xFFFD); io_registers[REG_DISPSTAT] = _v; UPDATE_REG(0x04, _v); }
 		            	if(io_registers[REG_DISPSTAT] & 0x0008)
 		            	{
-		                	io_registers[REG_IF] |= 1;
-		                	UPDATE_REG(0x202, io_registers[REG_IF]);
+		                	{ uint16_t _v = (io_registers[REG_IF]) | (1); io_registers[REG_IF] = _v; UPDATE_REG(0x202, _v); }
 		            	}
 		            	CPUCheckDMA(1, 0x0f);
 
@@ -13033,14 +12970,12 @@ updateLoop:
 #endif
 
 					// entering H-Blank
-					io_registers[REG_DISPSTAT] |= 2;
-					UPDATE_REG(0x04, io_registers[REG_DISPSTAT]);
+					{ uint16_t _v = (io_registers[REG_DISPSTAT]) | (2); io_registers[REG_DISPSTAT] = _v; UPDATE_REG(0x04, _v); }
 					graphics.lcdTicks += 224;
 					CPUCheckDMA(2, 0x0f);
 					if(io_registers[REG_DISPSTAT] & 16)
 					{
-						io_registers[REG_IF] |= 2;
-						UPDATE_REG(0x202, io_registers[REG_IF]);
+						{ uint16_t _v = (io_registers[REG_IF]) | (2); io_registers[REG_IF] = _v; UPDATE_REG(0x202, _v); }
 					}
 				}
 			}
@@ -13063,12 +12998,10 @@ updateLoop:
 						timerOverflow |= 1;
 						soundTimerOverflow(0);
 						if(io_registers[REG_TM0CNT] & 0x40) {
-							io_registers[REG_IF] |= 0x08;
-							UPDATE_REG(0x202, io_registers[REG_IF]);
+							{ uint16_t _v = (io_registers[REG_IF]) | (0x08); io_registers[REG_IF] = _v; UPDATE_REG(0x202, _v); }
 						}
 					}
-					io_registers[REG_TM0D] = 0xFFFF - (timer0Ticks >> timer0ClockReload);
-					UPDATE_REG(0x100, io_registers[REG_TM0D]);
+					{ uint16_t _v = 0xFFFF - (timer0Ticks >> timer0ClockReload); io_registers[REG_TM0D] = _v; UPDATE_REG(0x100, _v); }
 				}
 
 				if(timer1On) {
@@ -13080,8 +13013,7 @@ updateLoop:
 								timerOverflow |= 2;
 								soundTimerOverflow(1);
 								if(io_registers[REG_TM1CNT] & 0x40) {
-									io_registers[REG_IF] |= 0x10;
-									UPDATE_REG(0x202, io_registers[REG_IF]);
+									{ uint16_t _v = (io_registers[REG_IF]) | (0x10); io_registers[REG_IF] = _v; UPDATE_REG(0x202, _v); }
 								}
 							}
 							UPDATE_REG(0x104, io_registers[REG_TM1D]);
@@ -13093,12 +13025,10 @@ updateLoop:
 							timerOverflow |= 2;
 							soundTimerOverflow(1);
 							if(io_registers[REG_TM1CNT] & 0x40) {
-								io_registers[REG_IF] |= 0x10;
-								UPDATE_REG(0x202, io_registers[REG_IF]);
+								{ uint16_t _v = (io_registers[REG_IF]) | (0x10); io_registers[REG_IF] = _v; UPDATE_REG(0x202, _v); }
 							}
 						}
-						io_registers[REG_TM1D] = 0xFFFF - (timer1Ticks >> timer1ClockReload);
-						UPDATE_REG(0x104, io_registers[REG_TM1D]);
+						{ uint16_t _v = 0xFFFF - (timer1Ticks >> timer1ClockReload); io_registers[REG_TM1D] = _v; UPDATE_REG(0x104, _v); }
 					}
 				}
 
@@ -13110,8 +13040,7 @@ updateLoop:
 								io_registers[REG_TM2D] += timer2Reload;
 								timerOverflow |= 4;
 								if(io_registers[REG_TM2CNT] & 0x40) {
-									io_registers[REG_IF] |= 0x20;
-									UPDATE_REG(0x202, io_registers[REG_IF]);
+									{ uint16_t _v = (io_registers[REG_IF]) | (0x20); io_registers[REG_IF] = _v; UPDATE_REG(0x202, _v); }
 								}
 							}
 							UPDATE_REG(0x108, io_registers[REG_TM2D]);
@@ -13122,12 +13051,10 @@ updateLoop:
 							timer2Ticks += (0x10000 - timer2Reload) << timer2ClockReload;
 							timerOverflow |= 4;
 							if(io_registers[REG_TM2CNT] & 0x40) {
-								io_registers[REG_IF] |= 0x20;
-								UPDATE_REG(0x202, io_registers[REG_IF]);
+								{ uint16_t _v = (io_registers[REG_IF]) | (0x20); io_registers[REG_IF] = _v; UPDATE_REG(0x202, _v); }
 							}
 						}
-						io_registers[REG_TM2D] = 0xFFFF - (timer2Ticks >> timer2ClockReload);
-						UPDATE_REG(0x108, io_registers[REG_TM2D]);
+						{ uint16_t _v = 0xFFFF - (timer2Ticks >> timer2ClockReload); io_registers[REG_TM2D] = _v; UPDATE_REG(0x108, _v); }
 					}
 				}
 
@@ -13138,8 +13065,7 @@ updateLoop:
 							if(io_registers[REG_TM3D] == 0) {
 								io_registers[REG_TM3D] += timer3Reload;
 								if(io_registers[REG_TM3CNT] & 0x40) {
-									io_registers[REG_IF] |= 0x40;
-									UPDATE_REG(0x202, io_registers[REG_IF]);
+									{ uint16_t _v = (io_registers[REG_IF]) | (0x40); io_registers[REG_IF] = _v; UPDATE_REG(0x202, _v); }
 								}
 							}
 							UPDATE_REG(0x10C, io_registers[REG_TM3D]);
@@ -13149,12 +13075,10 @@ updateLoop:
 						if(timer3Ticks <= 0) {
 							timer3Ticks += (0x10000 - timer3Reload) << timer3ClockReload;
 							if(io_registers[REG_TM3CNT] & 0x40) {
-								io_registers[REG_IF] |= 0x40;
-								UPDATE_REG(0x202, io_registers[REG_IF]);
+								{ uint16_t _v = (io_registers[REG_IF]) | (0x40); io_registers[REG_IF] = _v; UPDATE_REG(0x202, _v); }
 							}
 						}
-						io_registers[REG_TM3D] = 0xFFFF - (timer3Ticks >> timer3ClockReload);
-						UPDATE_REG(0x10C, io_registers[REG_TM3D]);
+						{ uint16_t _v = 0xFFFF - (timer3Ticks >> timer3ClockReload); io_registers[REG_TM3D] = _v; UPDATE_REG(0x10C, _v); }
 					}
 				}
 			}
@@ -13242,8 +13166,7 @@ updateLoop:
 						UPDATE_REG(0x100, io_registers[REG_TM0D]);
 					}
 					timer0On = timer0Value & 0x80 ? true : false;
-					io_registers[REG_TM0CNT] = timer0Value & 0xC7;
-					UPDATE_REG(0x102, io_registers[REG_TM0CNT]);
+					{ uint16_t _v = timer0Value & 0xC7; io_registers[REG_TM0CNT] = _v; UPDATE_REG(0x102, _v); }
 				}
 				if (timerOnOffDelay & 2)
 				{
@@ -13255,8 +13178,7 @@ updateLoop:
 						UPDATE_REG(0x104, io_registers[REG_TM1D]);
 					}
 					timer1On = timer1Value & 0x80 ? true : false;
-					io_registers[REG_TM1CNT] = timer1Value & 0xC7;
-					UPDATE_REG(0x106, io_registers[REG_TM1CNT]);
+					{ uint16_t _v = timer1Value & 0xC7; io_registers[REG_TM1CNT] = _v; UPDATE_REG(0x106, _v); }
 				}
 				if (timerOnOffDelay & 4)
 				{
@@ -13268,8 +13190,7 @@ updateLoop:
 						UPDATE_REG(0x108, io_registers[REG_TM2D]);
 					}
 					timer2On = timer2Value & 0x80 ? true : false;
-					io_registers[REG_TM2CNT] = timer2Value & 0xC7;
-					UPDATE_REG(0x10A, io_registers[REG_TM2CNT]);
+					{ uint16_t _v = timer2Value & 0xC7; io_registers[REG_TM2CNT] = _v; UPDATE_REG(0x10A, _v); }
 				}
 				if (timerOnOffDelay & 8)
 				{
@@ -13281,8 +13202,7 @@ updateLoop:
 						UPDATE_REG(0x10C, io_registers[REG_TM3D]);
 					}
 					timer3On = timer3Value & 0x80 ? true : false;
-					io_registers[REG_TM3CNT] = timer3Value & 0xC7;
-					UPDATE_REG(0x10E, io_registers[REG_TM3CNT]);
+					{ uint16_t _v = timer3Value & 0xC7; io_registers[REG_TM3CNT] = _v; UPDATE_REG(0x10E, _v); }
 				}
 				cpuNextEvent = CPUUpdateTicks();
 				timerOnOffDelay = 0;
