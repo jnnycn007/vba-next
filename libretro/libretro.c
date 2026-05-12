@@ -60,7 +60,8 @@ size_t retro_get_memory_size(unsigned id)
 
 static bool scan_area(const uint8_t *data, unsigned size)
 {
-   for (unsigned i = 0; i < size; i++)
+   unsigned i;
+   for (i = 0; i < size; i++)
       if (data[i] != 0xff)
          return true;
 
@@ -599,6 +600,7 @@ static void update_input(void)
    uint32_t J = 0;
    int32_t joy_bits = 0;
    unsigned i;
+   unsigned button;
 
    /* if (retropad_device[0] == RETRO_DEVICE_JOYPAD) */ {
       if (libretro_supports_bitmasks)
@@ -612,7 +614,7 @@ static void update_input(void)
             joy_bits |= input_cb(0, RETRO_DEVICE_JOYPAD, 0, turbo_binds[i]) ? (1 << turbo_binds[i]) : 0;
       }
 
-      for (unsigned button = 0; button < MAX_BUTTONS; button++)
+      for (button = 0; button < MAX_BUTTONS; button++)
          J |= joy_bits & (1 << binds[button]) ? (1 << button) : 0;
 
       if (option_turboEnable) {

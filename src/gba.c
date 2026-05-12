@@ -7041,7 +7041,7 @@ static INLINE void gfxDrawPixel(uint32_t *dest, const uint8_t color, const uint1
    *dest = color ? (palette[color] | prio): 0x80000000;
 }
 
-INLINE const TileLine gfxReadTile(const uint16_t *screenSource, const int yyy, const uint8_t *charBase, uint16_t *palette, const uint32_t prio)
+static INLINE const TileLine gfxReadTile(const uint16_t *screenSource, const int yyy, const uint8_t *charBase, uint16_t *palette, const uint32_t prio)
 {
    int tileY;
    TileLine tileLine;
@@ -7080,7 +7080,7 @@ INLINE const TileLine gfxReadTile(const uint16_t *screenSource, const int yyy, c
    return tileLine;
 }
 
-INLINE const TileLine gfxReadTilePal(const uint16_t *screenSource, const int yyy, const uint8_t *charBase, uint16_t *palette, const uint32_t prio)
+static INLINE const TileLine gfxReadTilePal(const uint16_t *screenSource, const int yyy, const uint8_t *charBase, uint16_t *palette, const uint32_t prio)
 {
    int tileY;
    TileLine tileLine;
@@ -9240,20 +9240,22 @@ static INLINE int CPUUpdateTicks (void)
 
 	#define CPUUpdateWindow0() \
 	{ \
+	  int i; \
 	  int x00_window0 = R_WIN_Window0_X1; \
 	  int x01_window0 = R_WIN_Window0_X2; \
 	  int x00_lte_x01 = x00_window0 <= x01_window0; \
-	  for(int i = 0; i < 240; i++) \
+	  for(i = 0; i < 240; i++) \
 		  gfxInWin[0][i] = ((i >= x00_window0 && i < x01_window0) & x00_lte_x01) | ((i >= x00_window0 || i < x01_window0) & ~x00_lte_x01); \
 	  ++threaded_gfxinwin_ver[0]; \
 	}
 
 	#define CPUUpdateWindow1() \
 	{ \
+	  int i; \
 	  int x00_window1 = R_WIN_Window1_X1; \
 	  int x01_window1 = R_WIN_Window1_X2; \
 	  int x00_lte_x01 = x00_window1 <= x01_window1; \
-	  for(int i = 0; i < 240; i++) \
+	  for(i = 0; i < 240; i++) \
 	   gfxInWin[1][i] = ((i >= x00_window1 && i < x01_window1) & x00_lte_x01) | ((i >= x00_window1 || i < x01_window1) & ~x00_lte_x01); \
 	  ++threaded_gfxinwin_ver[1]; \
 	}
@@ -13012,6 +13014,7 @@ static bool cheatsCBATableGenerated = false;
 
 void CPUInit(const char *biosFileName, bool useBiosFile)
 {
+	int i = 0;
 	/* The CBA cheat CRC table is built from the ROM's first 64KB and cached
 	 * across calls. When a new ROM is loaded into the same process the cache
 	 * goes stale - reset the flag here so the next CBA cheat triggers a
@@ -13021,7 +13024,7 @@ void CPUInit(const char *biosFileName, bool useBiosFile)
 #ifdef MSB_FIRST
 	if(!cpuBiosSwapped)
    {
-		for(unsigned int i = 0; i < sizeof(myROM)/4; i++)
+		for(i = 0; i < (int)(sizeof(myROM)/4); i++)
       {
 			WRITE32LE(&myROM[i], myROM[i]);
 		}
@@ -13047,8 +13050,6 @@ void CPUInit(const char *biosFileName, bool useBiosFile)
 	if(!useBios)
 #endif
 		memcpy(bios, myROM, sizeof(myROM));
-
-	int i = 0;
 
 	biosProtected[0] = 0x00;
 	biosProtected[1] = 0xf0;

@@ -2,8 +2,15 @@
 #define GBA_H
 
 #include <stdint.h>
+#ifndef __cplusplus
+#include <boolean.h>
+#endif
 #include "GBACheats.h"
 #include "thread.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #define BITS_16 0
 #define BITS_32 1
@@ -140,6 +147,10 @@ typedef struct {
 
 extern hardware_t hardware;
 
+#endif
+
+#ifdef __cplusplus
+}
 #endif
 
 #endif /* GBA_H */

@@ -9,6 +9,10 @@
 #define EEPROM_READDATA2      3
 #define EEPROM_WRITEDATA      4
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 enum
 {
    IMAGE_UNKNOWN,
@@ -70,5 +74,9 @@ void utilWriteDataMem(uint8_t **data, variable_desc *);
 int utilReadIntMem(const uint8_t **data);
 void utilReadMem(void *buf, const uint8_t **data, unsigned size);
 void utilReadDataMem(const uint8_t **data, variable_desc *);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* GBA_MEMORY_H */

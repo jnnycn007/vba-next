@@ -1,6 +1,14 @@
 #ifndef GBA_CHEATS_H
 #define GBA_CHEATS_H
 
+#ifndef __cplusplus
+#include <boolean.h>
+#endif
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct CheatsData {
   int code;
   int size;
@@ -24,5 +32,9 @@ void cheatsDeleteAll(bool restore);
 void cheatsEnable(int number);
 void cheatsDisable(int number);
 int cheatsCheckKeys(uint32_t keys, uint32_t extended);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* CHEATS_H */

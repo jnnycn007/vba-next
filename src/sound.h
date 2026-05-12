@@ -103,6 +103,10 @@ struct blip_buffer_state_t
 
 void soundSetVolume(float unused);
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* Manages muting bitmask. The bits control the following channels: */
 /* 0x001 Pulse 1 */
 /* 0x002 Pulse 2 */
@@ -121,6 +125,10 @@ void soundTimerOverflow( int which );
 void process_sound_tick_fn (void);
 void soundSaveGameMem(uint8_t **data);
 void soundReadGameMem(const uint8_t **data, int version);
+
+#ifdef __cplusplus
+}
+#endif
 
 extern int SOUND_CLOCK_TICKS;   /* Number of 16.8 MHz clocks between calls to soundTick() */
 extern int soundTicks;          /* Number of 16.8 MHz clocks until soundTick() will be called */

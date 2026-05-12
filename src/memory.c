@@ -90,12 +90,13 @@ static variable_desc flashSaveData3[] = {
   { &flashReadState, sizeof(int) },
   { &flashSize, sizeof(int) },
   { &flashBank, sizeof(int) },
-  { &flashSaveMemory[0], 0x20000 },
+  { NULL, 0x20000 },  /* .address populated in flashInit (flashSaveMemory non-constant at file scope) */
   { NULL, 0 }
 };
 
 void flashInit (void)
 {
+	flashSaveData3[4].address = flashSaveMemory;
 	memset(flashSaveMemory, 0xff, 0x20000);
 }
 
@@ -325,13 +326,14 @@ static variable_desc eepromSaveData_v10[] = {
   { &eepromBits , sizeof(int) },
   { &eepromAddress , sizeof(int) },
   { &eepromInUse, sizeof(bool) },
-  { &eepromData[0], 512 },
+  { NULL, 512 },  /* .address populated in eepromInit (eepromData non-constant at file scope) */
   { &eepromBuffer[0], 16 },
   { NULL, 0 }
 };
 
 void eepromInit (void)
 {
+	eepromSaveData_v10[5].address = eepromData;
 	memset(eepromData, 255, 0x2000);
 }
 
