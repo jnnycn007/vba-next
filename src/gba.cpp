@@ -104,6 +104,12 @@ uint8_t *paletteRAM = 0;
  * palette_native into renderer_ctx for per-context isolation. */
 static uint16_t palette_native[0x200];
 
+/* Same idea for OAM. gfxDrawSprites reads 3 attribute u16s per sprite (a0/a1/a2)
+ * for all 128 sprites every scanline, plus 4 affine-matrix u16s per rotated
+ * sprite - ~60,000 byteswaps/frame on BE that the shadow eliminates. The sync
+ * cost is one wholesale 1KB swap per scanline (~32k swaps/frame). */
+static uint16_t oam_native[0x200];
+
 static INLINE void palette_native_sync(void)
 {
 	/* paletteRAM is stored byte-swapped on BE so READ16LE returns the natural
@@ -114,12 +120,22 @@ static INLINE void palette_native_sync(void)
 		palette_native[i] = READ16LE(&src[i]);
 }
 
-/* Renderer-side palette accessor: under MSB_FIRST point at the host-endian
- * shadow; under LE point at the raw paletteRAM (already host-endian). */
+static INLINE void oam_native_sync(void)
+{
+	const uint16_t *src = (const uint16_t *)oam;
+	for (int i = 0; i < 0x200; ++i)
+		oam_native[i] = READ16LE(&src[i]);
+}
+
+/* Renderer-side palette/OAM accessors: under MSB_FIRST point at the host-endian
+ * shadow; under LE point at the raw byte array (already host-endian). */
 #define PAL_U16 palette_native
+#define OAM_U16 oam_native
 #else
 #define PAL_U16 ((uint16_t *)paletteRAM)
+#define OAM_U16 ((uint16_t *)oam)
 static INLINE void palette_native_sync(void) { /* no-op on LE */ }
+static INLINE void oam_native_sync(void) { /* no-op on LE */ }
 #endif
 
 int renderfunc_mode = 0;
@@ -7551,15 +7567,15 @@ static void gfxDrawSprites (void)
 	lineOBJpix = (RENDERER_IO_REGISTERS[REG_DISPCNT] & 0x20) ? 954 : 1226;
 	m = 0;
 
-	u16 *sprites = (u16 *)RENDERER_OAM;
+	u16 *sprites = OAM_U16;
 	u16 *spritePalette = &PAL_U16[256];
 	int mosaicY = ((RENDERER_MOSAIC & 0xF000)>>12) + 1;
 	int mosaicX = ((RENDERER_MOSAIC & 0xF00)>>8) + 1;
 	for(u32 x = 0; x < 128; x++)
 	{
-		u16 a0 = READ16LE(sprites++);
-		u16 a1 = READ16LE(sprites++);
-		u16 a2 = READ16LE(sprites++);
+		u16 a0 = *sprites++;
+		u16 a1 = *sprites++;
+		u16 a2 = *sprites++;
 		++sprites;
 
 		RENDERER_LINE_OBJ_PIX_LEFT[x]=lineOBJpix;
@@ -7676,11 +7692,11 @@ static void gfxDrawSprites (void)
 				{
 					lineOBJpix-=8;
 					int rot = (((a1 >> 9) & 0x1F) << 4);
-					u16 *OAM = (u16 *)RENDERER_OAM;
-					int dx  = (int)(int16_t)READ16LE(&OAM[3 + rot]);
-					int dmx = (int)(int16_t)READ16LE(&OAM[7 + rot]);
-					int dy  = (int)(int16_t)READ16LE(&OAM[11 + rot]);
-					int dmy = (int)(int16_t)READ16LE(&OAM[15 + rot]);
+					u16 *OAM = OAM_U16;
+					int dx  = (int)(int16_t)OAM[3 + rot];
+					int dmx = (int)(int16_t)OAM[7 + rot];
+					int dy  = (int)(int16_t)OAM[11 + rot];
+					int dmy = (int)(int16_t)OAM[15 + rot];
 
 					if(a0 & 0x1000)
 						t -= (t % mosaicY);
@@ -7996,13 +8012,13 @@ static void gfxDrawOBJWin (void)
 {
 	INIT_RENDERER_CONTEXT(renderer_idx);
 
-	u16 *sprites = (u16 *)RENDERER_OAM;
+	u16 *sprites = OAM_U16;
 	for(int x = 0; x < 128 ; x++)
 	{
 		int lineOBJpix = RENDERER_LINE_OBJ_PIX_LEFT[x];
-		u16 a0 = READ16LE(sprites++);
-		u16 a1 = READ16LE(sprites++);
-		u16 a2 = READ16LE(sprites++);
+		u16 a0 = *sprites++;
+		u16 a1 = *sprites++;
+		u16 a2 = *sprites++;
 		sprites++;
 
 		if (lineOBJpix<=0)
@@ -8078,17 +8094,17 @@ static void gfxDrawOBJWin (void)
 					lineOBJpix-=8;
 					// int t2 = t - (fieldY >> 1);
 					int rot = (a1 >> 9) & 0x1F;
-					u16 *OAM = (u16 *)RENDERER_OAM;
-					int dx = READ16LE(&OAM[3 + (rot << 4)]);
+					u16 *OAM = OAM_U16;
+					int dx = OAM[3 + (rot << 4)];
 					if(dx & 0x8000)
 						dx |= 0xFFFF8000;
-					int dmx = READ16LE(&OAM[7 + (rot << 4)]);
+					int dmx = OAM[7 + (rot << 4)];
 					if(dmx & 0x8000)
 						dmx |= 0xFFFF8000;
-					int dy = READ16LE(&OAM[11 + (rot << 4)]);
+					int dy = OAM[11 + (rot << 4)];
 					if(dy & 0x8000)
 						dy |= 0xFFFF8000;
-					int dmy = READ16LE(&OAM[15 + (rot << 4)]);
+					int dmy = OAM[15 + (rot << 4)];
 					if(dmy & 0x8000)
 						dmy |= 0xFFFF8000;
 
@@ -11366,9 +11382,10 @@ static void postRender() {
 	gfxBG2Changed = 0;
 	if(video_mode == 2)	gfxBG3Changed = 0;
 
-	/* §5b: sync host-endian palette shadow once per scanline before the
-	 * renderer thread sees renderer_state=1. No-op on LE. */
+	/* §5b: sync host-endian palette + OAM shadows once per scanline before the
+	 * renderer thread sees renderer_state=1. No-ops on LE. */
 	palette_native_sync();
+	oam_native_sync();
 
 	//buffer is ready.
 	renderer_ctx.renderer_state = 1;
@@ -12995,10 +13012,11 @@ updateLoop:
 						bool draw_objwin = (graphics.layerEnable & 0x9000) == 0x9000;
 						bool draw_sprites = R_DISPCNT_Screen_Display_OBJ;
 
-						/* §5b: sync host-endian palette shadow once per scanline.
-						 * No-op on LE; ~0x200 byteswaps on BE that save 5x+ in
-						 * the per-pixel reader. */
+						/* §5b: sync host-endian palette + OAM shadows once per
+						 * scanline. No-ops on LE; ~0x400 byteswaps total on BE
+						 * that save ~5x more in the per-pixel/per-sprite readers. */
 						palette_native_sync();
+						oam_native_sync();
 
 						memset(RENDERER_LINE[Layer_OBJ], -1, 240 * sizeof(u32));	// erase all sprites
 						if(draw_sprites) gfxDrawSprites<0>();
