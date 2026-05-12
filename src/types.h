@@ -20,13 +20,9 @@
 
 #include <stdint.h>
 
-
-/* C89 has no <stdbool.h>.  Provide bool / true / false as an enum so existing
- * source compiles unchanged.  Guarded against C++ (which has the builtin) and
- * C99+ (which has <stdbool.h>).  In strict-conforming C89 the typedef name
- * `bool` is in the user namespace, so this is portable. */
-#if !defined(__cplusplus) && (!defined(__STDC_VERSION__) || __STDC_VERSION__ < 199901L)
-typedef enum { false = 0, true = 1 } bool;
-#endif
+/* bool/true/false: under C89 (no <stdbool.h>) and pre-VS2013 MSVC, the
+ * libretro shim defines them as `unsigned char` / 1 / 0; under C99+ it just
+ * pulls in <stdbool.h>; under C++ they're builtin (header self-disables). */
+#include <boolean.h>
 
 #endif /* __VBA_TYPES_H__ */

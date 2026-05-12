@@ -657,15 +657,20 @@ static void gb_apu_write_register( int32_t time, unsigned addr, int data )
 		else if ( addr == VOL_REG && data != old_data )
 		{
 			/* Master volume*/
-			for ( int i = OSC_COUNT; --i >= 0; )
+			{
+				int i;
+				for ( i = OSC_COUNT; --i >= 0; )
 				gb_apu_silence_osc( *gb_apu.oscs [i] );
+			}
 
 			gb_apu_apply_volume();
 		}
 		else if ( addr == STEREO_REG )
 		{
 			/* Stereo panning*/
-			for ( int i = OSC_COUNT; --i >= 0; )
+			{
+				int i;
+				for ( i = OSC_COUNT; --i >= 0; )
 			{
 				Gb_Osc& o = *gb_apu.oscs [i];
 				Blip_Buffer* out = o.outputs [gb_apu_calc_output( i )];
@@ -674,13 +679,17 @@ static void gb_apu_write_register( int32_t time, unsigned addr, int data )
 					gb_apu_silence_osc( o );
 					o.output = out;
 				}
+			}
 			} }
 		else if ( addr == STATUS_REG && (data ^ old_data) & POWER_MASK )
 		{
 			/* Power control*/
 			gb_apu.frame_phase = 0;
-			for ( int i = OSC_COUNT; --i >= 0; )
+			{
+				int i;
+				for ( i = OSC_COUNT; --i >= 0; )
 				gb_apu_silence_osc( *gb_apu.oscs [i] );
+			}
 
 			for ( int i = 0; i < 32; i++ )
 				gb_apu.regs [i] = 0;
@@ -738,12 +747,18 @@ static void gb_apu_reset( uint32_t mode, bool agb_wave )
 		{0x84,0x40,0x43,0xAA,0x2D,0x78,0x92,0x3C,0x60,0x59,0x59,0xB0,0x34,0xB8,0x2E,0xDA},
 		{0x00,0xFF,0x00,0xFF,0x00,0xFF,0x00,0xFF,0x00,0xFF,0x00,0xFF,0x00,0xFF,0x00,0xFF},
 	};
-	for ( int b = 2; --b >= 0; )
+	{
+		int b;
+		for ( b = 2; --b >= 0; )
 	{
 		/* Init both banks (does nothing if not in AGB mode)*/
 		gb_apu_write_register( 0, 0xFF1A, b * 0x40 );
-		for ( unsigned i = 0; i < sizeof initial_wave [0]; i++ )
+		{
+			unsigned int i;
+			for ( i = 0; i < sizeof initial_wave [0]; i++ )
 			gb_apu_write_register( 0, i + WAVE_RAM, initial_wave [1] [i] );
+		}
+	}
 	}
 }
 
@@ -1565,8 +1580,11 @@ void Blip_Buffer::load_state( blip_buffer_state_t const& in )
 static const char * stereo_buffer_set_sample_rate( long rate, int msec )
 {
         mixer_samples_read = 0;
-        for ( int i = BUFS_SIZE; --i >= 0; )
+        {
+        	int i;
+        	for ( i = BUFS_SIZE; --i >= 0; )
                 RETURN_ERR( bufs_buffer [i].set_sample_rate( rate, msec ) );
+        }
         return 0; 
 }
 
@@ -1760,7 +1778,9 @@ static void pcm_fifo_write_control( int data, int data2)
 
 static void soundEvent_u16_parallel(uint32_t address[])
 {
-	for(int i = 0; i < 8; i++)
+	{
+		int i;
+		for(i = 0; i < 8; i++)
 	{
 		switch ( address[i] )
 		{
@@ -1806,6 +1826,7 @@ static void soundEvent_u16_parallel(uint32_t address[])
 				}
 		}
 	}
+	}
 }
 
 static void gba_pcm_fifo_timer_overflowed( unsigned pcm_idx )
@@ -1847,7 +1868,9 @@ static void gba_pcm_fifo_timer_overflowed( unsigned pcm_idx )
 
 void soundEvent_u8_parallel(int gb_addr[], uint32_t address[], uint8_t data[])
 {
-	for(uint32_t i = 0; i < 2; i++)
+	{
+		uint32_t i;
+		for(i = 0; i < 2; i++)
 	{
 		ioMem[address[i]] = data[i];
 		gb_apu_write_register( SOUND_CLOCK_TICKS -  soundTicks, gb_addr[i], data[i] );
@@ -1858,6 +1881,7 @@ void soundEvent_u8_parallel(int gb_addr[], uint32_t address[], uint8_t data[])
 			gba_pcm_apply_control(1, 1 );
 		}
 		/* TODO: what about byte writes to SGCNT0_H etc.? */
+	}
 	}
 }
 

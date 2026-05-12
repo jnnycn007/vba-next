@@ -365,7 +365,9 @@ static void load_image_preferences (void)
 	bool found = false;
 	int found_no = 0;
 
-	for(int i = 0; i < 256; i++)
+	{
+		int i;
+		for(i = 0; i < 256; i++)
 	{
 		if(!strcmp(gbaover[i].romid, buffer))
 		{
@@ -373,6 +375,7 @@ static void load_image_preferences (void)
 			found_no = i;
          break;
 		}
+	}
 	}
 
 	if(found)
@@ -611,12 +614,15 @@ static void update_input(void)
       if (option_turboEnable) {
          /* Handle Turbo A & B buttons */
          bool button_pressed = false;
-         for (unsigned tbutton = 0; tbutton < TURBO_BUTTONS; tbutton++) {
+         {
+         	unsigned int tbutton;
+         	for (tbutton = 0; tbutton < TURBO_BUTTONS; tbutton++) {
             if (joy_bits & (1 << turbo_binds[tbutton])) {
                button_pressed = true;
                if (!turbo_delay_counter)
                   J |= 1 << tbutton;
             }
+         }
          }
          if (button_pressed) {
             turbo_delay_counter++;

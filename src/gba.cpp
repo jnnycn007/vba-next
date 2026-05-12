@@ -1726,9 +1726,12 @@ static void BIOS_CpuFastSet (void)
 		while(count > 0) {
 			/* BIOS always transfers 32 bytes at a time */
 			uint32_t value = (source>0x0EFFFFFF ? 0xBAFFFFFB : CPUReadMemory(source));
-			for(int i = 0; i < 8; i++) {
+			{
+				int i;
+				for(i = 0; i < 8; i++) {
 				CPUWriteMemory(dest, value);
 				dest += 4;
+			}
 			}
 			count -= 8;
 		}
@@ -1756,10 +1759,13 @@ static void BIOS_CpuFastSet (void)
 		/* copy */
 		while(count > 0) {
 			/* BIOS always transfers 32 bytes at a time */
-			for(int i = 0; i < 8; i++) {
+			{
+				int i;
+				for(i = 0; i < 8; i++) {
 				CPUWriteMemory(dest, (source>0x0EFFFFFF ? 0xBAFFFFFB :CPUReadMemory(source)));
 				source += 4;
 				dest += 4;
+			}
 			}
 			count -= 8;
 		}
@@ -2018,14 +2024,18 @@ static void BIOS_LZ77UnCompVram (void)
 		uint8_t d = CPUReadByte(source++);
 
 		if(d) {
-			for(int i = 0; i < 8; i++) {
+			{
+				int i;
+				for(i = 0; i < 8; i++) {
 				if(d & 0x80) {
 					uint16_t data = CPUReadByte(source++) << 8;
 					data |= CPUReadByte(source++);
 					int length = (data >> 12) + 3;
 					int offset = (data & 0x0FFF);
 					uint32_t windowOffset = dest + byteCount - offset - 1;
-					for(int i2 = 0; i2 < length; i2++) {
+					{
+						int i2;
+						for(i2 = 0; i2 < length; i2++) {
 						writeValue |= (CPUReadByte(windowOffset++) << byteShift);
 						byteShift += 8;
 						byteCount++;
@@ -2040,6 +2050,7 @@ static void BIOS_LZ77UnCompVram (void)
 						len--;
 						if(len == 0)
 							return;
+					}
 					}
 				} else {
 					writeValue |= (CPUReadByte(source++) << byteShift);
@@ -2058,8 +2069,11 @@ static void BIOS_LZ77UnCompVram (void)
 				}
 				d <<= 1;
 			}
+			}
 		} else {
-			for(int i = 0; i < 8; i++) {
+			{
+				int i;
+				for(i = 0; i < 8; i++) {
 				writeValue |= (CPUReadByte(source++) << byteShift);
 				byteShift += 8;
 				byteCount++;
@@ -2073,6 +2087,7 @@ static void BIOS_LZ77UnCompVram (void)
 				len--;
 				if(len == 0)
 					return;
+			}
 			}
 		}
 	}
@@ -2096,18 +2111,23 @@ static void BIOS_LZ77UnCompWram (void)
 		uint8_t d = CPUReadByte(source++);
 
 		if(d) {
-			for(int i = 0; i < 8; i++) {
+			{
+				int i;
+				for(i = 0; i < 8; i++) {
 				if(d & 0x80) {
 					uint16_t data = CPUReadByte(source++) << 8;
 					data |= CPUReadByte(source++);
 					int length = (data >> 12) + 3;
 					int offset = (data & 0x0FFF);
 					uint32_t windowOffset = dest - offset - 1;
-					for(int i2 = 0; i2 < length; i2++) {
+					{
+						int i2;
+						for(i2 = 0; i2 < length; i2++) {
 						CPUWriteByte(dest++, CPUReadByte(windowOffset++));
 						len--;
 						if(len == 0)
 							return;
+					}
 					}
 				} else {
 					CPUWriteByte(dest++, CPUReadByte(source++));
@@ -2117,12 +2137,16 @@ static void BIOS_LZ77UnCompWram (void)
 				}
 				d <<= 1;
 			}
+			}
 		} else {
-			for(int i = 0; i < 8; i++) {
+			{
+				int i;
+				for(i = 0; i < 8; i++) {
 				CPUWriteByte(dest++, CPUReadByte(source++));
 				len--;
 				if(len == 0)
 					return;
+			}
 			}
 		}
 	}
@@ -2135,7 +2159,9 @@ static void BIOS_ObjAffineSet (void)
 	int num = bus.reg[2].I;
 	int offset = bus.reg[3].I;
 
-	for(int i = 0; i < num; i++) {
+	{
+		int i;
+		for(i = 0; i < num; i++) {
 		int16_t rx = CPUReadHalfWord(src);
 		src+=2;
 		int16_t ry = CPUReadHalfWord(src);
@@ -2159,6 +2185,7 @@ static void BIOS_ObjAffineSet (void)
 		dest += offset;
 		CPUWriteHalfWord(dest, dmy);
 		dest += offset;
+	}
 	}
 }
 
@@ -2257,7 +2284,9 @@ static void BIOS_RLUnCompVram (void)
 		if(d & 0x80) {
 			uint8_t data = CPUReadByte(source++);
 			l += 3;
-			for(int i = 0;i < l; i++) {
+			{
+				int i;
+				for(i = 0;i < l; i++) {
 				writeValue |= (data << byteShift);
 				byteShift += 8;
 				byteCount++;
@@ -2273,9 +2302,12 @@ static void BIOS_RLUnCompVram (void)
 				if(len == 0)
 					return;
 			}
+			}
 		} else {
 			l++;
-			for(int i = 0; i < l; i++) {
+			{
+				int i;
+				for(i = 0; i < l; i++) {
 				writeValue |= (CPUReadByte(source++) << byteShift);
 				byteShift += 8;
 				byteCount++;
@@ -2289,6 +2321,7 @@ static void BIOS_RLUnCompVram (void)
 				len--;
 				if(len == 0)
 					return;
+			}
 			}
 		}
 	}
@@ -2314,19 +2347,25 @@ static void BIOS_RLUnCompWram (void)
 		if(d & 0x80) {
 			uint8_t data = CPUReadByte(source++);
 			l += 3;
-			for(int i = 0;i < l; i++) {
+			{
+				int i;
+				for(i = 0;i < l; i++) {
 				CPUWriteByte(dest++, data);
 				len--;
 				if(len == 0)
 					return;
 			}
+			}
 		} else {
 			l++;
-			for(int i = 0; i < l; i++) {
+			{
+				int i;
+				for(i = 0; i < l; i++) {
 				CPUWriteByte(dest++,  CPUReadByte(source++));
 				len--;
 				if(len == 0)
 					return;
+			}
 			}
 		}
 	}
@@ -7260,7 +7299,9 @@ uint16_t pa,  uint16_t pb, uint16_t pc,  uint16_t pd, int *p_currentX, int *p_cu
 			unsigned tileY = yyy & 7;
 			unsigned tileYshift = (tileY<<3);
 
-			for(uint32_t x = 0; x < 240u; ++x)
+			{
+				uint32_t x;
+				for(x = 0; x < 240u; ++x)
 			{
 				unsigned xxx = (realX >> 8) & maskX;
 
@@ -7274,9 +7315,12 @@ uint16_t pa,  uint16_t pb, uint16_t pc,  uint16_t pd, int *p_currentX, int *p_cu
 
 				realX += dx;
 			}
+			}
 		}
 		else
-			for(uint32_t x = 0; x < 240u; ++x)
+			{
+				uint32_t x;
+				for(x = 0; x < 240u; ++x)
 			{
 				unsigned xxx = (realX >> 8) & maskX;
 				unsigned yyy = (realY >> 8) & maskY;
@@ -7292,6 +7336,7 @@ uint16_t pa,  uint16_t pb, uint16_t pc,  uint16_t pd, int *p_currentX, int *p_cu
 
 				realX += dx;
 				realY += dy;
+			}
 			}
 	}
 	else /* Culling */
@@ -7310,7 +7355,9 @@ uint16_t pa,  uint16_t pb, uint16_t pc,  uint16_t pd, int *p_currentX, int *p_cu
 
 			realX += dx * x0;
 
-			for(int32_t x = x0; x < x1; ++x)
+			{
+				int32_t x;
+				for(x = x0; x < x1; ++x)
 			{
 				unsigned xxx = (realX >> 8);
 
@@ -7324,9 +7371,12 @@ uint16_t pa,  uint16_t pb, uint16_t pc,  uint16_t pd, int *p_currentX, int *p_cu
 
 				realX += dx;
 			}
+			}
 		}
 		else
-			for(uint32_t x = 0; x < 240u; ++x)
+			{
+				uint32_t x;
+				for(x = 0; x < 240u; ++x)
 			{
 				unsigned xxx = (realX >> 8);
 				unsigned yyy = (realY >> 8);
@@ -7345,6 +7395,7 @@ uint16_t pa,  uint16_t pb, uint16_t pc,  uint16_t pd, int *p_currentX, int *p_cu
 
 				realX += dx;
 				realY += dy;
+			}
 			}
 	}
 	skipLine:
@@ -7420,7 +7471,9 @@ static INLINE void gfxDrawRotScreen16Bit( int *p_currentX,  int *p_currentY, int
 	unsigned yyy = (realY >> 8);
 
 	memset(RENDERER_LINE[Layer_BG2], -1, 240 * sizeof(uint32_t));
-	for(uint32_t x = 0; x < 240u; ++x)
+	{
+		uint32_t x;
+		for(x = 0; x < 240u; ++x)
 	{
 		if(xxx < sizeX && yyy < sizeY)
 			RENDERER_LINE[Layer_BG2][x] = (READ16LE(&screenBase[yyy * sizeX + xxx]) | prio);
@@ -7430,6 +7483,7 @@ static INLINE void gfxDrawRotScreen16Bit( int *p_currentX,  int *p_currentY, int
 
 		xxx = (realX >> 8);
 		yyy = (realY >> 8);
+	}
 	}
 
 	if(RENDERER_IO_REGISTERS[REG_BG2CNT] & 0x40) {
@@ -7501,7 +7555,9 @@ static INLINE void gfxDrawRotScreen256(int *p_currentX, int *p_currentY, int cha
 	int yyy = (realY >> 8);
 
 	memset(RENDERER_LINE[Layer_BG2], -1, 240 * sizeof(uint32_t));
-	for(uint32_t x = 0; x < 240; ++x)
+	{
+		uint32_t x;
+		for(x = 0; x < 240; ++x)
 	{
 		if(unsigned(xxx) < sizeX && unsigned(yyy) < sizeY) {
 			uint8_t color = screenBase[yyy * 240 + xxx];
@@ -7512,6 +7568,7 @@ static INLINE void gfxDrawRotScreen256(int *p_currentX, int *p_currentY, int cha
 
 		xxx = (realX >> 8);
 		yyy = (realY >> 8);
+	}
 	}
 
 	if(RENDERER_IO_REGISTERS[REG_BG2CNT] & 0x40)
@@ -7585,7 +7642,9 @@ static INLINE void gfxDrawRotScreen16Bit160(int *p_currentX, int *p_currentY, in
 	int yyy = (realY >> 8);
 
 	memset(RENDERER_LINE[Layer_BG2], -1, 240 * sizeof(uint32_t));
-	for(uint32_t x = 0; x < 240u; ++x)
+	{
+		uint32_t x;
+		for(x = 0; x < 240u; ++x)
 	{
 		if(unsigned(xxx) < sizeX && unsigned(yyy) < sizeY)
 			RENDERER_LINE[Layer_BG2][x] = (READ16LE(&screenBase[yyy * sizeX + xxx]) | prio);
@@ -7595,6 +7654,7 @@ static INLINE void gfxDrawRotScreen16Bit160(int *p_currentX, int *p_currentY, in
 
 		xxx = (realX >> 8);
 		yyy = (realY >> 8);
+	}
 	}
 
 
@@ -7625,7 +7685,9 @@ static void gfxDrawSprites (void)
 	uint16_t *spritePalette = &PAL_U16[256];
 	int mosaicY = ((RENDERER_MOSAIC & 0xF000)>>12) + 1;
 	int mosaicX = ((RENDERER_MOSAIC & 0xF00)>>8) + 1;
-	for(uint32_t x = 0; x < 128; x++)
+	{
+		uint32_t x;
+		for(x = 0; x < 128; x++)
 	{
 		uint16_t a0 = *sprites++;
 		uint16_t a1 = *sprites++;
@@ -7771,7 +7833,9 @@ static void gfxDrawSprites (void)
 							inc = sizeX >> 2;
 						else
 							c &= 0x3FE;
-						for(uint32_t x = 0; x < fieldX; x++)
+						{
+							uint32_t x;
+							for(x = 0; x < fieldX; x++)
 						{
 							if (x >= startpix)
 								lineOBJpix-=2;
@@ -7803,6 +7867,7 @@ static void gfxDrawSprites (void)
 							realX += dx;
 							realY += dy;
 						}
+						}
 					}
 					else
 					{
@@ -7810,7 +7875,9 @@ static void gfxDrawSprites (void)
 						if(RENDERER_IO_REGISTERS[REG_DISPCNT] & 0x40)
 							inc = sizeX >> 3;
 						int palette = (a2 >> 8) & 0xF0;
-						for(uint32_t x = 0; x < fieldX; ++x)
+						{
+							uint32_t x;
+							for(x = 0; x < fieldX; ++x)
 						{
 							if (x >= startpix)
 								lineOBJpix-=2;
@@ -7851,6 +7918,7 @@ static void gfxDrawSprites (void)
 							realX += dx;
 							realY += dy;
 
+						}
 						}
 					}
 				}
@@ -7900,7 +7968,9 @@ static void gfxDrawSprites (void)
 							xxx = 7;
 						uint32_t prio = (((a2 >> 10) & 3) << 25) | ((a0 & 0x0c00)<<6);
 
-						for(uint32_t xx = 0; xx < sizeX; xx++)
+						{
+							uint32_t xx;
+							for(xx = 0; xx < sizeX; xx++)
 						{
 							if (xx >= startpix)
 								--lineOBJpix;
@@ -7948,6 +8018,7 @@ static void gfxDrawSprites (void)
 								if(address > 0x17fff)
 									address -= 0x8000;
 							}
+						}
 						}
 					}
 					else
@@ -8010,7 +8081,9 @@ static void gfxDrawSprites (void)
 						}
 						else
 						{
-							for(uint32_t xx = 0; xx < sizeX; ++xx)
+							{
+								uint32_t xx;
+								for(xx = 0; xx < sizeX; ++xx)
 							{
 								if (xx >= startpix)
 									--lineOBJpix;
@@ -8053,11 +8126,13 @@ static void gfxDrawSprites (void)
 								if(address > 0x17fff)
 									address -= 0x8000;
 							}
+							}
 						}
 					}
 				}
 			}
 		}
+	}
 	}
 }
 
@@ -8067,7 +8142,9 @@ static void gfxDrawOBJWin (void)
 	INIT_RENDERER_CONTEXT(renderer_idx);
 
 	uint16_t *sprites = OAM_U16;
-	for(int x = 0; x < 128 ; x++)
+	{
+		int x;
+		for(x = 0; x < 128 ; x++)
 	{
 		int lineOBJpix = RENDERER_LINE_OBJ_PIX_LEFT[x];
 		uint16_t a0 = *sprites++;
@@ -8177,7 +8254,9 @@ static void gfxDrawOBJWin (void)
 					if(RENDERER_IO_REGISTERS[REG_DISPCNT] & 0x40)
 						inc = sizeX >> 3;
 
-					for(int x = 0; x < fieldX; x++)
+					{
+						int x;
+						for(x = 0; x < fieldX; x++)
 					{
 						bool cont = true;
 						if (x >= startpix)
@@ -8214,6 +8293,7 @@ static void gfxDrawOBJWin (void)
 						sx = (sx+1)&511;
 						realX += dx;
 						realY += dy;
+					}
 					}
 				}
 			}
@@ -8254,7 +8334,9 @@ static void gfxDrawOBJWin (void)
 									+ ((t & 7) << 3) + ((xxx>>3)<<6) + (xxx & 7))&0x7fff);
 						if(a1 & 0x1000)
 							xxx = 7;
-						for(int xx = 0; xx < sizeX; xx++)
+						{
+							int xx;
+							for(xx = 0; xx < sizeX; xx++)
 						{
 							if (xx >= startpix)
 								lineOBJpix--;
@@ -8288,6 +8370,7 @@ static void gfxDrawOBJWin (void)
 									address -= 0x8000;
 							}
 						}
+						}
 					}
 					else
 					{
@@ -8304,7 +8387,9 @@ static void gfxDrawOBJWin (void)
 						if(a1 & 0x1000)
 						{
 							xxx = 7;
-							for(int xx = sizeX - 1; xx >= 0; xx--)
+							{
+								int xx;
+								for(xx = sizeX - 1; xx >= 0; xx--)
 							{
 								if (xx >= startpix)
 									lineOBJpix--;
@@ -8332,10 +8417,13 @@ static void gfxDrawOBJWin (void)
 								if(address < 0x10000)
 									address += 0x8000;
 							}
+							}
 						}
 						else
 						{
-							for(int xx = 0; xx < sizeX; xx++)
+							{
+								int xx;
+								for(xx = 0; xx < sizeX; xx++)
 							{
 								if (xx >= startpix)
 									lineOBJpix--;
@@ -8363,11 +8451,13 @@ static void gfxDrawOBJWin (void)
 								if(address > 0x17fff)
 									address -= 0x8000;
 							}
+							}
 						}
 					}
 				}
 			}
 		}
+	}
 	}
 }
 
@@ -9233,7 +9323,9 @@ static void mode0RenderLine (void)
 		gfxDrawTextScreen<Layer_BG3, renderer_idx>(RENDERER_IO_REGISTERS[REG_BG3CNT], RENDERER_IO_REGISTERS[REG_BG3HOFS], RENDERER_IO_REGISTERS[REG_BG3VOFS]);
 	}
 
-	for(int x = 0; x < 240; x++)
+	{
+		int x;
+		for(x = 0; x < 240; x++)
 	{
 		uint32_t color = backdrop;
 		uint8_t top    = SpecialEffectTarget_BD;
@@ -9311,6 +9403,7 @@ static void mode0RenderLine (void)
 
 
 		lineMix[x] = CONVERT_COLOR(color);
+	}
 	}
 }
 
@@ -9519,7 +9612,9 @@ static void mode0RenderLineAll (void)
 	uint8_t inWin1Mask = RENDERER_R_WIN_Window1_Mask;
 	uint8_t outMask = RENDERER_R_WIN_Outside_Mask;
 
-	for(int x = 0; x < 240; x++) {
+	{
+		int x;
+		for(x = 0; x < 240; x++) {
 		uint32_t color = backdrop;
 		uint8_t top = SpecialEffectTarget_BD;
 		uint8_t mask = outMask;
@@ -9641,6 +9736,7 @@ static void mode0RenderLineAll (void)
 
 		lineMix[x] = CONVERT_COLOR(color);
 	}
+	}
 }
 
 /*
@@ -9679,7 +9775,9 @@ static void mode1RenderLine (void)
 				&RENDERER_BG2X, &RENDERER_BG2Y, RENDERER_BG2C);
 	}
 
-	for(uint32_t x = 0; x < 240u; ++x) {
+	{
+		uint32_t x;
+		for(x = 0; x < 240u; ++x) {
 		uint32_t color = backdrop;
 		uint8_t top = SpecialEffectTarget_BD;
 
@@ -9744,6 +9842,7 @@ static void mode1RenderLine (void)
 
 		lineMix[x] = CONVERT_COLOR(color);
 	}
+	}
 
 #if !THREADED_RENDERER
 	RENDERER_BG2C = 0;
@@ -9776,7 +9875,9 @@ static void mode1RenderLineNoWindow (void)
 				&RENDERER_BG2X, &RENDERER_BG2Y, RENDERER_BG2C);
 	}
 
-	for(int x = 0; x < 240; ++x) {
+	{
+		int x;
+		for(x = 0; x < 240; ++x) {
 		uint32_t color = backdrop;
 		uint8_t top = SpecialEffectTarget_BD;
 
@@ -9893,6 +9994,7 @@ static void mode1RenderLineNoWindow (void)
 
 		lineMix[x] = CONVERT_COLOR(color);
 	}
+	}
 
 #if !THREADED_RENDERER
 	RENDERER_BG2C = 0;
@@ -9945,7 +10047,9 @@ static void mode1RenderLineAll (void)
 	uint8_t inWin1Mask = RENDERER_R_WIN_Window1_Mask;
 	uint8_t outMask = RENDERER_R_WIN_Outside_Mask;
 
-	for(int x = 0; x < 240; ++x) {
+	{
+		int x;
+		for(x = 0; x < 240; ++x) {
 		uint32_t color = backdrop;
 		uint8_t top = SpecialEffectTarget_BD;
 		uint8_t mask = outMask;
@@ -10050,6 +10154,7 @@ static void mode1RenderLineAll (void)
 
 		lineMix[x] = CONVERT_COLOR(color);
 	}
+	}
 
 #if !THREADED_RENDERER
 	RENDERER_BG2C = 0;
@@ -10089,7 +10194,9 @@ static void mode2RenderLine (void)
 				&RENDERER_BG3X, &RENDERER_BG3Y, RENDERER_BG3C);
 	}
 
-	for(int x = 0; x < 240; ++x) {
+	{
+		int x;
+		for(x = 0; x < 240; ++x) {
 		uint32_t color = backdrop;
 		uint8_t top = SpecialEffectTarget_BD;
 
@@ -10141,6 +10248,7 @@ static void mode2RenderLine (void)
 
 		lineMix[x] = CONVERT_COLOR(color);
 	}
+	}
 
 #if !THREADED_RENDERER
 	RENDERER_BG2C = 0;
@@ -10172,7 +10280,9 @@ static void mode2RenderLineNoWindow (void)
 				&RENDERER_BG3X, &RENDERER_BG3Y, RENDERER_BG3C);
 	}
 
-	for(int x = 0; x < 240; ++x) {
+	{
+		int x;
+		for(x = 0; x < 240; ++x) {
 		uint32_t color = backdrop;
 		uint8_t top = SpecialEffectTarget_BD;
 
@@ -10264,6 +10374,7 @@ static void mode2RenderLineNoWindow (void)
 
 		lineMix[x] = CONVERT_COLOR(color);
 	}
+	}
 
 #if !THREADED_RENDERER
 	RENDERER_BG2C = 0;
@@ -10315,7 +10426,9 @@ static void mode2RenderLineAll (void)
 	uint8_t inWin1Mask = RENDERER_R_WIN_Window1_Mask;
 	uint8_t outMask = RENDERER_R_WIN_Outside_Mask;
 
-	for(int x = 0; x < 240; x++) {
+	{
+		int x;
+		for(x = 0; x < 240; x++) {
 		uint32_t color = backdrop;
 		uint8_t top = SpecialEffectTarget_BD;
 		uint8_t mask = outMask;
@@ -10404,6 +10517,7 @@ static void mode2RenderLineAll (void)
 
 		lineMix[x] = CONVERT_COLOR(color);
 	}
+	}
 
 #if !THREADED_RENDERER
 	RENDERER_BG2C = 0;
@@ -10434,7 +10548,9 @@ static void mode3RenderLine (void)
 		gfxDrawRotScreen16Bit<renderer_idx>(&RENDERER_BG2X, &RENDERER_BG2Y, RENDERER_BG2C);
 	}
 
-	for(int x = 0; x < 240; ++x) {
+	{
+		int x;
+		for(x = 0; x < 240; ++x) {
 		uint32_t color = background;
 		uint8_t top = SpecialEffectTarget_BD;
 
@@ -10464,6 +10580,7 @@ static void mode3RenderLine (void)
 
 		lineMix[x] = CONVERT_COLOR(color);
 	}
+	}
 
 #if !THREADED_RENDERER
 	RENDERER_BG2C = 0;
@@ -10485,7 +10602,9 @@ INIT_RENDERER_CONTEXT(renderer_idx);
 		gfxDrawRotScreen16Bit<renderer_idx>(&RENDERER_BG2X, &RENDERER_BG2Y, RENDERER_BG2C);
 	}
 
-	for(int x = 0; x < 240; ++x) {
+	{
+		int x;
+		for(x = 0; x < 240; ++x) {
 		uint32_t color = background;
 		uint8_t top = SpecialEffectTarget_BD;
 
@@ -10551,6 +10670,7 @@ INIT_RENDERER_CONTEXT(renderer_idx);
 
 		lineMix[x] = CONVERT_COLOR(color);
 	}
+	}
 
 #if !THREADED_RENDERER
 	RENDERER_BG2C = 0;
@@ -10593,7 +10713,9 @@ static void mode3RenderLineAll (void)
 	uint8_t inWin1Mask = RENDERER_R_WIN_Window1_Mask;
 	uint8_t outMask = RENDERER_R_WIN_Outside_Mask;
 
-	for(int x = 0; x < 240; ++x) {
+	{
+		int x;
+		for(x = 0; x < 240; ++x) {
 		uint32_t color = background;
 		uint8_t top = SpecialEffectTarget_BD;
 		uint8_t mask = outMask;
@@ -10666,6 +10788,7 @@ static void mode3RenderLineAll (void)
 
 		lineMix[x] = CONVERT_COLOR(color);
 	}
+	}
 
 #if !THREADED_RENDERER
 	RENDERER_BG2C = 0;
@@ -10695,7 +10818,9 @@ static void mode4RenderLine (void)
 		gfxDrawRotScreen256<renderer_idx>(&RENDERER_BG2X, &RENDERER_BG2Y, RENDERER_BG2C);
 	}
 
-	for(int x = 0; x < 240; ++x)
+	{
+		int x;
+		for(x = 0; x < 240; ++x)
 	{
 		uint32_t color = backdrop;
 		uint8_t top = SpecialEffectTarget_BD;
@@ -10725,6 +10850,7 @@ static void mode4RenderLine (void)
 
 		lineMix[x] = CONVERT_COLOR(color);
 	}
+	}
 
 #if !THREADED_RENDERER
 	RENDERER_BG2C = 0;
@@ -10746,7 +10872,9 @@ static void mode4RenderLineNoWindow (void)
 		gfxDrawRotScreen256<renderer_idx>(&RENDERER_BG2X, &RENDERER_BG2Y, RENDERER_BG2C);
 	}
 
-	for(int x = 0; x < 240; ++x)
+	{
+		int x;
+		for(x = 0; x < 240; ++x)
 	{
 		uint32_t color = backdrop;
 		uint8_t top = SpecialEffectTarget_BD;
@@ -10812,6 +10940,7 @@ static void mode4RenderLineNoWindow (void)
 
 		lineMix[x] = CONVERT_COLOR(color);
 	}
+	}
 
 #if !THREADED_RENDERER
 	RENDERER_BG2C = 0;
@@ -10854,7 +10983,9 @@ static void mode4RenderLineAll (void)
 	uint8_t inWin1Mask = RENDERER_R_WIN_Window1_Mask;
 	uint8_t outMask = RENDERER_R_WIN_Outside_Mask;
 
-	for(int x = 0; x < 240; ++x) {
+	{
+		int x;
+		for(x = 0; x < 240; ++x) {
 		uint32_t color = backdrop;
 		uint8_t top = SpecialEffectTarget_BD;
 		uint8_t mask = outMask;
@@ -10928,6 +11059,7 @@ static void mode4RenderLineAll (void)
 
 		lineMix[x] = CONVERT_COLOR(color);
 	}
+	}
 
 #if !THREADED_RENDERER
 	RENDERER_BG2C = 0;
@@ -10958,7 +11090,9 @@ static void mode5RenderLine (void)
 		gfxDrawRotScreen16Bit160<renderer_idx>(&RENDERER_BG2X, &RENDERER_BG2Y, RENDERER_BG2C);
 	}
 
-	for(int x = 0; x < 240; ++x) {
+	{
+		int x;
+		for(x = 0; x < 240; ++x) {
 		uint32_t color = background;
 		uint8_t top = SpecialEffectTarget_BD;
 
@@ -10987,6 +11121,7 @@ static void mode5RenderLine (void)
 
 		lineMix[x] = CONVERT_COLOR(color);
 	}
+	}
 
 #if !THREADED_RENDERER
 	RENDERER_BG2C = 0;
@@ -11008,7 +11143,9 @@ static void mode5RenderLineNoWindow (void)
 		gfxDrawRotScreen16Bit160<renderer_idx>(&RENDERER_BG2X, &RENDERER_BG2Y, RENDERER_BG2C);
 	}
 
-	for(int x = 0; x < 240; ++x) {
+	{
+		int x;
+		for(x = 0; x < 240; ++x) {
 		uint32_t color = background;
 		uint8_t top = SpecialEffectTarget_BD;
 
@@ -11074,6 +11211,7 @@ static void mode5RenderLineNoWindow (void)
 
 		lineMix[x] = CONVERT_COLOR(color);
 	}
+	}
 
 #if !THREADED_RENDERER
 	RENDERER_BG2C = 0;
@@ -11116,7 +11254,9 @@ static void mode5RenderLineAll (void)
 	uint8_t inWin1Mask = RENDERER_R_WIN_Window1_Mask;
 	uint8_t outMask = RENDERER_R_WIN_Outside_Mask;
 
-	for(int x = 0; x < 240; ++x) {
+	{
+		int x;
+		for(x = 0; x < 240; ++x) {
 		uint32_t color = background;
 		uint8_t top = SpecialEffectTarget_BD;
 		uint8_t mask = outMask;
@@ -11188,6 +11328,7 @@ static void mode5RenderLineAll (void)
 		}
 
 		lineMix[x] = CONVERT_COLOR(color);
+	}
 	}
 
 #if !THREADED_RENDERER
