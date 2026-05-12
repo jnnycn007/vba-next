@@ -125,11 +125,11 @@ void flashSetSize(int size)
 	}
    else
    {
-		flashDeviceID = 0x13; //0x09;
-		flashManufacturerID = 0x62; //0xc2;
+		flashDeviceID = 0x13; /*0x09; */
+		flashManufacturerID = 0x62; /*0xc2; */
 	}
-	// Added to make 64k saves compatible with 128k ones
-	// (allow wrongfuly set 64k saves to work for Pokemon games)
+	/* Added to make 64k saves compatible with 128k ones */
+	/* (allow wrongfuly set 64k saves to work for Pokemon games) */
 	if ((size == 0x20000) && (flashSize == 0x10000))
 		memcpy((uint8_t *)(flashSaveMemory+0x10000), (uint8_t *)(flashSaveMemory), 0x10000);
 	flashSize = size;
@@ -147,10 +147,10 @@ uint8_t flashRead(uint32_t address)
          switch(address & 0xFF)
          {
             case 0:
-               // manufacturer ID
+               /* manufacturer ID */
                return flashManufacturerID;
             case 1:
-               // device ID
+               /* device ID */
                return flashDeviceID;
          }
          break;
@@ -249,13 +249,13 @@ void flashWrite(uint32_t address, uint8_t byte)
          break;
       case FLASH_CMD_5:
          if(byte == 0x30) {
-            // SECTOR ERASE
+            /* SECTOR ERASE */
             memset(&flashSaveMemory[(flashBank << 16) + (address & 0xF000)],
                   0xff,
                   0x1000);
             flashReadState = FLASH_ERASE_COMPLETE;
          } else if(byte == 0x10) {
-            // CHIP ERASE
+            /* CHIP ERASE */
             memset(flashSaveMemory, 0xff, flashSize);
             flashReadState = FLASH_ERASE_COMPLETE;
          } else {
@@ -296,7 +296,7 @@ int eepromByte = 0;
 int eepromBits = 0;
 int eepromAddress = 0;
 
-// Workaround for broken-by-design GBA save semantics.
+/* Workaround for broken-by-design GBA save semantics. */
 extern u8 libretro_save_buf[0x20000 + 0x2000];
 u8 *eepromData = libretro_save_buf + 0x20000;
 
@@ -461,7 +461,7 @@ void eepromWrite(u8 value)
          break;
       case EEPROM_READDATA:
       case EEPROM_READDATA2:
-         // should we reset here?
+         /* should we reset here? */
          eepromMode = EEPROM_IDLE;
          break;
       case EEPROM_WRITEDATA:
@@ -474,7 +474,7 @@ void eepromWrite(u8 value)
          {
             int i;
             eepromInUse = true;
-            // write data;
+            /* write data; */
             for(i = 0; i < 8; i++)
                eepromData[(eepromAddress << 3) + i] = eepromBuffer[i];
          }
@@ -520,21 +520,21 @@ static void gyroWritePins(unsigned pins)
 {
    if (!hardware.readWrite) return;
 
-   uint16_t& t = gyro_data[0];
-   t &= hardware.direction;
-   hardware.pinState = t | (pins & ~hardware.direction & 0xF);
-   t = hardware.pinState;
+   /* C89 has no references; operate on the slot directly. */
+   gyro_data[0] &= hardware.direction;
+   hardware.pinState = gyro_data[0] | (pins & ~hardware.direction & 0xF);
+   gyro_data[0] = hardware.pinState;
 }
 
 static void gyroReadPins(void)
 {
-   // Normalize to ~12 bits, focused on 0x6C0
+   /* Normalize to ~12 bits, focused on 0x6C0 */
 	if (hardware.pinState & 1)
-		hardware.gyroSample = (systemGetGyroZ() >> 21) + 0x6C0; // Crop off an extra bit so that we can't go negative
+		hardware.gyroSample = (systemGetGyroZ() >> 21) + 0x6C0; /* Crop off an extra bit so that we can't go negative */
 
 	if (hardware.gyroEdge && !(hardware.pinState & 2))
    {
-		// Write bit on falling edge
+		/* Write bit on falling edge */
 		unsigned bit = hardware.gyroSample >> 15;
 		hardware.gyroSample <<= 1;
 		gyroWritePins(bit << 2);
@@ -563,9 +563,8 @@ bool gyroWrite(u32 address, u16 value)
    }
    if (hardware.readWrite)
    {
-      uint16_t& t = gyro_data[0];
-      t &= ~hardware.direction;
-      t |= hardware.pinState;
+      gyro_data[0] &= ~hardware.direction;
+      gyro_data[0] |= hardware.pinState;
    }
    else
       gyro_data[0] = 0;
@@ -597,7 +596,7 @@ typedef struct
 	int bits;
 	int state;
 	u8 data[12];
-	// reserved variables for future
+	/* reserved variables for future */
 	u8 reserved[12];
 	bool reserved2;
 	u32 reserved3;
@@ -648,9 +647,9 @@ bool rtcWrite(u32 address, u16 value)
       return false;
 
    if(address == 0x80000c8)
-      rtcClockData.byte2 = (u8)value; // enable ?
+      rtcClockData.byte2 = (u8)value; /* enable ? */
    else if(address == 0x80000c6)
-      rtcClockData.byte1 = (u8)value; // read/write
+      rtcClockData.byte1 = (u8)value; /* read/write */
    else if(address == 0x80000c4)
    {
       if(rtcClockData.byte2 & 1)
@@ -663,7 +662,7 @@ bool rtcWrite(u32 address, u16 value)
          }
          else if(!(rtcClockData.byte0 & 1) && (value & 1))
          {
-            // bit transfer
+            /* bit transfer */
             rtcClockData.byte0 = (u8)value;
             switch(rtcClockData.state)
             {
@@ -676,13 +675,13 @@ bool rtcWrite(u32 address, u16 value)
                      switch(rtcClockData.command)
                      {
                         case 0x60:
-                           // not sure what this command does but it doesn't take parameters
-                           // maybe it is a reset or stop
+                           /* not sure what this command does but it doesn't take parameters */
+                           /* maybe it is a reset or stop */
                            rtcClockData.state = IDLE;
                            rtcClockData.bits = 0;
                            break;
                         case 0x62:
-                           // this sets the control state but not sure what those values are
+                           /* this sets the control state but not sure what those values are */
                            rtcClockData.state = READDATA;
                            rtcClockData.dataLen = 1;
                            break;

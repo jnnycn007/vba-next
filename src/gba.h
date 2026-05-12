@@ -142,4 +142,4 @@ extern hardware_t hardware;
 
 #endif
 
-#endif // GBA_H
+#endif /* GBA_H */

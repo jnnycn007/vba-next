@@ -4,16 +4,16 @@ a Game Boy Advance emulator. */
 
 #ifndef STATIC_CAST
 	#if __GNUC__ >= 4
-		#define STATIC_CAST(T,expr) static_cast<T> (expr)
-		#define CONST_CAST( T,expr) const_cast<T> (expr)
+		#define STATIC_CAST(T,expr) (T)(expr)
+		#define CONST_CAST( T,expr) (T)(expr)
 	#else
 		#define STATIC_CAST(T,expr) ((T) (expr))
 		#define CONST_CAST( T,expr) ((T) (expr))
 	#endif
 #endif
 
-// BLARGG_COMPILER_HAS_BOOL: If 0, provides bool support for old compiler. If 1,
-// compiler is assumed to support bool. If undefined, availability is determined.
+/* BLARGG_COMPILER_HAS_BOOL: If 0, provides bool support for old compiler. If 1, */
+/* compiler is assumed to support bool. If undefined, availability is determined. */
 #ifndef BLARGG_COMPILER_HAS_BOOL
 	#if defined (__MWERKS__)
 		#if !__option(bool)
@@ -24,7 +24,7 @@ a Game Boy Advance emulator. */
 			#define BLARGG_COMPILER_HAS_BOOL 0
 		#endif
 	#elif defined (__GNUC__)
-		// supports bool
+		/* supports bool */
 	#elif __cplusplus < 199711
 		#define BLARGG_COMPILER_HAS_BOOL 0
 	#endif
@@ -43,8 +43,8 @@ a Game Boy Advance emulator. */
 	#include <inttypes.h>
 #endif
 
-// If expr yields non-NULL error string, returns it from current function,
-// otherwise continues normally.
+/* If expr yields non-NULL error string, returns it from current function, */
+/* otherwise continues normally. */
 #undef  RETURN_ERR
 #define RETURN_ERR( expr ) do {                         \
 		const char * blargg_return_err_ = (expr);               \

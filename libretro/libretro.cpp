@@ -241,7 +241,7 @@ typedef struct
 } ini_t;
 
 static const ini_t gbaover[256] = {
-			//romtitle,							    	romid	flash	save	rtc	mirror	bios
+			/*romtitle,							    	romid	flash	save	rtc	mirror	bios */
 			{"2 Games in 1 - Dragon Ball Z - The Legacy of Goku I & II (USA)",	"BLFE",	0,	1,	0,	0,	0},
 			{"2 Games in 1 - Dragon Ball Z - Buu's Fury + Dragon Ball GT - Transformation (USA)", "BUFE", 0, 1, 0, 0, 0},
 			{"Boktai - The Sun Is in Your Hand (Europe)(En,Fr,De,Es,It)",		"U3IP",	0,	0,	1,	0,	0},
@@ -588,7 +588,7 @@ static void update_variables(void)
 
 static void update_input(void)
 {
-   // Reset input states
+   /* Reset input states */
    u32 J = 0;
    int32_t joy_bits = 0;
    unsigned i;
@@ -628,7 +628,7 @@ static void update_input(void)
             /* If the button is not pressed, just reset the toggle */
             turbo_delay_counter = 0;
       }
-      // Do not allow opposing directions
+      /* Do not allow opposing directions */
       if ((J & 0x30) == 0x30)
          J &= ~(0x30);
       else if ((J & 0xC0) == 0xC0)
@@ -693,7 +693,7 @@ void retro_cheat_set(unsigned index, bool enabled, const char *code)
 
    snprintf(name, sizeof(name), "cheat_%u", index);
 
-   //Break the code into Parts
+   /*Break the code into Parts */
    for (cursor=0;;cursor++)
    {
       if (ISHEXDEC)
@@ -739,7 +739,7 @@ static u32 rom_size = 0;
 static void set_memory_maps(void)
 {
    struct retro_memory_descriptor descs[] = {
-      // flags, ptr, offset, start, select, disconnect, len, address space
+      /* flags, ptr, offset, start, select, disconnect, len, address space */
       { 0, bios,              0, 0x00000000, 0,          0, 0x4000,     "BIOS" },
       { 0, workRAM,           0, 0x02000000, 0,          0, 0x40000,    "EWRAM" },
       { 0, internalRAM,       0, 0x03000000, 0,          0, 0x8000,     "IWRAM" },
@@ -750,11 +750,11 @@ static void set_memory_maps(void)
       { 0, rom,               0, 0x08000000, 0,          0, rom_size,   "ROM-WS0" },
       { 0, rom,               0, 0x0A000000, 0,          0, rom_size,   "ROM-WS1" },
       { 0, rom,               0, 0x0C000000, 0,          0, rom_size,   "ROM-WS2" },
-      // normally, only 64K is accessible at-a-time, 128K flash are bankswitched
+      /* normally, only 64K is accessible at-a-time, 128K flash are bankswitched */
       { 0, libretro_save_buf, 0, 0x0E000000, 0,          0, 0x10000,    "SRAM" }
-      // NOTE: the eeprom can be accessed anywhere from D000000h-DFFFFFFh. The need to map
-      // eeprom pointer to a virtual address might be needed for direct and fixed access when time comes
-      // For VBA Next as well as Beetle GBA, eeprom ptr can be accessed from libretro_save_buf[128 * 1024]
+      /* NOTE: the eeprom can be accessed anywhere from D000000h-DFFFFFFh. The need to map */
+      /* eeprom pointer to a virtual address might be needed for direct and fixed access when time comes */
+      /* For VBA Next as well as Beetle GBA, eeprom ptr can be accessed from libretro_save_buf[128 * 1024] */
    };
 
    struct retro_memory_map mmaps = {
@@ -837,7 +837,7 @@ void systemOnWriteDataToSoundBuffer(int16_t *finalWave, int length)
 
 void systemDrawScreen(void)
 {
-   video_cb(pix, 240, 160, 512); //last arg is pitch
+   video_cb(pix, 240, 160, 512); /*last arg is pitch */
    g_video_frames++;
    has_frame = 1;
 }

@@ -40,20 +40,20 @@
 #define CLOCKTICKS_UPDATE_TYPE16P (codeTicksAccessSeq16(bus.armNextPC) << 1) + codeTicksAccess(bus.armNextPC, BITS_16) + 3
 #define CLOCKTICKS_UPDATE_TYPE32P (codeTicksAccessSeq32(bus.armNextPC) << 1) + codeTicksAccess(bus.armNextPC, BITS_32) + 3
 
-// Indexes into the line array
+/* Indexes into the line array */
 #define Layer_BG0 0
 #define Layer_BG1 1
 #define Layer_BG2 2
 #define Layer_BG3 3
 #define Layer_OBJ 4
-#define Layer_WIN_OBJ 5 // Used by VBA for OBJ opacity tests
+#define Layer_WIN_OBJ 5 /* Used by VBA for OBJ opacity tests */
 
 #define LayerMask_BG0  (1 << Layer_BG0)
 #define LayerMask_BG1  (1 << Layer_BG1)
 #define LayerMask_BG2  (1 << Layer_BG2)
 #define LayerMask_BG3  (1 << Layer_BG3)
 #define LayerMask_OBJ  (1 << Layer_OBJ)
-// Used in R_WIN_* to indicate whether color effects are enabled
+/* Used in R_WIN_* to indicate whether color effects are enabled */
 #define LayerMask_SFX  (1 << 5)
 
 #if USE_FRAME_SKIP
@@ -163,7 +163,7 @@ static void hardware_reset() {
 
 #if THREADED_RENDERER
 
-	//THREADED_RENDERER_COUNT: 1 to 4
+	/*THREADED_RENDERER_COUNT: 1 to 4 */
 	#if VITA
 		#define THREADED_RENDERER_COUNT 2
 	#else
@@ -230,21 +230,27 @@ static void hardware_reset() {
 		int bg3y_h;
 	} renderer_context;
 
-	static void init_renderer_context(renderer_context& ctx) {
-		ctx.renderer_control = 0;
-		ctx.renderer_state = 0;
-		ctx.background_ver = 0;
-		ctx.gfxinwin_ver[0] = 0;
-		ctx.gfxinwin_ver[1] = 0;
-		memset(ctx.line[Layer_BG0], -1, 240 * sizeof(u32));
-		memset(ctx.line[Layer_BG1], -1, 240 * sizeof(u32));
-		memset(ctx.line[Layer_BG2], -1, 240 * sizeof(u32));
-		memset(ctx.line[Layer_BG3], -1, 240 * sizeof(u32));
+	static void init_renderer_context(renderer_context *ctx) {
+		ctx->renderer_control = 0;
+		ctx->renderer_state = 0;
+		ctx->background_ver = 0;
+		ctx->gfxinwin_ver[0] = 0;
+		ctx->gfxinwin_ver[1] = 0;
+		memset(ctx->line[Layer_BG0], -1, 240 * sizeof(u32));
+		memset(ctx->line[Layer_BG1], -1, 240 * sizeof(u32));
+		memset(ctx->line[Layer_BG2], -1, 240 * sizeof(u32));
+		memset(ctx->line[Layer_BG3], -1, 240 * sizeof(u32));
 	}
 
 	static renderer_context threaded_renderer_contexts[THREADED_RENDERER_COUNT];
 
-	#define INIT_RENDERER_CONTEXT(__renderer_idx__) renderer_context& renderer_ctx = threaded_renderer_contexts[__renderer_idx__]
+	/* C89 has no references.  Provide `renderer_ctx` as a textual alias for
+	 * (*_renderer_ctx_) so that the 100+ existing `renderer_ctx.field` use
+	 * sites compile unchanged.  INIT_RENDERER_CONTEXT introduces the pointer
+	 * in local scope; subsequent macro expansions of `renderer_ctx.field`
+	 * resolve via the pointer with no source changes. */
+	#define INIT_RENDERER_CONTEXT(__renderer_idx__) renderer_context *_renderer_ctx_ = &threaded_renderer_contexts[__renderer_idx__]
+	#define renderer_ctx (*_renderer_ctx_)
 
 	#define RENDERER_BG2C renderer_ctx.bg2c
 	#define RENDERER_BG3C renderer_ctx.bg3c
@@ -545,15 +551,15 @@ typedef enum
 
 static uint16_t io_registers[0x200];
 
-// Note: Some comments below are from the GBATEK document
-// (http://problemkaputt.de/gbatek.htm).
+/* Note: Some comments below are from the GBATEK document */
+/* (http://problemkaputt.de/gbatek.htm). */
 
 #define R_DISPCNT_Video_Mode (io_registers[REG_DISPCNT] & 7)
 
-// By default, BG0-3 and OBJ Display Flags (Bit 8-12) are used to
-// enable/disable BGs and OBJ. When enabling Window 0 and/or 1
-// (Bit 13-14), color special effects may be used, and BG0-3 and
-// OBJ are controlled by the window(s).
+/* By default, BG0-3 and OBJ Display Flags (Bit 8-12) are used to */
+/* enable/disable BGs and OBJ. When enabling Window 0 and/or 1 */
+/* (Bit 13-14), color special effects may be used, and BG0-3 and */
+/* OBJ are controlled by the window(s). */
 
 #define R_DISPCNT_Screen_Display_BG0 (graphics.layerEnable & (1 <<  8))
 #define R_DISPCNT_Screen_Display_BG1 (graphics.layerEnable & (1 <<  9))
@@ -574,26 +580,26 @@ static uint16_t io_registers[0x200];
 #define R_WIN_Window1_Y1 (io_registers[REG_WIN1V] >> 8)
 #define R_WIN_Window1_Y2 (io_registers[REG_WIN1V] & 0xFF)
 
-// These return a 6-bit mask which corresponds which layers are
-// visible in the corresponding window/region:
-// Bits 0-3 : Whether BG0-BG3 are visible
-// Bit   4  : Whether OBJ is visible
-// Bit   5  : Whether special effects are enabled
+/* These return a 6-bit mask which corresponds which layers are */
+/* visible in the corresponding window/region: */
+/* Bits 0-3 : Whether BG0-BG3 are visible */
+/* Bit   4  : Whether OBJ is visible */
+/* Bit   5  : Whether special effects are enabled */
 
 #define R_WIN_Window0_Mask (io_registers[REG_WININ] & 0xFF)
 #define R_WIN_Window1_Mask (io_registers[REG_WININ] >> 8)
 #define R_WIN_Outside_Mask (io_registers[REG_WINOUT] & 0xFF)
 #define R_WIN_OBJ_Mask     (io_registers[REG_WINOUT] >> 8)
 
-// Indicates the currently drawn scanline, values in range from
-// 160..227 indicate 'hidden' scanlines within VBlank area.
+/* Indicates the currently drawn scanline, values in range from */
+/* 160..227 indicate 'hidden' scanlines within VBlank area. */
 
 #define R_VCOUNT (io_registers[REG_VCOUNT])
 
-// Two types of Special Effects are supported:
-// Alpha Blending (Semi-Transparency) allows to combine colors
-// of two selected surfaces. Brightness Increase/Decrease
-// adjust the brightness of the selected surface.
+/* Two types of Special Effects are supported: */
+/* Alpha Blending (Semi-Transparency) allows to combine colors */
+/* of two selected surfaces. Brightness Increase/Decrease */
+/* adjust the brightness of the selected surface. */
 
 #define R_BLDCNT_Color_Special_Effect ((BLDMOD >> 6) & 3)
 #define SpecialEffect_None                (0)
@@ -601,26 +607,26 @@ static uint16_t io_registers[0x200];
 #define SpecialEffect_Brightness_Increase (2)
 #define SpecialEffect_Brightness_Decrease (3)
 
-// Special effect targets.
+/* Special effect targets. */
 #define R_BLDCNT_IsTarget1(target) ((target) & (BLDMOD     ))
 #define R_BLDCNT_IsTarget2(target) ((target) & (BLDMOD >> 8))
 
-// The first 5 entries coincide with LayerMask_*.
+/* The first 5 entries coincide with LayerMask_*. */
 #define SpecialEffectTarget_BG0  (1 << Layer_BG0)
 #define SpecialEffectTarget_BG1  (1 << Layer_BG1)
 #define SpecialEffectTarget_BG2  (1 << Layer_BG2)
 #define SpecialEffectTarget_BG3  (1 << Layer_BG3)
-#define SpecialEffectTarget_OBJ  (1 << Layer_OBJ) // Top-most OBJ
-#define SpecialEffectTarget_BD   (1 << 5        ) // Backdrop
+#define SpecialEffectTarget_OBJ  (1 << Layer_OBJ) /* Top-most OBJ */
+#define SpecialEffectTarget_BD   (1 << 5        ) /* Backdrop */
 
 
-// Fast implementation of ternary operator.
-// Implemented as a function (as opposed to a macro) to avoid
-// evaluating the parameters more than once.
+/* Fast implementation of ternary operator. */
+/* Implemented as a function (as opposed to a macro) to avoid */
+/* evaluating the parameters more than once. */
 uint32_t FORCE_INLINE SELECT(bool condition, uint32_t ifTrue, uint32_t ifFalse)
 {
-	// Will be 0 if condition==true or 0xFFFFFFFF
-	// if condition==false.
+	/* Will be 0 if condition==true or 0xFFFFFFFF */
+	/* if condition==false. */
 	uint32_t testmask = (uint32_t)condition - 1;
 
 	return (testmask & ifFalse) | (~testmask & ifTrue);
@@ -636,9 +642,9 @@ static uint16_t BG3X_L   = 0x0000;
 static uint16_t BG3X_H   = 0x0000;
 static uint16_t BG3Y_L   = 0x0000;
 static uint16_t BG3Y_H   = 0x0000;
-static uint16_t BLDMOD   = 0x0000; // aka BLDCNT
-static uint16_t COLEV    = 0x0000; // aka BLDALPHA
-static uint16_t COLY     = 0x0000; // aka BLDY
+static uint16_t BLDMOD   = 0x0000; /* aka BLDCNT */
+static uint16_t COLEV    = 0x0000; /* aka BLDALPHA */
+static uint16_t COLY     = 0x0000; /* aka BLDY */
 static uint16_t DM0SAD_L = 0x0000;
 static uint16_t DM0SAD_H = 0x0000;
 static uint16_t DM0DAD_L = 0x0000;
@@ -713,11 +719,11 @@ static int gfxBG3X = 0;
 static int gfxBG3Y = 0;
 
 static bool ioReadable[0x400];
-static int gbaSaveType = 0; // used to remember the save type on reset
+static int gbaSaveType = 0; /* used to remember the save type on reset */
 
-//static int gfxLastVCOUNT = 0;
+/*static int gfxLastVCOUNT = 0; */
 
-// Waitstates when accessing data
+/* Waitstates when accessing data */
 
 #define DATATICKS_ACCESS_BUS_PREFETCH(address, value) \
 	int addr = (address >> 24) & 15; \
@@ -740,8 +746,8 @@ static int gbaSaveType = 0; // used to remember the save type on reset
 #define DATATICKS_ACCESS_16BIT(address) (memoryWait[(address >> 24) & 15])
 #define DATATICKS_ACCESS_16BIT_SEQ(address) (memoryWaitSeq[(address >> 24) & 15])
 
-// Waitstates when executing opcode
-static INLINE int codeTicksAccess(u32 address, u8 bit32) // THUMB NON SEQ
+/* Waitstates when executing opcode */
+static INLINE int codeTicksAccess(u32 address, u8 bit32) /* THUMB NON SEQ */
 {
 	int addr = (address>>24) & 15;
 
@@ -766,7 +772,7 @@ static INLINE int codeTicksAccess(u32 address, u8 bit32) // THUMB NON SEQ
    return memoryWait[addr];
 }
 
-static INLINE int codeTicksAccessSeq16(u32 address) // THUMB SEQ
+static INLINE int codeTicksAccessSeq16(u32 address) /* THUMB SEQ */
 {
 	int addr = (address>>24) & 15;
 
@@ -789,7 +795,7 @@ static INLINE int codeTicksAccessSeq16(u32 address) // THUMB SEQ
 	return memoryWaitSeq[addr];
 }
 
-static INLINE int codeTicksAccessSeq32(u32 address) // ARM SEQ
+static INLINE int codeTicksAccessSeq32(u32 address) /* ARM SEQ */
 {
 	int addr = (address>>24)&15;
 
@@ -901,11 +907,11 @@ static uint8_t* CPUDecodeAddress(uint32_t address)
 			/* gamepak ROM */
 			return rom + (address & 0x1FFFFFC);
 		case 0x0D:
-        	//value = eepromRead();
+        	/*value = eepromRead(); */
 			break;
 		case 14:
       	case 15:
-			//value = flashRead(address) * 0x01010101;
+			/*value = flashRead(address) * 0x01010101; */
 			break;
 		default:
 unreadable:
@@ -1365,13 +1371,13 @@ static INLINE void CPUWriteByte(u32 address, u8 b)
 							soundEvent_u8(gb_addr, address&0xFF, b);
 						}
 						break;
-					case 0x301: // HALTCNT, undocumented
+					case 0x301: /* HALTCNT, undocumented */
 						if(b == 0x80)
 							stopState = true;
 						holdState = 1;
 						cpuNextEvent = cpuTotalTicks;
 						break;
-					default: // every other register
+					default: /* every other register */
 						{
 							u32 lowerBits = address & 0x3fe;
 							uint16_t param;
@@ -1390,7 +1396,7 @@ static INLINE void CPUWriteByte(u32 address, u8 b)
 			}
 			break;
 		case 5:
-			// no need to switch
+			/* no need to switch */
 			*(u16 *)(paletteRAM + (address & 0x3FE)) = (b << 8) | b;
 			break;
 		case 6:
@@ -1400,15 +1406,15 @@ static INLINE void CPUWriteByte(u32 address, u8 b)
 			if ((address & 0x18000) == 0x18000)
 				address &= 0x17fff;
 
-			// no need to switch
-			// byte writes to OBJ VRAM are ignored
+			/* no need to switch */
+			/* byte writes to OBJ VRAM are ignored */
 			if ((address) < objTilesAddress[(R_DISPCNT_Video_Mode+1)>>2])
 				*(u16 *)(vram + address) = (b << 8) | b;
 			break;
 		case 7:
-			// no need to switch
-			// byte writes to OAM are ignored
-			//    *((u16 *)&oam[address & 0x3FE]) = (b << 8) | b;
+			/* no need to switch */
+			/* byte writes to OAM are ignored */
+			/*    *((u16 *)&oam[address & 0x3FE]) = (b << 8) | b; */
 			break;
 		case 13:
 			if(cpuEEPROMEnabled)
@@ -1442,8 +1448,8 @@ static inline int16_t fast_cos(uint8_t val)
 	return fast_sin(val + 0x40);
 }
 
-// 2020-08-12 negativeExponent
-// ArcTan/ArcTan2 fixes based from mgba hle bios
+/* 2020-08-12 negativeExponent */
+/* ArcTan/ArcTan2 fixes based from mgba hle bios */
 
 static void BIOS_ArcTan (void)
 {
@@ -1527,7 +1533,7 @@ static void BIOS_BitUnPack(void)
 
 	int bits          = CPUReadByte(header+2);
 	int revbits       = 8 - bits;
-	// u32 value = 0;
+	/* u32 value = 0; */
 	u32 base          = CPUReadMemory(header+4);
 	bool addBase      = (base & 0x80000000) ? true : false;
 	base &= 0x7fffffff;
@@ -1587,7 +1593,7 @@ static void BIOS_BgAffineSet (void)
 		s16 ry = CPUReadHalfWord(src);
 		src+=2;
 		u16 theta = CPUReadHalfWord(src)>>8;
-		src+=4; // keep structure alignment
+		src+=4; /* keep structure alignment */
 		s32 a = fast_cos(theta);
 		s32 b = fast_sin(theta);
 
@@ -1623,13 +1629,13 @@ static void BIOS_CpuSet (void)
 	u32 cnt    = bus.reg[2].I;
 	int count  = cnt & 0x1FFFFF;
 
-	// 32-bit ?
+	/* 32-bit ? */
 	if((cnt >> 26) & 1)
 	{
-		// needed for 32-bit mode!
+		/* needed for 32-bit mode! */
 		source &= 0xFFFFFFFC;
 		dest   &= 0xFFFFFFFC;
-		// fill ?
+		/* fill ? */
 		if((cnt >> 24) & 1) {
 			u32 value = (source>0x0EFFFFFF ? 0x1CAD1CAD : CPUReadMemory(source));
 			while(count > 0) {
@@ -1654,7 +1660,7 @@ static void BIOS_CpuSet (void)
 				}
 			}
 #else
-			// copy
+			/* copy */
 			while(count > 0) {
 				CPUWriteMemory(dest, (source>0x0EFFFFFF ? 0x1CAD1CAD : CPUReadMemory(source)));
 				source += 4;
@@ -1666,7 +1672,7 @@ static void BIOS_CpuSet (void)
 	}
 	else
 	{
-		// 16-bit fill?
+		/* 16-bit fill? */
 		if((cnt >> 24) & 1) {
 			u16 value = (source>0x0EFFFFFF ? 0x1CAD : CPUReadHalfWord(source));
 			while(count > 0) {
@@ -1691,7 +1697,7 @@ static void BIOS_CpuSet (void)
 				}
 			}
 #else
-			// copy
+			/* copy */
 			while(count > 0) {
 				CPUWriteHalfWord(dest, (source>0x0EFFFFFF ? 0x1CAD : CPUReadHalfWord(source)));
 				source += 2;
@@ -1709,16 +1715,16 @@ static void BIOS_CpuFastSet (void)
 	u32 dest   = bus.reg[1].I;
 	u32 cnt    = bus.reg[2].I;
 
-	// needed for 32-bit mode!
+	/* needed for 32-bit mode! */
 	source    &= 0xFFFFFFFC;
 	dest      &= 0xFFFFFFFC;
 
 	int count  = cnt & 0x1FFFFF;
 
-	// fill?
+	/* fill? */
 	if((cnt >> 24) & 1) {
 		while(count > 0) {
-			// BIOS always transfers 32 bytes at a time
+			/* BIOS always transfers 32 bytes at a time */
 			u32 value = (source>0x0EFFFFFF ? 0xBAFFFFFB : CPUReadMemory(source));
 			for(int i = 0; i < 8; i++) {
 				CPUWriteMemory(dest, value);
@@ -1747,9 +1753,9 @@ static void BIOS_CpuFastSet (void)
 			}
 		}
 #else
-		// copy
+		/* copy */
 		while(count > 0) {
-			// BIOS always transfers 32 bytes at a time
+			/* BIOS always transfers 32 bytes at a time */
 			for(int i = 0; i < 8; i++) {
 				CPUWriteMemory(dest, (source>0x0EFFFFFF ? 0xBAFFFFFB :CPUReadMemory(source)));
 				source += 4;
@@ -1868,7 +1874,7 @@ static void BIOS_HuffUnComp (void)
 
 	u32 treeStart = source;
 
-	source += ((treeSize+1)<<1)-1; // minus because we already skipped one byte
+	source += ((treeSize+1)<<1)-1; /* minus because we already skipped one byte */
 
 	int len = header >> 8;
 
@@ -1886,19 +1892,19 @@ static void BIOS_HuffUnComp (void)
 
 	if((header & 0x0F) == 8) {
 		while(len > 0) {
-			// take left
+			/* take left */
 			if(pos == 0)
 				pos++;
 			else
 				pos += (((currentNode & 0x3F)+1)<<1);
 
 			if(data & mask) {
-				// right
+				/* right */
 				if(currentNode & 0x40)
 					writeData = true;
 				currentNode = CPUReadByte(treeStart+pos+1);
 			} else {
-				// left
+				/* left */
 				if(currentNode & 0x80)
 					writeData = true;
 				currentNode = CPUReadByte(treeStart+pos);
@@ -1933,19 +1939,19 @@ static void BIOS_HuffUnComp (void)
 		int halfLen = 0;
 		int value = 0;
 		while(len > 0) {
-			// take left
+			/* take left */
 			if(pos == 0)
 				pos++;
 			else
 				pos += (((currentNode & 0x3F)+1)<<1);
 
 			if((data & mask)) {
-				// right
+				/* right */
 				if(currentNode & 0x40)
 					writeData = true;
 				currentNode = CPUReadByte(treeStart+pos+1);
 			} else {
-				// left
+				/* left */
 				if(currentNode & 0x80)
 					writeData = true;
 				currentNode = CPUReadByte(treeStart+pos);
@@ -2135,7 +2141,7 @@ static void BIOS_ObjAffineSet (void)
 		s16 ry = CPUReadHalfWord(src);
 		src+=2;
 		u16 theta = CPUReadHalfWord(src)>>8;
-		src+=4; // keep structure alignment
+		src+=4; /* keep structure alignment */
 
 		s32 a = fast_cos(theta);
 		s32 b = fast_sin(theta);
@@ -2158,27 +2164,27 @@ static void BIOS_ObjAffineSet (void)
 
 static void BIOS_RegisterRamReset(u32 flags)
 {
-	// no need to trace here. this is only called directly from GBA.cpp
-	// to emulate bios initialization
+	/* no need to trace here. this is only called directly from GBA.cpp */
+	/* to emulate bios initialization */
 
 	CPUUpdateRegister(0x0, 0x80);
 
 	if(flags)
 	{
 		if(flags & 0x01)
-			memset(workRAM, 0, 0x40000);		// clear work RAM
+			memset(workRAM, 0, 0x40000);		/* clear work RAM */
 
 		if(flags & 0x02)
-			memset(internalRAM, 0, 0x7e00);		// don't clear 0x7e00-0x7fff, clear internal RAM
+			memset(internalRAM, 0, 0x7e00);		/* don't clear 0x7e00-0x7fff, clear internal RAM */
 
 		if(flags & 0x04)
-			memset(paletteRAM, 0, 0x400);	// clear palette RAM
+			memset(paletteRAM, 0, 0x400);	/* clear palette RAM */
 
 		if(flags & 0x08)
-			memset(vram, 0, 0x18000);		// clear VRAM
+			memset(vram, 0, 0x18000);		/* clear VRAM */
 
 		if(flags & 0x10)
-			memset(oam, 0, 0x400);			// clean OAM
+			memset(oam, 0, 0x400);			/* clean OAM */
 
 		if(flags & 0x80) {
 			int i;
@@ -2645,7 +2651,7 @@ static void CPUSoftwareInterrupt(int comment)
 			break;
 		case 0x2A:
 			BIOS_SND_DRIVER_JMP_TABLE_COPY();
-			// let it go, because we don't really emulate this function
+			/* let it go, because we don't really emulate this function */
 		default:
 			break;
 	}
@@ -2656,10 +2662,10 @@ static void CPUSoftwareInterrupt(int comment)
 ============================================================ */
 
 #ifdef _MSC_VER
- // Disable "empty statement" warnings
+ /* Disable "empty statement" warnings */
  #pragma warning(disable: 4390)
- // Visual C's inline assembler treats "offset" as a reserved word, so we
- // tell it otherwise.  If you want to use it, write "OFFSET" in capitals.e
+ /* Visual C's inline assembler treats "offset" as a reserved word, so we */
+ /* tell it otherwise.  If you want to use it, write "OFFSET" in capitals.e */
  #define offset offset_
 #endif
 
@@ -2678,34 +2684,34 @@ static void armUnknownInsn(u32 opcode)
 	bus.reg[15].I += 4;
 }
 
-// Common macros //////////////////////////////////////////////////////////
+/* Common macros ////////////////////////////////////////////////////////// */
 
 #define NEG(i) ((i) >> 31)
 #define POS(i) ((~(i)) >> 31)
 
-// The following macros are used for optimization; any not defined for a
-// particular compiler/CPU combination default to the C core versions.
-//
-//    ALU_INIT_C:   Used at the beginning of ALU instructions (AND/EOR/...).
-//    (ALU_INIT_NC) Can consist of variable declarations, like the C core,
-//                  or the start of a continued assembly block, like the
-//                  x86-optimized version.  The _C version is used when the
-//                  carry flag from the shift operation is needed (logical
-//                  operations that set condition codes, like ANDS); the
-//                  _NC version is used when the carry result is ignored.
-//    VALUE_XXX: Retrieve the second operand's value for an ALU instruction.
-//               The _C and _NC versions are used the same way as ALU_INIT.
-//    OP_XXX: ALU operations.  XXX is the instruction name.
-//    SETCOND_NONE: Used in multiply instructions in place of SETCOND_MUL
-//                  when the condition codes are not set.  Usually empty.
-//    SETCOND_MUL: Used in multiply instructions to set the condition codes.
-//    ROR_IMM_MSR: Used to rotate the immediate operand for MSR.
-//    ROR_OFFSET: Used to rotate the `offset' parameter for LDR and STR
-//                instructions.
-//    RRX_OFFSET: Used to rotate (RRX) the `offset' parameter for LDR and
-//                STR instructions.
+/* The following macros are used for optimization; any not defined for a */
+/* particular compiler/CPU combination default to the C core versions. */
+/* */
+/*    ALU_INIT_C:   Used at the beginning of ALU instructions (AND/EOR/...). */
+/*    (ALU_INIT_NC) Can consist of variable declarations, like the C core, */
+/*                  or the start of a continued assembly block, like the */
+/*                  x86-optimized version.  The _C version is used when the */
+/*                  carry flag from the shift operation is needed (logical */
+/*                  operations that set condition codes, like ANDS); the */
+/*                  _NC version is used when the carry result is ignored. */
+/*    VALUE_XXX: Retrieve the second operand's value for an ALU instruction. */
+/*               The _C and _NC versions are used the same way as ALU_INIT. */
+/*    OP_XXX: ALU operations.  XXX is the instruction name. */
+/*    SETCOND_NONE: Used in multiply instructions in place of SETCOND_MUL */
+/*                  when the condition codes are not set.  Usually empty. */
+/*    SETCOND_MUL: Used in multiply instructions to set the condition codes. */
+/*    ROR_IMM_MSR: Used to rotate the immediate operand for MSR. */
+/*    ROR_OFFSET: Used to rotate the `offset' parameter for LDR and STR */
+/*                instructions. */
+/*    RRX_OFFSET: Used to rotate (RRX) the `offset' parameter for LDR and */
+/*                STR instructions. */
 
-// C core
+/* C core */
 
 #define C_SETCOND_LOGICAL \
     N_FLAG = ((s32)res < 0) ? true : false;             \
@@ -2734,7 +2740,7 @@ static void armUnknownInsn(u32 opcode)
     bool C_OUT = C_FLAG;                                \
     u32 value;
 #endif
-// OP Rd,Rb,Rm LSL #
+/* OP Rd,Rb,Rm LSL # */
 #ifndef VALUE_LSL_IMM_C
  #define VALUE_LSL_IMM_C \
     unsigned int shift = (opcode >> 7) & 0x1F;          \
@@ -2746,7 +2752,7 @@ static void armUnknownInsn(u32 opcode)
         value = v << shift;                             \
     }
 #endif
-// OP Rd,Rb,Rm LSL Rs
+/* OP Rd,Rb,Rm LSL Rs */
 #ifndef VALUE_LSL_REG_C
  #define VALUE_LSL_REG_C \
     u32 shift = bus.reg[(opcode >> 8) & 15].I & 0xFF;                \
@@ -2770,7 +2776,7 @@ static void armUnknownInsn(u32 opcode)
         value = rm;                                          \
     }
 #endif
-// OP Rd,Rb,Rm LSR #
+/* OP Rd,Rb,Rm LSR # */
 #ifndef VALUE_LSR_IMM_C
  #define VALUE_LSR_IMM_C \
     u32 shift = (opcode >> 7) & 0x1F;          \
@@ -2783,7 +2789,7 @@ static void armUnknownInsn(u32 opcode)
         C_OUT = (bus.reg[opcode & 0x0F].I & 0x80000000) ? true : false;\
     }
 #endif
-// OP Rd,Rb,Rm LSR Rs
+/* OP Rd,Rb,Rm LSR Rs */
 #ifndef VALUE_LSR_REG_C
  #define VALUE_LSR_REG_C \
     unsigned int shift = bus.reg[(opcode >> 8) & 15].I & 0xFF;  \
@@ -2807,7 +2813,7 @@ static void armUnknownInsn(u32 opcode)
         value = rm;                                     \
     }
 #endif
-// OP Rd,Rb,Rm ASR #
+/* OP Rd,Rb,Rm ASR # */
 #ifndef VALUE_ASR_IMM_C
  #define VALUE_ASR_IMM_C \
     unsigned int shift = (opcode >> 7) & 0x1F;          \
@@ -2825,7 +2831,7 @@ static void armUnknownInsn(u32 opcode)
         }                                               \
     }
 #endif
-// OP Rd,Rb,Rm ASR Rs
+/* OP Rd,Rb,Rm ASR Rs */
 #ifndef VALUE_ASR_REG_C
  #define VALUE_ASR_REG_C \
     unsigned int shift = bus.reg[(opcode >> 8)&15].I & 0xFF;    \
@@ -2851,7 +2857,7 @@ static void armUnknownInsn(u32 opcode)
         }                                               \
     }
 #endif
-// OP Rd,Rb,Rm ROR #
+/* OP Rd,Rb,Rm ROR # */
 #ifndef VALUE_ROR_IMM_C
  #define VALUE_ROR_IMM_C \
     unsigned int shift = (opcode >> 7) & 0x1F;          \
@@ -2867,7 +2873,7 @@ static void armUnknownInsn(u32 opcode)
                  (C_FLAG << 31));                       \
     }
 #endif
-// OP Rd,Rb,Rm ROR Rs
+/* OP Rd,Rb,Rm ROR Rs */
 #ifndef VALUE_ROR_REG_C
  #define VALUE_ROR_REG_C \
     unsigned int shift = bus.reg[(opcode >> 8)&15].I & 0xFF;    \
@@ -2886,7 +2892,7 @@ static void armUnknownInsn(u32 opcode)
             C_OUT = (value & 0x80000000 ? true : false);\
     }
 #endif
-// OP Rd,Rb,# ROR #
+/* OP Rd,Rb,# ROR # */
 #ifndef VALUE_IMM_C
  #define VALUE_IMM_C \
     int shift = (opcode & 0xF00) >> 7;                  \
@@ -2900,8 +2906,8 @@ static void armUnknownInsn(u32 opcode)
     }
 #endif
 
-// Make the non-carry versions default to the carry versions
-// (this is fine for C--the compiler will optimize the dead code out)
+/* Make the non-carry versions default to the carry versions */
+/* (this is fine for C--the compiler will optimize the dead code out) */
 #ifndef ALU_INIT_NC
  #define ALU_INIT_NC ALU_INIT_C
 #endif
@@ -3095,14 +3101,14 @@ static void armUnknownInsn(u32 opcode)
     offset = ((offset >> 1) | ((int)C_FLAG << 31));
 #endif
 
-// ALU ops (except multiply) //////////////////////////////////////////////
+/* ALU ops (except multiply) ////////////////////////////////////////////// */
 
-// ALU_INIT: init code (ALU_INIT_C or ALU_INIT_NC)
-// GETVALUE: load value and shift/rotate (VALUE_XXX)
-// OP: ALU operation (OP_XXX)
-// MODECHANGE: MODECHANGE_NO or MODECHANGE_YES
-// ISREGSHIFT: 1 for insns of the form ...,Rn LSL/etc Rs; 0 otherwise
-// ALU_INIT, GETVALUE and OP are concatenated in order.
+/* ALU_INIT: init code (ALU_INIT_C or ALU_INIT_NC) */
+/* GETVALUE: load value and shift/rotate (VALUE_XXX) */
+/* OP: ALU operation (OP_XXX) */
+/* MODECHANGE: MODECHANGE_NO or MODECHANGE_YES */
+/* ISREGSHIFT: 1 for insns of the form ...,Rn LSL/etc Rs; 0 otherwise */
+/* ALU_INIT, GETVALUE and OP are concatenated in order. */
 
 #define ALU_INSN(ALU_INIT, GETVALUE, OP, MODECHANGE, ISREGSHIFT) \
     ALU_INIT GETVALUE OP;                                        \
@@ -3148,83 +3154,83 @@ static void armUnknownInsn(u32 opcode)
   static  void arm##CODE1##7(u32 opcode) { ALU_INSN(ALU_INIT_NC, VALUE_ROR_REG_NC, OP_##OP, MODECHANGE_##MODECHANGE, 1); }\
   static  void arm##CODE2##0(u32 opcode) { ALU_INSN(ALU_INIT_NC, VALUE_IMM_NC,     OP_##OP, MODECHANGE_##MODECHANGE, 0); }
 
-// AND
+/* AND */
 DEFINE_ALU_INSN_NC(00, 20, AND,  NO)
-// ANDS
+/* ANDS */
 DEFINE_ALU_INSN_C (01, 21, ANDS, YES)
 
-// EOR
+/* EOR */
 DEFINE_ALU_INSN_NC(02, 22, EOR,  NO)
-// EORS
+/* EORS */
 DEFINE_ALU_INSN_C (03, 23, EORS, YES)
 
-// SUB
+/* SUB */
 DEFINE_ALU_INSN_NC(04, 24, SUB,  NO)
-// SUBS
+/* SUBS */
 DEFINE_ALU_INSN_NC(05, 25, SUBS, YES)
 
-// RSB
+/* RSB */
 DEFINE_ALU_INSN_NC(06, 26, RSB,  NO)
-// RSBS
+/* RSBS */
 DEFINE_ALU_INSN_NC(07, 27, RSBS, YES)
 
-// ADD
+/* ADD */
 DEFINE_ALU_INSN_NC(08, 28, ADD,  NO)
-// ADDS
+/* ADDS */
 DEFINE_ALU_INSN_NC(09, 29, ADDS, YES)
 
-// ADC
+/* ADC */
 DEFINE_ALU_INSN_NC(0A, 2A, ADC,  NO)
-// ADCS
+/* ADCS */
 DEFINE_ALU_INSN_NC(0B, 2B, ADCS, YES)
 
-// SBC
+/* SBC */
 DEFINE_ALU_INSN_NC(0C, 2C, SBC,  NO)
-// SBCS
+/* SBCS */
 DEFINE_ALU_INSN_NC(0D, 2D, SBCS, YES)
 
-// RSC
+/* RSC */
 DEFINE_ALU_INSN_NC(0E, 2E, RSC,  NO)
-// RSCS
+/* RSCS */
 DEFINE_ALU_INSN_NC(0F, 2F, RSCS, YES)
 
-// TST
+/* TST */
 DEFINE_ALU_INSN_C (11, 31, TST,  NO)
 
-// TEQ
+/* TEQ */
 DEFINE_ALU_INSN_C (13, 33, TEQ,  NO)
 
-// CMP
+/* CMP */
 DEFINE_ALU_INSN_NC(15, 35, CMP,  NO)
 
-// CMN
+/* CMN */
 DEFINE_ALU_INSN_NC(17, 37, CMN,  NO)
 
-// ORR
+/* ORR */
 DEFINE_ALU_INSN_NC(18, 38, ORR,  NO)
-// ORRS
+/* ORRS */
 DEFINE_ALU_INSN_C (19, 39, ORRS, YES)
 
-// MOV
+/* MOV */
 DEFINE_ALU_INSN_NC(1A, 3A, MOV,  NO)
-// MOVS
+/* MOVS */
 DEFINE_ALU_INSN_C (1B, 3B, MOVS, YES)
 
-// BIC
+/* BIC */
 DEFINE_ALU_INSN_NC(1C, 3C, BIC,  NO)
-// BICS
+/* BICS */
 DEFINE_ALU_INSN_C (1D, 3D, BICS, YES)
 
-// MVN
+/* MVN */
 DEFINE_ALU_INSN_NC(1E, 3E, MVN,  NO)
-// MVNS
+/* MVNS */
 DEFINE_ALU_INSN_C (1F, 3F, MVNS, YES)
 
-// Multiply instructions //////////////////////////////////////////////////
+/* Multiply instructions ////////////////////////////////////////////////// */
 
-// OP: OP_MUL, OP_MLA etc.
-// SETCOND: SETCOND_NONE, SETCOND_MUL, or SETCOND_MULL
-// CYCLES: base cycle count (1, 2, or 3)
+/* OP: OP_MUL, OP_MLA etc. */
+/* SETCOND: SETCOND_NONE, SETCOND_MUL, or SETCOND_MULL */
+/* CYCLES: base cycle count (1, 2, or 3) */
 #define MUL_INSN(OP, SETCOND, CYCLES)                   \
     int mult = (opcode & 0x0F);                         \
     u32 rs = bus.reg[(opcode >> 8) & 0x0F].I;           \
@@ -3266,39 +3272,39 @@ DEFINE_ALU_INSN_C (1F, 3F, MVNS, YES)
 #define OP_SMULL OP_MULL(s)
 #define OP_SMLAL OP_MLAL(s)
 
-// MUL Rd, Rm, Rs
+/* MUL Rd, Rm, Rs */
 static  void arm009(u32 opcode) { MUL_INSN(OP_MUL, SETCOND_NONE, 1); }
-// MULS Rd, Rm, Rs
+/* MULS Rd, Rm, Rs */
 static  void arm019(u32 opcode) { MUL_INSN(OP_MUL, SETCOND_MUL, 1); }
 
-// MLA Rd, Rm, Rs, Rn
+/* MLA Rd, Rm, Rs, Rn */
 static  void arm029(u32 opcode) { MUL_INSN(OP_MLA, SETCOND_NONE, 2); }
-// MLAS Rd, Rm, Rs, Rn
+/* MLAS Rd, Rm, Rs, Rn */
 static  void arm039(u32 opcode) { MUL_INSN(OP_MLA, SETCOND_MUL, 2); }
 
-// UMULL RdLo, RdHi, Rn, Rs
+/* UMULL RdLo, RdHi, Rn, Rs */
 static  void arm089(u32 opcode) { MUL_INSN(OP_UMULL, SETCOND_NONE, 2); }
-// UMULLS RdLo, RdHi, Rn, Rs
+/* UMULLS RdLo, RdHi, Rn, Rs */
 static  void arm099(u32 opcode) { MUL_INSN(OP_UMULL, SETCOND_MULL, 2); }
 
-// UMLAL RdLo, RdHi, Rn, Rs
+/* UMLAL RdLo, RdHi, Rn, Rs */
 static  void arm0A9(u32 opcode) { MUL_INSN(OP_UMLAL, SETCOND_NONE, 3); }
-// UMLALS RdLo, RdHi, Rn, Rs
+/* UMLALS RdLo, RdHi, Rn, Rs */
 static  void arm0B9(u32 opcode) { MUL_INSN(OP_UMLAL, SETCOND_MULL, 3); }
 
-// SMULL RdLo, RdHi, Rm, Rs
+/* SMULL RdLo, RdHi, Rm, Rs */
 static  void arm0C9(u32 opcode) { MUL_INSN(OP_SMULL, SETCOND_NONE, 2); }
-// SMULLS RdLo, RdHi, Rm, Rs
+/* SMULLS RdLo, RdHi, Rm, Rs */
 static  void arm0D9(u32 opcode) { MUL_INSN(OP_SMULL, SETCOND_MULL, 2); }
 
-// SMLAL RdLo, RdHi, Rm, Rs
+/* SMLAL RdLo, RdHi, Rm, Rs */
 static  void arm0E9(u32 opcode) { MUL_INSN(OP_SMLAL, SETCOND_NONE, 3); }
-// SMLALS RdLo, RdHi, Rm, Rs
+/* SMLALS RdLo, RdHi, Rm, Rs */
 static  void arm0F9(u32 opcode) { MUL_INSN(OP_SMLAL, SETCOND_MULL, 3); }
 
-// Misc instructions //////////////////////////////////////////////////////
+/* Misc instructions ////////////////////////////////////////////////////// */
 
-// SWP Rd, Rm, [Rn]
+/* SWP Rd, Rm, [Rn] */
 static  void arm109(u32 opcode)
 {
 	u32 address = bus.reg[(opcode >> 16) & 15].I;
@@ -3310,7 +3316,7 @@ static  void arm109(u32 opcode)
 	clockTicks = 4 + (dataticks_value << 1) + codeTicksAccess(bus.armNextPC, BITS_32);
 }
 
-// SWPB Rd, Rm, [Rn]
+/* SWPB Rd, Rm, [Rn] */
 static  void arm149(u32 opcode)
 {
 	u32 address = bus.reg[(opcode >> 16) & 15].I;
@@ -3322,7 +3328,7 @@ static  void arm149(u32 opcode)
 	clockTicks = 4 + (dataticks_value << 1) + codeTicksAccess(bus.armNextPC, BITS_32);
 }
 
-// MRS Rd, CPSR
+/* MRS Rd, CPSR */
 static  void arm100(u32 opcode)
 {
 	if ((opcode & 0x0FFF0FFF) == 0x010F0000)
@@ -3334,7 +3340,7 @@ static  void arm100(u32 opcode)
 		armUnknownInsn(opcode);
 }
 
-// MRS Rd, SPSR
+/* MRS Rd, SPSR */
 static  void arm140(u32 opcode)
 {
 	if ((opcode & 0x0FFF0FFF) == 0x014F0000)
@@ -3343,7 +3349,7 @@ static  void arm140(u32 opcode)
 		armUnknownInsn(opcode);
 }
 
-// MSR CPSR_fields, Rm
+/* MSR CPSR_fields, Rm */
 static  void arm120(u32 opcode)
 {
     if ((opcode & 0x0FF0FFF0) == 0x0120F000)
@@ -3366,7 +3372,7 @@ static  void arm120(u32 opcode)
 		    CPUSwitchMode(newValue & 0x1F, false, true);
 	    bus.reg[16].I = newValue;
 	    CPUUpdateFlags(1);
-	    if (!armState) {  // this should not be allowed, but it seems to work
+	    if (!armState) {  /* this should not be allowed, but it seems to work */
 		    THUMB_PREFETCH;
 		    bus.reg[15].I = bus.armNextPC + 2;
 	    }
@@ -3375,7 +3381,7 @@ static  void arm120(u32 opcode)
 	    armUnknownInsn(opcode);
 }
 
-// MSR SPSR_fields, Rm
+/* MSR SPSR_fields, Rm */
 static  void arm160(u32 opcode)
 {
 	if ((opcode & 0x0FF0FFF0) == 0x0160F000)
@@ -3397,7 +3403,7 @@ static  void arm160(u32 opcode)
 		armUnknownInsn(opcode);
 }
 
-// MSR CPSR_fields, #
+/* MSR CPSR_fields, # */
 static  void arm320(u32 opcode)
 {
 	if ((opcode & 0x0FF0F000) == 0x0320F000)
@@ -3426,7 +3432,7 @@ static  void arm320(u32 opcode)
 			CPUSwitchMode(newValue & 0x1F, false, true);
 		bus.reg[16].I = newValue;
 		CPUUpdateFlags(1);
-		if (!armState) {  // this should not be allowed, but it seems to work
+		if (!armState) {  /* this should not be allowed, but it seems to work */
 			THUMB_PREFETCH;
 			bus.reg[15].I = bus.armNextPC + 2;
 		}
@@ -3435,7 +3441,7 @@ static  void arm320(u32 opcode)
 		armUnknownInsn(opcode);
 }
 
-// MSR SPSR_fields, #
+/* MSR SPSR_fields, # */
 static  void arm360(u32 opcode)
 {
 	if ((opcode & 0x0FF0F000) == 0x0360F000) {
@@ -3459,7 +3465,7 @@ static  void arm360(u32 opcode)
 		armUnknownInsn(opcode);
 }
 
-// BX Rm
+/* BX Rm */
 static  void arm121(u32 opcode)
 {
 	if ((opcode & 0x0FFFFFF0) == 0x012FFF10) {
@@ -3484,7 +3490,7 @@ static  void arm121(u32 opcode)
 		armUnknownInsn(opcode);
 }
 
-// Load/store /////////////////////////////////////////////////////////////
+/* Load/store ///////////////////////////////////////////////////////////// */
 
 #define OFFSET_IMM \
     int offset = opcode & 0xFFF;
@@ -3603,350 +3609,350 @@ static  void arm121(u32 opcode)
 #define LDR_PREINC_WB(CALC_OFFSET, LOAD_DATA, SIZE) \
   LDR(CALC_OFFSET, ADDRESS_PREINC, LOAD_DATA, WRITEBACK_PRE, SIZE)
 
-// STRH Rd, [Rn], -Rm
+/* STRH Rd, [Rn], -Rm */
 static  void arm00B(u32 opcode) { STR_POSTDEC(OFFSET_REG, OP_STRH, 16); }
-// STRH Rd, [Rn], #-offset
+/* STRH Rd, [Rn], #-offset */
 static  void arm04B(u32 opcode) { STR_POSTDEC(OFFSET_IMM8, OP_STRH, 16); }
-// STRH Rd, [Rn], Rm
+/* STRH Rd, [Rn], Rm */
 static  void arm08B(u32 opcode) { STR_POSTINC(OFFSET_REG, OP_STRH, 16); }
-// STRH Rd, [Rn], #offset
+/* STRH Rd, [Rn], #offset */
 static  void arm0CB(u32 opcode) { STR_POSTINC(OFFSET_IMM8, OP_STRH, 16); }
-// STRH Rd, [Rn, -Rm]
+/* STRH Rd, [Rn, -Rm] */
 static  void arm10B(u32 opcode) { STR_PREDEC(OFFSET_REG, OP_STRH, 16); }
-// STRH Rd, [Rn, -Rm]!
+/* STRH Rd, [Rn, -Rm]! */
 static  void arm12B(u32 opcode) { STR_PREDEC_WB(OFFSET_REG, OP_STRH, 16); }
-// STRH Rd, [Rn, -#offset]
+/* STRH Rd, [Rn, -#offset] */
 static  void arm14B(u32 opcode) { STR_PREDEC(OFFSET_IMM8, OP_STRH, 16); }
-// STRH Rd, [Rn, -#offset]!
+/* STRH Rd, [Rn, -#offset]! */
 static  void arm16B(u32 opcode) { STR_PREDEC_WB(OFFSET_IMM8, OP_STRH, 16); }
-// STRH Rd, [Rn, Rm]
+/* STRH Rd, [Rn, Rm] */
 static  void arm18B(u32 opcode) { STR_PREINC(OFFSET_REG, OP_STRH, 16); }
-// STRH Rd, [Rn, Rm]!
+/* STRH Rd, [Rn, Rm]! */
 static  void arm1AB(u32 opcode) { STR_PREINC_WB(OFFSET_REG, OP_STRH, 16); }
-// STRH Rd, [Rn, #offset]
+/* STRH Rd, [Rn, #offset] */
 static  void arm1CB(u32 opcode) { STR_PREINC(OFFSET_IMM8, OP_STRH, 16); }
-// STRH Rd, [Rn, #offset]!
+/* STRH Rd, [Rn, #offset]! */
 static  void arm1EB(u32 opcode) { STR_PREINC_WB(OFFSET_IMM8, OP_STRH, 16); }
 
-// LDRH Rd, [Rn], -Rm
+/* LDRH Rd, [Rn], -Rm */
 static  void arm01B(u32 opcode) { LDR_POSTDEC(OFFSET_REG, OP_LDRH, 16); }
-// LDRH Rd, [Rn], #-offset
+/* LDRH Rd, [Rn], #-offset */
 static  void arm05B(u32 opcode) { LDR_POSTDEC(OFFSET_IMM8, OP_LDRH, 16); }
-// LDRH Rd, [Rn], Rm
+/* LDRH Rd, [Rn], Rm */
 static  void arm09B(u32 opcode) { LDR_POSTINC(OFFSET_REG, OP_LDRH, 16); }
-// LDRH Rd, [Rn], #offset
+/* LDRH Rd, [Rn], #offset */
 static  void arm0DB(u32 opcode) { LDR_POSTINC(OFFSET_IMM8, OP_LDRH, 16); }
-// LDRH Rd, [Rn, -Rm]
+/* LDRH Rd, [Rn, -Rm] */
 static  void arm11B(u32 opcode) { LDR_PREDEC(OFFSET_REG, OP_LDRH, 16); }
-// LDRH Rd, [Rn, -Rm]!
+/* LDRH Rd, [Rn, -Rm]! */
 static  void arm13B(u32 opcode) { LDR_PREDEC_WB(OFFSET_REG, OP_LDRH, 16); }
-// LDRH Rd, [Rn, -#offset]
+/* LDRH Rd, [Rn, -#offset] */
 static  void arm15B(u32 opcode) { LDR_PREDEC(OFFSET_IMM8, OP_LDRH, 16); }
-// LDRH Rd, [Rn, -#offset]!
+/* LDRH Rd, [Rn, -#offset]! */
 static  void arm17B(u32 opcode) { LDR_PREDEC_WB(OFFSET_IMM8, OP_LDRH, 16); }
-// LDRH Rd, [Rn, Rm]
+/* LDRH Rd, [Rn, Rm] */
 static  void arm19B(u32 opcode) { LDR_PREINC(OFFSET_REG, OP_LDRH, 16); }
-// LDRH Rd, [Rn, Rm]!
+/* LDRH Rd, [Rn, Rm]! */
 static  void arm1BB(u32 opcode) { LDR_PREINC_WB(OFFSET_REG, OP_LDRH, 16); }
-// LDRH Rd, [Rn, #offset]
+/* LDRH Rd, [Rn, #offset] */
 static  void arm1DB(u32 opcode) { LDR_PREINC(OFFSET_IMM8, OP_LDRH, 16); }
-// LDRH Rd, [Rn, #offset]!
+/* LDRH Rd, [Rn, #offset]! */
 static  void arm1FB(u32 opcode) { LDR_PREINC_WB(OFFSET_IMM8, OP_LDRH, 16); }
 
-// LDRSB Rd, [Rn], -Rm
+/* LDRSB Rd, [Rn], -Rm */
 static  void arm01D(u32 opcode) { LDR_POSTDEC(OFFSET_REG, OP_LDRSB, 16); }
-// LDRSB Rd, [Rn], #-offset
+/* LDRSB Rd, [Rn], #-offset */
 static  void arm05D(u32 opcode) { LDR_POSTDEC(OFFSET_IMM8, OP_LDRSB, 16); }
-// LDRSB Rd, [Rn], Rm
+/* LDRSB Rd, [Rn], Rm */
 static  void arm09D(u32 opcode) { LDR_POSTINC(OFFSET_REG, OP_LDRSB, 16); }
-// LDRSB Rd, [Rn], #offset
+/* LDRSB Rd, [Rn], #offset */
 static  void arm0DD(u32 opcode) { LDR_POSTINC(OFFSET_IMM8, OP_LDRSB, 16); }
-// LDRSB Rd, [Rn, -Rm]
+/* LDRSB Rd, [Rn, -Rm] */
 static  void arm11D(u32 opcode) { LDR_PREDEC(OFFSET_REG, OP_LDRSB, 16); }
-// LDRSB Rd, [Rn, -Rm]!
+/* LDRSB Rd, [Rn, -Rm]! */
 static  void arm13D(u32 opcode) { LDR_PREDEC_WB(OFFSET_REG, OP_LDRSB, 16); }
-// LDRSB Rd, [Rn, -#offset]
+/* LDRSB Rd, [Rn, -#offset] */
 static  void arm15D(u32 opcode) { LDR_PREDEC(OFFSET_IMM8, OP_LDRSB, 16); }
-// LDRSB Rd, [Rn, -#offset]!
+/* LDRSB Rd, [Rn, -#offset]! */
 static  void arm17D(u32 opcode) { LDR_PREDEC_WB(OFFSET_IMM8, OP_LDRSB, 16); }
-// LDRSB Rd, [Rn, Rm]
+/* LDRSB Rd, [Rn, Rm] */
 static  void arm19D(u32 opcode) { LDR_PREINC(OFFSET_REG, OP_LDRSB, 16); }
-// LDRSB Rd, [Rn, Rm]!
+/* LDRSB Rd, [Rn, Rm]! */
 static  void arm1BD(u32 opcode) { LDR_PREINC_WB(OFFSET_REG, OP_LDRSB, 16); }
-// LDRSB Rd, [Rn, #offset]
+/* LDRSB Rd, [Rn, #offset] */
 static  void arm1DD(u32 opcode) { LDR_PREINC(OFFSET_IMM8, OP_LDRSB, 16); }
-// LDRSB Rd, [Rn, #offset]!
+/* LDRSB Rd, [Rn, #offset]! */
 static  void arm1FD(u32 opcode) { LDR_PREINC_WB(OFFSET_IMM8, OP_LDRSB, 16); }
 
-// LDRSH Rd, [Rn], -Rm
+/* LDRSH Rd, [Rn], -Rm */
 static  void arm01F(u32 opcode) { LDR_POSTDEC(OFFSET_REG, OP_LDRSH, 16); }
-// LDRSH Rd, [Rn], #-offset
+/* LDRSH Rd, [Rn], #-offset */
 static  void arm05F(u32 opcode) { LDR_POSTDEC(OFFSET_IMM8, OP_LDRSH, 16); }
-// LDRSH Rd, [Rn], Rm
+/* LDRSH Rd, [Rn], Rm */
 static  void arm09F(u32 opcode) { LDR_POSTINC(OFFSET_REG, OP_LDRSH, 16); }
-// LDRSH Rd, [Rn], #offset
+/* LDRSH Rd, [Rn], #offset */
 static  void arm0DF(u32 opcode) { LDR_POSTINC(OFFSET_IMM8, OP_LDRSH, 16); }
-// LDRSH Rd, [Rn, -Rm]
+/* LDRSH Rd, [Rn, -Rm] */
 static  void arm11F(u32 opcode) { LDR_PREDEC(OFFSET_REG, OP_LDRSH, 16); }
-// LDRSH Rd, [Rn, -Rm]!
+/* LDRSH Rd, [Rn, -Rm]! */
 static  void arm13F(u32 opcode) { LDR_PREDEC_WB(OFFSET_REG, OP_LDRSH, 16); }
-// LDRSH Rd, [Rn, -#offset]
+/* LDRSH Rd, [Rn, -#offset] */
 static  void arm15F(u32 opcode) { LDR_PREDEC(OFFSET_IMM8, OP_LDRSH, 16); }
-// LDRSH Rd, [Rn, -#offset]!
+/* LDRSH Rd, [Rn, -#offset]! */
 static  void arm17F(u32 opcode) { LDR_PREDEC_WB(OFFSET_IMM8, OP_LDRSH, 16); }
-// LDRSH Rd, [Rn, Rm]
+/* LDRSH Rd, [Rn, Rm] */
 static  void arm19F(u32 opcode) { LDR_PREINC(OFFSET_REG, OP_LDRSH, 16); }
-// LDRSH Rd, [Rn, Rm]!
+/* LDRSH Rd, [Rn, Rm]! */
 static  void arm1BF(u32 opcode) { LDR_PREINC_WB(OFFSET_REG, OP_LDRSH, 16); }
-// LDRSH Rd, [Rn, #offset]
+/* LDRSH Rd, [Rn, #offset] */
 static  void arm1DF(u32 opcode) { LDR_PREINC(OFFSET_IMM8, OP_LDRSH, 16); }
-// LDRSH Rd, [Rn, #offset]!
+/* LDRSH Rd, [Rn, #offset]! */
 static  void arm1FF(u32 opcode) { LDR_PREINC_WB(OFFSET_IMM8, OP_LDRSH, 16); }
 
-// STR[T] Rd, [Rn], -#
-// Note: STR and STRT do the same thing on the GBA (likewise for LDR/LDRT etc)
+/* STR[T] Rd, [Rn], -# */
+/* Note: STR and STRT do the same thing on the GBA (likewise for LDR/LDRT etc) */
 static  void arm400(u32 opcode) { STR_POSTDEC(OFFSET_IMM, OP_STR, 32); }
-// LDR[T] Rd, [Rn], -#
+/* LDR[T] Rd, [Rn], -# */
 static  void arm410(u32 opcode) { LDR_POSTDEC(OFFSET_IMM, OP_LDR, 32); }
-// STRB[T] Rd, [Rn], -#
+/* STRB[T] Rd, [Rn], -# */
 static  void arm440(u32 opcode) { STR_POSTDEC(OFFSET_IMM, OP_STRB, 16); }
-// LDRB[T] Rd, [Rn], -#
+/* LDRB[T] Rd, [Rn], -# */
 static  void arm450(u32 opcode) { LDR_POSTDEC(OFFSET_IMM, OP_LDRB, 16); }
-// STR[T] Rd, [Rn], #
+/* STR[T] Rd, [Rn], # */
 static  void arm480(u32 opcode) { STR_POSTINC(OFFSET_IMM, OP_STR, 32); }
-// LDR Rd, [Rn], #
+/* LDR Rd, [Rn], # */
 static  void arm490(u32 opcode) { LDR_POSTINC(OFFSET_IMM, OP_LDR, 32); }
-// STRB[T] Rd, [Rn], #
+/* STRB[T] Rd, [Rn], # */
 static  void arm4C0(u32 opcode) { STR_POSTINC(OFFSET_IMM, OP_STRB, 16); }
-// LDRB[T] Rd, [Rn], #
+/* LDRB[T] Rd, [Rn], # */
 static  void arm4D0(u32 opcode) { LDR_POSTINC(OFFSET_IMM, OP_LDRB, 16); }
-// STR Rd, [Rn, -#]
+/* STR Rd, [Rn, -#] */
 static  void arm500(u32 opcode) { STR_PREDEC(OFFSET_IMM, OP_STR, 32); }
-// LDR Rd, [Rn, -#]
+/* LDR Rd, [Rn, -#] */
 static  void arm510(u32 opcode) { LDR_PREDEC(OFFSET_IMM, OP_LDR, 32); }
-// STR Rd, [Rn, -#]!
+/* STR Rd, [Rn, -#]! */
 static  void arm520(u32 opcode) { STR_PREDEC_WB(OFFSET_IMM, OP_STR, 32); }
-// LDR Rd, [Rn, -#]!
+/* LDR Rd, [Rn, -#]! */
 static  void arm530(u32 opcode) { LDR_PREDEC_WB(OFFSET_IMM, OP_LDR, 32); }
-// STRB Rd, [Rn, -#]
+/* STRB Rd, [Rn, -#] */
 static  void arm540(u32 opcode) { STR_PREDEC(OFFSET_IMM, OP_STRB, 16); }
-// LDRB Rd, [Rn, -#]
+/* LDRB Rd, [Rn, -#] */
 static  void arm550(u32 opcode) { LDR_PREDEC(OFFSET_IMM, OP_LDRB, 16); }
-// STRB Rd, [Rn, -#]!
+/* STRB Rd, [Rn, -#]! */
 static  void arm560(u32 opcode) { STR_PREDEC_WB(OFFSET_IMM, OP_STRB, 16); }
-// LDRB Rd, [Rn, -#]!
+/* LDRB Rd, [Rn, -#]! */
 static  void arm570(u32 opcode) { LDR_PREDEC_WB(OFFSET_IMM, OP_LDRB, 16); }
-// STR Rd, [Rn, #]
+/* STR Rd, [Rn, #] */
 static  void arm580(u32 opcode) { STR_PREINC(OFFSET_IMM, OP_STR, 32); }
-// LDR Rd, [Rn, #]
+/* LDR Rd, [Rn, #] */
 static  void arm590(u32 opcode) { LDR_PREINC(OFFSET_IMM, OP_LDR, 32); }
-// STR Rd, [Rn, #]!
+/* STR Rd, [Rn, #]! */
 static  void arm5A0(u32 opcode) { STR_PREINC_WB(OFFSET_IMM, OP_STR, 32); }
-// LDR Rd, [Rn, #]!
+/* LDR Rd, [Rn, #]! */
 static  void arm5B0(u32 opcode) { LDR_PREINC_WB(OFFSET_IMM, OP_LDR, 32); }
-// STRB Rd, [Rn, #]
+/* STRB Rd, [Rn, #] */
 static  void arm5C0(u32 opcode) { STR_PREINC(OFFSET_IMM, OP_STRB, 16); }
-// LDRB Rd, [Rn, #]
+/* LDRB Rd, [Rn, #] */
 static  void arm5D0(u32 opcode) { LDR_PREINC(OFFSET_IMM, OP_LDRB, 16); }
-// STRB Rd, [Rn, #]!
+/* STRB Rd, [Rn, #]! */
 static  void arm5E0(u32 opcode) { STR_PREINC_WB(OFFSET_IMM, OP_STRB, 16); }
-// LDRB Rd, [Rn, #]!
+/* LDRB Rd, [Rn, #]! */
 static  void arm5F0(u32 opcode) { LDR_PREINC_WB(OFFSET_IMM, OP_LDRB, 16); }
 
-// STR[T] Rd, [Rn], -Rm, LSL #
+/* STR[T] Rd, [Rn], -Rm, LSL # */
 static  void arm600(u32 opcode) { STR_POSTDEC(OFFSET_LSL, OP_STR, 32); }
-// STR[T] Rd, [Rn], -Rm, LSR #
+/* STR[T] Rd, [Rn], -Rm, LSR # */
 static  void arm602(u32 opcode) { STR_POSTDEC(OFFSET_LSR, OP_STR, 32); }
-// STR[T] Rd, [Rn], -Rm, ASR #
+/* STR[T] Rd, [Rn], -Rm, ASR # */
 static  void arm604(u32 opcode) { STR_POSTDEC(OFFSET_ASR, OP_STR, 32); }
-// STR[T] Rd, [Rn], -Rm, ROR #
+/* STR[T] Rd, [Rn], -Rm, ROR # */
 static  void arm606(u32 opcode) { STR_POSTDEC(OFFSET_ROR, OP_STR, 32); }
-// LDR[T] Rd, [Rn], -Rm, LSL #
+/* LDR[T] Rd, [Rn], -Rm, LSL # */
 static  void arm610(u32 opcode) { LDR_POSTDEC(OFFSET_LSL, OP_LDR, 32); }
-// LDR[T] Rd, [Rn], -Rm, LSR #
+/* LDR[T] Rd, [Rn], -Rm, LSR # */
 static  void arm612(u32 opcode) { LDR_POSTDEC(OFFSET_LSR, OP_LDR, 32); }
-// LDR[T] Rd, [Rn], -Rm, ASR #
+/* LDR[T] Rd, [Rn], -Rm, ASR # */
 static  void arm614(u32 opcode) { LDR_POSTDEC(OFFSET_ASR, OP_LDR, 32); }
-// LDR[T] Rd, [Rn], -Rm, ROR #
+/* LDR[T] Rd, [Rn], -Rm, ROR # */
 static  void arm616(u32 opcode) { LDR_POSTDEC(OFFSET_ROR, OP_LDR, 32); }
-// STRB[T] Rd, [Rn], -Rm, LSL #
+/* STRB[T] Rd, [Rn], -Rm, LSL # */
 static  void arm640(u32 opcode) { STR_POSTDEC(OFFSET_LSL, OP_STRB, 16); }
-// STRB[T] Rd, [Rn], -Rm, LSR #
+/* STRB[T] Rd, [Rn], -Rm, LSR # */
 static  void arm642(u32 opcode) { STR_POSTDEC(OFFSET_LSR, OP_STRB, 16); }
-// STRB[T] Rd, [Rn], -Rm, ASR #
+/* STRB[T] Rd, [Rn], -Rm, ASR # */
 static  void arm644(u32 opcode) { STR_POSTDEC(OFFSET_ASR, OP_STRB, 16); }
-// STRB[T] Rd, [Rn], -Rm, ROR #
+/* STRB[T] Rd, [Rn], -Rm, ROR # */
 static  void arm646(u32 opcode) { STR_POSTDEC(OFFSET_ROR, OP_STRB, 16); }
-// LDRB[T] Rd, [Rn], -Rm, LSL #
+/* LDRB[T] Rd, [Rn], -Rm, LSL # */
 static  void arm650(u32 opcode) { LDR_POSTDEC(OFFSET_LSL, OP_LDRB, 16); }
-// LDRB[T] Rd, [Rn], -Rm, LSR #
+/* LDRB[T] Rd, [Rn], -Rm, LSR # */
 static  void arm652(u32 opcode) { LDR_POSTDEC(OFFSET_LSR, OP_LDRB, 16); }
-// LDRB[T] Rd, [Rn], -Rm, ASR #
+/* LDRB[T] Rd, [Rn], -Rm, ASR # */
 static  void arm654(u32 opcode) { LDR_POSTDEC(OFFSET_ASR, OP_LDRB, 16); }
-// LDRB Rd, [Rn], -Rm, ROR #
+/* LDRB Rd, [Rn], -Rm, ROR # */
 static  void arm656(u32 opcode) { LDR_POSTDEC(OFFSET_ROR, OP_LDRB, 16); }
-// STR[T] Rd, [Rn], Rm, LSL #
+/* STR[T] Rd, [Rn], Rm, LSL # */
 static  void arm680(u32 opcode) { STR_POSTINC(OFFSET_LSL, OP_STR, 32); }
-// STR[T] Rd, [Rn], Rm, LSR #
+/* STR[T] Rd, [Rn], Rm, LSR # */
 static  void arm682(u32 opcode) { STR_POSTINC(OFFSET_LSR, OP_STR, 32); }
-// STR[T] Rd, [Rn], Rm, ASR #
+/* STR[T] Rd, [Rn], Rm, ASR # */
 static  void arm684(u32 opcode) { STR_POSTINC(OFFSET_ASR, OP_STR, 32); }
-// STR[T] Rd, [Rn], Rm, ROR #
+/* STR[T] Rd, [Rn], Rm, ROR # */
 static  void arm686(u32 opcode) { STR_POSTINC(OFFSET_ROR, OP_STR, 32); }
-// LDR[T] Rd, [Rn], Rm, LSL #
+/* LDR[T] Rd, [Rn], Rm, LSL # */
 static  void arm690(u32 opcode) { LDR_POSTINC(OFFSET_LSL, OP_LDR, 32); }
-// LDR[T] Rd, [Rn], Rm, LSR #
+/* LDR[T] Rd, [Rn], Rm, LSR # */
 static  void arm692(u32 opcode) { LDR_POSTINC(OFFSET_LSR, OP_LDR, 32); }
-// LDR[T] Rd, [Rn], Rm, ASR #
+/* LDR[T] Rd, [Rn], Rm, ASR # */
 static  void arm694(u32 opcode) { LDR_POSTINC(OFFSET_ASR, OP_LDR, 32); }
-// LDR[T] Rd, [Rn], Rm, ROR #
+/* LDR[T] Rd, [Rn], Rm, ROR # */
 static  void arm696(u32 opcode) { LDR_POSTINC(OFFSET_ROR, OP_LDR, 32); }
-// STRB[T] Rd, [Rn], Rm, LSL #
+/* STRB[T] Rd, [Rn], Rm, LSL # */
 static  void arm6C0(u32 opcode) { STR_POSTINC(OFFSET_LSL, OP_STRB, 16); }
-// STRB[T] Rd, [Rn], Rm, LSR #
+/* STRB[T] Rd, [Rn], Rm, LSR # */
 static  void arm6C2(u32 opcode) { STR_POSTINC(OFFSET_LSR, OP_STRB, 16); }
-// STRB[T] Rd, [Rn], Rm, ASR #
+/* STRB[T] Rd, [Rn], Rm, ASR # */
 static  void arm6C4(u32 opcode) { STR_POSTINC(OFFSET_ASR, OP_STRB, 16); }
-// STRB[T] Rd, [Rn], Rm, ROR #
+/* STRB[T] Rd, [Rn], Rm, ROR # */
 static  void arm6C6(u32 opcode) { STR_POSTINC(OFFSET_ROR, OP_STRB, 16); }
-// LDRB[T] Rd, [Rn], Rm, LSL #
+/* LDRB[T] Rd, [Rn], Rm, LSL # */
 static  void arm6D0(u32 opcode) { LDR_POSTINC(OFFSET_LSL, OP_LDRB, 16); }
-// LDRB[T] Rd, [Rn], Rm, LSR #
+/* LDRB[T] Rd, [Rn], Rm, LSR # */
 static  void arm6D2(u32 opcode) { LDR_POSTINC(OFFSET_LSR, OP_LDRB, 16); }
-// LDRB[T] Rd, [Rn], Rm, ASR #
+/* LDRB[T] Rd, [Rn], Rm, ASR # */
 static  void arm6D4(u32 opcode) { LDR_POSTINC(OFFSET_ASR, OP_LDRB, 16); }
-// LDRB[T] Rd, [Rn], Rm, ROR #
+/* LDRB[T] Rd, [Rn], Rm, ROR # */
 static  void arm6D6(u32 opcode) { LDR_POSTINC(OFFSET_ROR, OP_LDRB, 16); }
-// STR Rd, [Rn, -Rm, LSL #]
+/* STR Rd, [Rn, -Rm, LSL #] */
 static  void arm700(u32 opcode) { STR_PREDEC(OFFSET_LSL, OP_STR, 32); }
-// STR Rd, [Rn, -Rm, LSR #]
+/* STR Rd, [Rn, -Rm, LSR #] */
 static  void arm702(u32 opcode) { STR_PREDEC(OFFSET_LSR, OP_STR, 32); }
-// STR Rd, [Rn, -Rm, ASR #]
+/* STR Rd, [Rn, -Rm, ASR #] */
 static  void arm704(u32 opcode) { STR_PREDEC(OFFSET_ASR, OP_STR, 32); }
-// STR Rd, [Rn, -Rm, ROR #]
+/* STR Rd, [Rn, -Rm, ROR #] */
 static  void arm706(u32 opcode) { STR_PREDEC(OFFSET_ROR, OP_STR, 32); }
-// LDR Rd, [Rn, -Rm, LSL #]
+/* LDR Rd, [Rn, -Rm, LSL #] */
 static  void arm710(u32 opcode) { LDR_PREDEC(OFFSET_LSL, OP_LDR, 32); }
-// LDR Rd, [Rn, -Rm, LSR #]
+/* LDR Rd, [Rn, -Rm, LSR #] */
 static  void arm712(u32 opcode) { LDR_PREDEC(OFFSET_LSR, OP_LDR, 32); }
-// LDR Rd, [Rn, -Rm, ASR #]
+/* LDR Rd, [Rn, -Rm, ASR #] */
 static  void arm714(u32 opcode) { LDR_PREDEC(OFFSET_ASR, OP_LDR, 32); }
-// LDR Rd, [Rn, -Rm, ROR #]
+/* LDR Rd, [Rn, -Rm, ROR #] */
 static  void arm716(u32 opcode) { LDR_PREDEC(OFFSET_ROR, OP_LDR, 32); }
-// STR Rd, [Rn, -Rm, LSL #]!
+/* STR Rd, [Rn, -Rm, LSL #]! */
 static  void arm720(u32 opcode) { STR_PREDEC_WB(OFFSET_LSL, OP_STR, 32); }
-// STR Rd, [Rn, -Rm, LSR #]!
+/* STR Rd, [Rn, -Rm, LSR #]! */
 static  void arm722(u32 opcode) { STR_PREDEC_WB(OFFSET_LSR, OP_STR, 32); }
-// STR Rd, [Rn, -Rm, ASR #]!
+/* STR Rd, [Rn, -Rm, ASR #]! */
 static  void arm724(u32 opcode) { STR_PREDEC_WB(OFFSET_ASR, OP_STR, 32); }
-// STR Rd, [Rn, -Rm, ROR #]!
+/* STR Rd, [Rn, -Rm, ROR #]! */
 static  void arm726(u32 opcode) { STR_PREDEC_WB(OFFSET_ROR, OP_STR, 32); }
-// LDR Rd, [Rn, -Rm, LSL #]!
+/* LDR Rd, [Rn, -Rm, LSL #]! */
 static  void arm730(u32 opcode) { LDR_PREDEC_WB(OFFSET_LSL, OP_LDR, 32); }
-// LDR Rd, [Rn, -Rm, LSR #]!
+/* LDR Rd, [Rn, -Rm, LSR #]! */
 static  void arm732(u32 opcode) { LDR_PREDEC_WB(OFFSET_LSR, OP_LDR, 32); }
-// LDR Rd, [Rn, -Rm, ASR #]!
+/* LDR Rd, [Rn, -Rm, ASR #]! */
 static  void arm734(u32 opcode) { LDR_PREDEC_WB(OFFSET_ASR, OP_LDR, 32); }
-// LDR Rd, [Rn, -Rm, ROR #]!
+/* LDR Rd, [Rn, -Rm, ROR #]! */
 static  void arm736(u32 opcode) { LDR_PREDEC_WB(OFFSET_ROR, OP_LDR, 32); }
-// STRB Rd, [Rn, -Rm, LSL #]
+/* STRB Rd, [Rn, -Rm, LSL #] */
 static  void arm740(u32 opcode) { STR_PREDEC(OFFSET_LSL, OP_STRB, 16); }
-// STRB Rd, [Rn, -Rm, LSR #]
+/* STRB Rd, [Rn, -Rm, LSR #] */
 static  void arm742(u32 opcode) { STR_PREDEC(OFFSET_LSR, OP_STRB, 16); }
-// STRB Rd, [Rn, -Rm, ASR #]
+/* STRB Rd, [Rn, -Rm, ASR #] */
 static  void arm744(u32 opcode) { STR_PREDEC(OFFSET_ASR, OP_STRB, 16); }
-// STRB Rd, [Rn, -Rm, ROR #]
+/* STRB Rd, [Rn, -Rm, ROR #] */
 static  void arm746(u32 opcode) { STR_PREDEC(OFFSET_ROR, OP_STRB, 16); }
-// LDRB Rd, [Rn, -Rm, LSL #]
+/* LDRB Rd, [Rn, -Rm, LSL #] */
 static  void arm750(u32 opcode) { LDR_PREDEC(OFFSET_LSL, OP_LDRB, 16); }
-// LDRB Rd, [Rn, -Rm, LSR #]
+/* LDRB Rd, [Rn, -Rm, LSR #] */
 static  void arm752(u32 opcode) { LDR_PREDEC(OFFSET_LSR, OP_LDRB, 16); }
-// LDRB Rd, [Rn, -Rm, ASR #]
+/* LDRB Rd, [Rn, -Rm, ASR #] */
 static  void arm754(u32 opcode) { LDR_PREDEC(OFFSET_ASR, OP_LDRB, 16); }
-// LDRB Rd, [Rn, -Rm, ROR #]
+/* LDRB Rd, [Rn, -Rm, ROR #] */
 static  void arm756(u32 opcode) { LDR_PREDEC(OFFSET_ROR, OP_LDRB, 16); }
-// STRB Rd, [Rn, -Rm, LSL #]!
+/* STRB Rd, [Rn, -Rm, LSL #]! */
 static  void arm760(u32 opcode) { STR_PREDEC_WB(OFFSET_LSL, OP_STRB, 16); }
-// STRB Rd, [Rn, -Rm, LSR #]!
+/* STRB Rd, [Rn, -Rm, LSR #]! */
 static  void arm762(u32 opcode) { STR_PREDEC_WB(OFFSET_LSR, OP_STRB, 16); }
-// STRB Rd, [Rn, -Rm, ASR #]!
+/* STRB Rd, [Rn, -Rm, ASR #]! */
 static  void arm764(u32 opcode) { STR_PREDEC_WB(OFFSET_ASR, OP_STRB, 16); }
-// STRB Rd, [Rn, -Rm, ROR #]!
+/* STRB Rd, [Rn, -Rm, ROR #]! */
 static  void arm766(u32 opcode) { STR_PREDEC_WB(OFFSET_ROR, OP_STRB, 16); }
-// LDRB Rd, [Rn, -Rm, LSL #]!
+/* LDRB Rd, [Rn, -Rm, LSL #]! */
 static  void arm770(u32 opcode) { LDR_PREDEC_WB(OFFSET_LSL, OP_LDRB, 16); }
-// LDRB Rd, [Rn, -Rm, LSR #]!
+/* LDRB Rd, [Rn, -Rm, LSR #]! */
 static  void arm772(u32 opcode) { LDR_PREDEC_WB(OFFSET_LSR, OP_LDRB, 16); }
-// LDRB Rd, [Rn, -Rm, ASR #]!
+/* LDRB Rd, [Rn, -Rm, ASR #]! */
 static  void arm774(u32 opcode) { LDR_PREDEC_WB(OFFSET_ASR, OP_LDRB, 16); }
-// LDRB Rd, [Rn, -Rm, ROR #]!
+/* LDRB Rd, [Rn, -Rm, ROR #]! */
 static  void arm776(u32 opcode) { LDR_PREDEC_WB(OFFSET_ROR, OP_LDRB, 16); }
-// STR Rd, [Rn, Rm, LSL #]
+/* STR Rd, [Rn, Rm, LSL #] */
 static  void arm780(u32 opcode) { STR_PREINC(OFFSET_LSL, OP_STR, 32); }
-// STR Rd, [Rn, Rm, LSR #]
+/* STR Rd, [Rn, Rm, LSR #] */
 static  void arm782(u32 opcode) { STR_PREINC(OFFSET_LSR, OP_STR, 32); }
-// STR Rd, [Rn, Rm, ASR #]
+/* STR Rd, [Rn, Rm, ASR #] */
 static  void arm784(u32 opcode) { STR_PREINC(OFFSET_ASR, OP_STR, 32); }
-// STR Rd, [Rn, Rm, ROR #]
+/* STR Rd, [Rn, Rm, ROR #] */
 static  void arm786(u32 opcode) { STR_PREINC(OFFSET_ROR, OP_STR, 32); }
-// LDR Rd, [Rn, Rm, LSL #]
+/* LDR Rd, [Rn, Rm, LSL #] */
 static  void arm790(u32 opcode) { LDR_PREINC(OFFSET_LSL, OP_LDR, 32); }
-// LDR Rd, [Rn, Rm, LSR #]
+/* LDR Rd, [Rn, Rm, LSR #] */
 static  void arm792(u32 opcode) { LDR_PREINC(OFFSET_LSR, OP_LDR, 32); }
-// LDR Rd, [Rn, Rm, ASR #]
+/* LDR Rd, [Rn, Rm, ASR #] */
 static  void arm794(u32 opcode) { LDR_PREINC(OFFSET_ASR, OP_LDR, 32); }
-// LDR Rd, [Rn, Rm, ROR #]
+/* LDR Rd, [Rn, Rm, ROR #] */
 static  void arm796(u32 opcode) { LDR_PREINC(OFFSET_ROR, OP_LDR, 32); }
-// STR Rd, [Rn, Rm, LSL #]!
+/* STR Rd, [Rn, Rm, LSL #]! */
 static  void arm7A0(u32 opcode) { STR_PREINC_WB(OFFSET_LSL, OP_STR, 32); }
-// STR Rd, [Rn, Rm, LSR #]!
+/* STR Rd, [Rn, Rm, LSR #]! */
 static  void arm7A2(u32 opcode) { STR_PREINC_WB(OFFSET_LSR, OP_STR, 32); }
-// STR Rd, [Rn, Rm, ASR #]!
+/* STR Rd, [Rn, Rm, ASR #]! */
 static  void arm7A4(u32 opcode) { STR_PREINC_WB(OFFSET_ASR, OP_STR, 32); }
-// STR Rd, [Rn, Rm, ROR #]!
+/* STR Rd, [Rn, Rm, ROR #]! */
 static  void arm7A6(u32 opcode) { STR_PREINC_WB(OFFSET_ROR, OP_STR, 32); }
-// LDR Rd, [Rn, Rm, LSL #]!
+/* LDR Rd, [Rn, Rm, LSL #]! */
 static  void arm7B0(u32 opcode) { LDR_PREINC_WB(OFFSET_LSL, OP_LDR, 32); }
-// LDR Rd, [Rn, Rm, LSR #]!
+/* LDR Rd, [Rn, Rm, LSR #]! */
 static  void arm7B2(u32 opcode) { LDR_PREINC_WB(OFFSET_LSR, OP_LDR, 32); }
-// LDR Rd, [Rn, Rm, ASR #]!
+/* LDR Rd, [Rn, Rm, ASR #]! */
 static  void arm7B4(u32 opcode) { LDR_PREINC_WB(OFFSET_ASR, OP_LDR, 32); }
-// LDR Rd, [Rn, Rm, ROR #]!
+/* LDR Rd, [Rn, Rm, ROR #]! */
 static  void arm7B6(u32 opcode) { LDR_PREINC_WB(OFFSET_ROR, OP_LDR, 32); }
-// STRB Rd, [Rn, Rm, LSL #]
+/* STRB Rd, [Rn, Rm, LSL #] */
 static  void arm7C0(u32 opcode) { STR_PREINC(OFFSET_LSL, OP_STRB, 16); }
-// STRB Rd, [Rn, Rm, LSR #]
+/* STRB Rd, [Rn, Rm, LSR #] */
 static  void arm7C2(u32 opcode) { STR_PREINC(OFFSET_LSR, OP_STRB, 16); }
-// STRB Rd, [Rn, Rm, ASR #]
+/* STRB Rd, [Rn, Rm, ASR #] */
 static  void arm7C4(u32 opcode) { STR_PREINC(OFFSET_ASR, OP_STRB, 16); }
-// STRB Rd, [Rn, Rm, ROR #]
+/* STRB Rd, [Rn, Rm, ROR #] */
 static  void arm7C6(u32 opcode) { STR_PREINC(OFFSET_ROR, OP_STRB, 16); }
-// LDRB Rd, [Rn, Rm, LSL #]
+/* LDRB Rd, [Rn, Rm, LSL #] */
 static  void arm7D0(u32 opcode) { LDR_PREINC(OFFSET_LSL, OP_LDRB, 16); }
-// LDRB Rd, [Rn, Rm, LSR #]
+/* LDRB Rd, [Rn, Rm, LSR #] */
 static  void arm7D2(u32 opcode) { LDR_PREINC(OFFSET_LSR, OP_LDRB, 16); }
-// LDRB Rd, [Rn, Rm, ASR #]
+/* LDRB Rd, [Rn, Rm, ASR #] */
 static  void arm7D4(u32 opcode) { LDR_PREINC(OFFSET_ASR, OP_LDRB, 16); }
-// LDRB Rd, [Rn, Rm, ROR #]
+/* LDRB Rd, [Rn, Rm, ROR #] */
 static  void arm7D6(u32 opcode) { LDR_PREINC(OFFSET_ROR, OP_LDRB, 16); }
-// STRB Rd, [Rn, Rm, LSL #]!
+/* STRB Rd, [Rn, Rm, LSL #]! */
 static  void arm7E0(u32 opcode) { STR_PREINC_WB(OFFSET_LSL, OP_STRB, 16); }
-// STRB Rd, [Rn, Rm, LSR #]!
+/* STRB Rd, [Rn, Rm, LSR #]! */
 static  void arm7E2(u32 opcode) { STR_PREINC_WB(OFFSET_LSR, OP_STRB, 16); }
-// STRB Rd, [Rn, Rm, ASR #]!
+/* STRB Rd, [Rn, Rm, ASR #]! */
 static  void arm7E4(u32 opcode) { STR_PREINC_WB(OFFSET_ASR, OP_STRB, 16); }
-// STRB Rd, [Rn, Rm, ROR #]!
+/* STRB Rd, [Rn, Rm, ROR #]! */
 static  void arm7E6(u32 opcode) { STR_PREINC_WB(OFFSET_ROR, OP_STRB, 16); }
-// LDRB Rd, [Rn, Rm, LSL #]!
+/* LDRB Rd, [Rn, Rm, LSL #]! */
 static  void arm7F0(u32 opcode) { LDR_PREINC_WB(OFFSET_LSL, OP_LDRB, 16); }
-// LDRB Rd, [Rn, Rm, LSR #]!
+/* LDRB Rd, [Rn, Rm, LSR #]! */
 static  void arm7F2(u32 opcode) { LDR_PREINC_WB(OFFSET_LSR, OP_LDRB, 16); }
-// LDRB Rd, [Rn, Rm, ASR #]!
+/* LDRB Rd, [Rn, Rm, ASR #]! */
 static  void arm7F4(u32 opcode) { LDR_PREINC_WB(OFFSET_ASR, OP_LDRB, 16); }
-// LDRB Rd, [Rn, Rm, ROR #]!
+/* LDRB Rd, [Rn, Rm, ROR #]! */
 static  void arm7F6(u32 opcode) { LDR_PREINC_WB(OFFSET_ROR, OP_LDRB, 16); }
 
-// STM/LDM ////////////////////////////////////////////////////////////////
+/* STM/LDM //////////////////////////////////////////////////////////////// */
 
 #define STM_REG(bit,num) \
     if (opcode & (1U<<(bit))) {                         \
@@ -4131,7 +4137,7 @@ static  void arm7F6(u32 opcode) { LDR_PREINC_WB(OFFSET_ROR, OP_LDRB, 16); }
     }
 
 
-// STMDA Rn, {Rlist}
+/* STMDA Rn, {Rlist} */
 static  void arm800(u32 opcode)
 {
     if (bus.busPrefetchCount == 0)
@@ -4145,7 +4151,7 @@ static  void arm800(u32 opcode)
     clockTicks += 1 + codeTicksAccess(bus.armNextPC, BITS_32);
 }
 
-// LDMDA Rn, {Rlist}
+/* LDMDA Rn, {Rlist} */
 static  void arm810(u32 opcode)
 {
     if (bus.busPrefetchCount == 0)
@@ -4159,7 +4165,7 @@ static  void arm810(u32 opcode)
     clockTicks += 2 + codeTicksAccess(bus.armNextPC, BITS_32);
 }
 
-// STMDA Rn!, {Rlist}
+/* STMDA Rn!, {Rlist} */
 static  void arm820(u32 opcode)
 {
     if (bus.busPrefetchCount == 0)
@@ -4173,7 +4179,7 @@ static  void arm820(u32 opcode)
     clockTicks += 1 + codeTicksAccess(bus.armNextPC, BITS_32);
 }
 
-// LDMDA Rn!, {Rlist}
+/* LDMDA Rn!, {Rlist} */
 static  void arm830(u32 opcode)
 {
     if (bus.busPrefetchCount == 0)
@@ -4189,7 +4195,7 @@ static  void arm830(u32 opcode)
         bus.reg[base].I = temp;
 }
 
-// STMDA Rn, {Rlist}^
+/* STMDA Rn, {Rlist}^ */
 static  void arm840(u32 opcode)
 {
     if (bus.busPrefetchCount == 0)
@@ -4203,7 +4209,7 @@ static  void arm840(u32 opcode)
     clockTicks += 1 + codeTicksAccess(bus.armNextPC, BITS_32);
 }
 
-// LDMDA Rn, {Rlist}^
+/* LDMDA Rn, {Rlist}^ */
 static  void arm850(u32 opcode)
 {
     if (bus.busPrefetchCount == 0)
@@ -4218,7 +4224,7 @@ static  void arm850(u32 opcode)
     clockTicks += 2 + codeTicksAccess(bus.armNextPC, BITS_32);
 }
 
-// STMDA Rn!, {Rlist}^
+/* STMDA Rn!, {Rlist}^ */
 static  void arm860(u32 opcode)
 {
     if (bus.busPrefetchCount == 0)
@@ -4232,7 +4238,7 @@ static  void arm860(u32 opcode)
     clockTicks += 1 + codeTicksAccess(bus.armNextPC, BITS_32);
 }
 
-// LDMDA Rn!, {Rlist}^
+/* LDMDA Rn!, {Rlist}^ */
 static  void arm870(u32 opcode)
 {
     if (bus.busPrefetchCount == 0)
@@ -4249,7 +4255,7 @@ static  void arm870(u32 opcode)
     clockTicks += 2 + codeTicksAccess(bus.armNextPC, BITS_32);
 }
 
-// STMIA Rn, {Rlist}
+/* STMIA Rn, {Rlist} */
 static  void arm880(u32 opcode)
 {
     if (bus.busPrefetchCount == 0)
@@ -4261,7 +4267,7 @@ static  void arm880(u32 opcode)
     clockTicks += 1 + codeTicksAccess(bus.armNextPC, BITS_32);
 }
 
-// LDMIA Rn, {Rlist}
+/* LDMIA Rn, {Rlist} */
 static  void arm890(u32 opcode)
 {
     if (bus.busPrefetchCount == 0)
@@ -4273,7 +4279,7 @@ static  void arm890(u32 opcode)
     clockTicks += 2 + codeTicksAccess(bus.armNextPC, BITS_32);
 }
 
-// STMIA Rn!, {Rlist}
+/* STMIA Rn!, {Rlist} */
 static  void arm8A0(u32 opcode)
 {
     if (bus.busPrefetchCount == 0)
@@ -4287,7 +4293,7 @@ static  void arm8A0(u32 opcode)
     clockTicks += 1 + codeTicksAccess(bus.armNextPC, BITS_32);
 }
 
-// LDMIA Rn!, {Rlist}
+/* LDMIA Rn!, {Rlist} */
 static  void arm8B0(u32 opcode)
 {
     if (bus.busPrefetchCount == 0)
@@ -4303,7 +4309,7 @@ static  void arm8B0(u32 opcode)
         bus.reg[base].I = temp;
 }
 
-// STMIA Rn, {Rlist}^
+/* STMIA Rn, {Rlist}^ */
 static  void arm8C0(u32 opcode)
 {
     if (bus.busPrefetchCount == 0)
@@ -4315,7 +4321,7 @@ static  void arm8C0(u32 opcode)
     clockTicks += 1 + codeTicksAccess(bus.armNextPC, BITS_32);
 }
 
-// LDMIA Rn, {Rlist}^
+/* LDMIA Rn, {Rlist}^ */
 static  void arm8D0(u32 opcode)
 {
     if (bus.busPrefetchCount == 0)
@@ -4328,7 +4334,7 @@ static  void arm8D0(u32 opcode)
     clockTicks += 2 + codeTicksAccess(bus.armNextPC, BITS_32);
 }
 
-// STMIA Rn!, {Rlist}^
+/* STMIA Rn!, {Rlist}^ */
 static  void arm8E0(u32 opcode)
 {
     if (bus.busPrefetchCount == 0)
@@ -4342,7 +4348,7 @@ static  void arm8E0(u32 opcode)
     clockTicks += 1 + codeTicksAccess(bus.armNextPC, BITS_32);
 }
 
-// LDMIA Rn!, {Rlist}^
+/* LDMIA Rn!, {Rlist}^ */
 static  void arm8F0(u32 opcode)
 {
     if (bus.busPrefetchCount == 0)
@@ -4359,7 +4365,7 @@ static  void arm8F0(u32 opcode)
     clockTicks += 2 + codeTicksAccess(bus.armNextPC, BITS_32);
 }
 
-// STMDB Rn, {Rlist}
+/* STMDB Rn, {Rlist} */
 static  void arm900(u32 opcode)
 {
     if (bus.busPrefetchCount == 0)
@@ -4373,7 +4379,7 @@ static  void arm900(u32 opcode)
     clockTicks += 1 + codeTicksAccess(bus.armNextPC, BITS_32);
 }
 
-// LDMDB Rn, {Rlist}
+/* LDMDB Rn, {Rlist} */
 static  void arm910(u32 opcode)
 {
     if (bus.busPrefetchCount == 0)
@@ -4387,7 +4393,7 @@ static  void arm910(u32 opcode)
     clockTicks += 2 + codeTicksAccess(bus.armNextPC, BITS_32);
 }
 
-// STMDB Rn!, {Rlist}
+/* STMDB Rn!, {Rlist} */
 static  void arm920(u32 opcode)
 {
     if (bus.busPrefetchCount == 0)
@@ -4401,7 +4407,7 @@ static  void arm920(u32 opcode)
     clockTicks += 1 + codeTicksAccess(bus.armNextPC, BITS_32);
 }
 
-// LDMDB Rn!, {Rlist}
+/* LDMDB Rn!, {Rlist} */
 static  void arm930(u32 opcode)
 {
     if (bus.busPrefetchCount == 0)
@@ -4417,7 +4423,7 @@ static  void arm930(u32 opcode)
         bus.reg[base].I = temp;
 }
 
-// STMDB Rn, {Rlist}^
+/* STMDB Rn, {Rlist}^ */
 static  void arm940(u32 opcode)
 {
     if (bus.busPrefetchCount == 0)
@@ -4431,7 +4437,7 @@ static  void arm940(u32 opcode)
     clockTicks += 1 + codeTicksAccess(bus.armNextPC, BITS_32);
 }
 
-// LDMDB Rn, {Rlist}^
+/* LDMDB Rn, {Rlist}^ */
 static  void arm950(u32 opcode)
 {
     if (bus.busPrefetchCount == 0)
@@ -4446,7 +4452,7 @@ static  void arm950(u32 opcode)
     clockTicks += 2 + codeTicksAccess(bus.armNextPC, BITS_32);
 }
 
-// STMDB Rn!, {Rlist}^
+/* STMDB Rn!, {Rlist}^ */
 static  void arm960(u32 opcode)
 {
     if (bus.busPrefetchCount == 0)
@@ -4460,7 +4466,7 @@ static  void arm960(u32 opcode)
     clockTicks += 1 + codeTicksAccess(bus.armNextPC, BITS_32);
 }
 
-// LDMDB Rn!, {Rlist}^
+/* LDMDB Rn!, {Rlist}^ */
 static  void arm970(u32 opcode)
 {
     if (bus.busPrefetchCount == 0)
@@ -4477,7 +4483,7 @@ static  void arm970(u32 opcode)
     clockTicks += 2 + codeTicksAccess(bus.armNextPC, BITS_32);
 }
 
-// STMIB Rn, {Rlist}
+/* STMIB Rn, {Rlist} */
 static  void arm980(u32 opcode)
 {
     if (bus.busPrefetchCount == 0)
@@ -4489,7 +4495,7 @@ static  void arm980(u32 opcode)
     clockTicks += 1 + codeTicksAccess(bus.armNextPC, BITS_32);
 }
 
-// LDMIB Rn, {Rlist}
+/* LDMIB Rn, {Rlist} */
 static  void arm990(u32 opcode)
 {
     if (bus.busPrefetchCount == 0)
@@ -4501,7 +4507,7 @@ static  void arm990(u32 opcode)
     clockTicks += 2 + codeTicksAccess(bus.armNextPC, BITS_32);
 }
 
-// STMIB Rn!, {Rlist}
+/* STMIB Rn!, {Rlist} */
 static  void arm9A0(u32 opcode)
 {
     if (bus.busPrefetchCount == 0)
@@ -4515,7 +4521,7 @@ static  void arm9A0(u32 opcode)
     clockTicks += 1 + codeTicksAccess(bus.armNextPC, BITS_32);
 }
 
-// LDMIB Rn!, {Rlist}
+/* LDMIB Rn!, {Rlist} */
 static  void arm9B0(u32 opcode)
 {
     if (bus.busPrefetchCount == 0)
@@ -4531,7 +4537,7 @@ static  void arm9B0(u32 opcode)
         bus.reg[base].I = temp;
 }
 
-// STMIB Rn, {Rlist}^
+/* STMIB Rn, {Rlist}^ */
 static  void arm9C0(u32 opcode)
 {
     if (bus.busPrefetchCount == 0)
@@ -4543,7 +4549,7 @@ static  void arm9C0(u32 opcode)
     clockTicks += 1 + codeTicksAccess(bus.armNextPC, BITS_32);
 }
 
-// LDMIB Rn, {Rlist}^
+/* LDMIB Rn, {Rlist}^ */
 static  void arm9D0(u32 opcode)
 {
     if (bus.busPrefetchCount == 0)
@@ -4556,7 +4562,7 @@ static  void arm9D0(u32 opcode)
     clockTicks += 2 + codeTicksAccess(bus.armNextPC, BITS_32);
 }
 
-// STMIB Rn!, {Rlist}^
+/* STMIB Rn!, {Rlist}^ */
 static  void arm9E0(u32 opcode)
 {
 	if (bus.busPrefetchCount == 0)
@@ -4570,7 +4576,7 @@ static  void arm9E0(u32 opcode)
 	clockTicks += 1 + codeTicksAccess(bus.armNextPC, BITS_32);
 }
 
-// LDMIB Rn!, {Rlist}^
+/* LDMIB Rn!, {Rlist}^ */
 static  void arm9F0(u32 opcode)
 {
 	if (bus.busPrefetchCount == 0)
@@ -4587,14 +4593,14 @@ static  void arm9F0(u32 opcode)
 	clockTicks += 2 + codeTicksAccess(bus.armNextPC, BITS_32);
 }
 
-// B/BL/SWI and (unimplemented) coproc support ////////////////////////////
+/* B/BL/SWI and (unimplemented) coproc support //////////////////////////// */
 
-// B <offset>
+/* B <offset> */
 static  void armA00(u32 opcode)
 {
 	int offset = opcode & 0x00FFFFFF;
 	if (offset & 0x00800000)
-		offset |= 0xFF000000;  // negative offset
+		offset |= 0xFF000000;  /* negative offset */
 	bus.reg[15].I += offset<<2;
 	bus.armNextPC = bus.reg[15].I;
 	bus.reg[15].I += 4;
@@ -4604,12 +4610,12 @@ static  void armA00(u32 opcode)
 	bus.busPrefetchCount = 0;
 }
 
-// BL <offset>
+/* BL <offset> */
 static  void armB00(u32 opcode)
 {
 	int offset = opcode & 0x00FFFFFF;
 	if (offset & 0x00800000)
-		offset |= 0xFF000000;  // negative offset
+		offset |= 0xFF000000;  /* negative offset */
 	bus.reg[14].I = bus.reg[15].I - 4;
 	bus.reg[15].I += offset<<2;
 	bus.armNextPC = bus.reg[15].I;
@@ -4622,7 +4628,7 @@ static  void armB00(u32 opcode)
 
 #define armE01 armUnknownInsn
 
-// SWI <comment>
+/* SWI <comment> */
 static  void armF00(u32 opcode)
 {
 	clockTicks = CLOCKTICKS_UPDATE_TYPE32P;
@@ -4630,7 +4636,7 @@ static  void armF00(u32 opcode)
 	CPUSoftwareInterrupt(opcode & 0x00FFFFFF);
 }
 
-// Instruction table //////////////////////////////////////////////////////
+/* Instruction table ////////////////////////////////////////////////////// */
 
 typedef  void (*insnfunc_t)(u32 opcode);
 #define REP16(insn) \
@@ -4646,184 +4652,184 @@ typedef  void (*insnfunc_t)(u32 opcode);
 
 static insnfunc_t armInsnTable[4096] =
 {
-    arm000,arm001,arm002,arm003,arm004,arm005,arm006,arm007,  // 000
-    arm000,arm009,arm002,arm00B,arm004,arm_UI,arm006,arm_UI,  // 008
-    arm010,arm011,arm012,arm013,arm014,arm015,arm016,arm017,  // 010
-    arm010,arm019,arm012,arm01B,arm014,arm01D,arm016,arm01F,  // 018
-    arm020,arm021,arm022,arm023,arm024,arm025,arm026,arm027,  // 020
-    arm020,arm029,arm022,arm_UI,arm024,arm_UI,arm026,arm_UI,  // 028
-    arm030,arm031,arm032,arm033,arm034,arm035,arm036,arm037,  // 030
-    arm030,arm039,arm032,arm_UI,arm034,arm01D,arm036,arm01F,  // 038
-    arm040,arm041,arm042,arm043,arm044,arm045,arm046,arm047,  // 040
-    arm040,arm_UI,arm042,arm04B,arm044,arm_UI,arm046,arm_UI,  // 048
-    arm050,arm051,arm052,arm053,arm054,arm055,arm056,arm057,  // 050
-    arm050,arm_UI,arm052,arm05B,arm054,arm05D,arm056,arm05F,  // 058
-    arm060,arm061,arm062,arm063,arm064,arm065,arm066,arm067,  // 060
-    arm060,arm_UI,arm062,arm_UI,arm064,arm_UI,arm066,arm_UI,  // 068
-    arm070,arm071,arm072,arm073,arm074,arm075,arm076,arm077,  // 070
-    arm070,arm_UI,arm072,arm_UI,arm074,arm05D,arm076,arm05F,  // 078
-    arm080,arm081,arm082,arm083,arm084,arm085,arm086,arm087,  // 080
-    arm080,arm089,arm082,arm08B,arm084,arm_UI,arm086,arm_UI,  // 088
-    arm090,arm091,arm092,arm093,arm094,arm095,arm096,arm097,  // 090
-    arm090,arm099,arm092,arm09B,arm094,arm09D,arm096,arm09F,  // 098
-    arm0A0,arm0A1,arm0A2,arm0A3,arm0A4,arm0A5,arm0A6,arm0A7,  // 0A0
-    arm0A0,arm0A9,arm0A2,arm_UI,arm0A4,arm_UI,arm0A6,arm_UI,  // 0A8
-    arm0B0,arm0B1,arm0B2,arm0B3,arm0B4,arm0B5,arm0B6,arm0B7,  // 0B0
-    arm0B0,arm0B9,arm0B2,arm_UI,arm0B4,arm09D,arm0B6,arm09F,  // 0B8
-    arm0C0,arm0C1,arm0C2,arm0C3,arm0C4,arm0C5,arm0C6,arm0C7,  // 0C0
-    arm0C0,arm0C9,arm0C2,arm0CB,arm0C4,arm_UI,arm0C6,arm_UI,  // 0C8
-    arm0D0,arm0D1,arm0D2,arm0D3,arm0D4,arm0D5,arm0D6,arm0D7,  // 0D0
-    arm0D0,arm0D9,arm0D2,arm0DB,arm0D4,arm0DD,arm0D6,arm0DF,  // 0D8
-    arm0E0,arm0E1,arm0E2,arm0E3,arm0E4,arm0E5,arm0E6,arm0E7,  // 0E0
-    arm0E0,arm0E9,arm0E2,arm0CB,arm0E4,arm_UI,arm0E6,arm_UI,  // 0E8
-    arm0F0,arm0F1,arm0F2,arm0F3,arm0F4,arm0F5,arm0F6,arm0F7,  // 0F0
-    arm0F0,arm0F9,arm0F2,arm0DB,arm0F4,arm0DD,arm0F6,arm0DF,  // 0F8
+    arm000,arm001,arm002,arm003,arm004,arm005,arm006,arm007,  /* 000 */
+    arm000,arm009,arm002,arm00B,arm004,arm_UI,arm006,arm_UI,  /* 008 */
+    arm010,arm011,arm012,arm013,arm014,arm015,arm016,arm017,  /* 010 */
+    arm010,arm019,arm012,arm01B,arm014,arm01D,arm016,arm01F,  /* 018 */
+    arm020,arm021,arm022,arm023,arm024,arm025,arm026,arm027,  /* 020 */
+    arm020,arm029,arm022,arm_UI,arm024,arm_UI,arm026,arm_UI,  /* 028 */
+    arm030,arm031,arm032,arm033,arm034,arm035,arm036,arm037,  /* 030 */
+    arm030,arm039,arm032,arm_UI,arm034,arm01D,arm036,arm01F,  /* 038 */
+    arm040,arm041,arm042,arm043,arm044,arm045,arm046,arm047,  /* 040 */
+    arm040,arm_UI,arm042,arm04B,arm044,arm_UI,arm046,arm_UI,  /* 048 */
+    arm050,arm051,arm052,arm053,arm054,arm055,arm056,arm057,  /* 050 */
+    arm050,arm_UI,arm052,arm05B,arm054,arm05D,arm056,arm05F,  /* 058 */
+    arm060,arm061,arm062,arm063,arm064,arm065,arm066,arm067,  /* 060 */
+    arm060,arm_UI,arm062,arm_UI,arm064,arm_UI,arm066,arm_UI,  /* 068 */
+    arm070,arm071,arm072,arm073,arm074,arm075,arm076,arm077,  /* 070 */
+    arm070,arm_UI,arm072,arm_UI,arm074,arm05D,arm076,arm05F,  /* 078 */
+    arm080,arm081,arm082,arm083,arm084,arm085,arm086,arm087,  /* 080 */
+    arm080,arm089,arm082,arm08B,arm084,arm_UI,arm086,arm_UI,  /* 088 */
+    arm090,arm091,arm092,arm093,arm094,arm095,arm096,arm097,  /* 090 */
+    arm090,arm099,arm092,arm09B,arm094,arm09D,arm096,arm09F,  /* 098 */
+    arm0A0,arm0A1,arm0A2,arm0A3,arm0A4,arm0A5,arm0A6,arm0A7,  /* 0A0 */
+    arm0A0,arm0A9,arm0A2,arm_UI,arm0A4,arm_UI,arm0A6,arm_UI,  /* 0A8 */
+    arm0B0,arm0B1,arm0B2,arm0B3,arm0B4,arm0B5,arm0B6,arm0B7,  /* 0B0 */
+    arm0B0,arm0B9,arm0B2,arm_UI,arm0B4,arm09D,arm0B6,arm09F,  /* 0B8 */
+    arm0C0,arm0C1,arm0C2,arm0C3,arm0C4,arm0C5,arm0C6,arm0C7,  /* 0C0 */
+    arm0C0,arm0C9,arm0C2,arm0CB,arm0C4,arm_UI,arm0C6,arm_UI,  /* 0C8 */
+    arm0D0,arm0D1,arm0D2,arm0D3,arm0D4,arm0D5,arm0D6,arm0D7,  /* 0D0 */
+    arm0D0,arm0D9,arm0D2,arm0DB,arm0D4,arm0DD,arm0D6,arm0DF,  /* 0D8 */
+    arm0E0,arm0E1,arm0E2,arm0E3,arm0E4,arm0E5,arm0E6,arm0E7,  /* 0E0 */
+    arm0E0,arm0E9,arm0E2,arm0CB,arm0E4,arm_UI,arm0E6,arm_UI,  /* 0E8 */
+    arm0F0,arm0F1,arm0F2,arm0F3,arm0F4,arm0F5,arm0F6,arm0F7,  /* 0F0 */
+    arm0F0,arm0F9,arm0F2,arm0DB,arm0F4,arm0DD,arm0F6,arm0DF,  /* 0F8 */
 
-    arm100,arm_UI,arm_UI,arm_UI,arm_UI,arm_UI,arm_UI,arm_UI,  // 100
-    arm_UI,arm109,arm_UI,arm10B,arm_UI,arm_UI,arm_UI,arm_UI,  // 108
-    arm110,arm111,arm112,arm113,arm114,arm115,arm116,arm117,  // 110
-    arm110,arm_UI,arm112,arm11B,arm114,arm11D,arm116,arm11F,  // 118
-    arm120,arm121,arm_UI,arm_UI,arm_UI,arm_UI,arm_UI,arm_BP,  // 120
-    arm_UI,arm_UI,arm_UI,arm12B,arm_UI,arm_UI,arm_UI,arm_UI,  // 128
-    arm130,arm131,arm132,arm133,arm134,arm135,arm136,arm137,  // 130
-    arm130,arm_UI,arm132,arm13B,arm134,arm13D,arm136,arm13F,  // 138
-    arm140,arm_UI,arm_UI,arm_UI,arm_UI,arm_UI,arm_UI,arm_UI,  // 140
-    arm_UI,arm149,arm_UI,arm14B,arm_UI,arm_UI,arm_UI,arm_UI,  // 148
-    arm150,arm151,arm152,arm153,arm154,arm155,arm156,arm157,  // 150
-    arm150,arm_UI,arm152,arm15B,arm154,arm15D,arm156,arm15F,  // 158
-    arm160,arm_UI,arm_UI,arm_UI,arm_UI,arm_UI,arm_UI,arm_UI,  // 160
-    arm_UI,arm_UI,arm_UI,arm16B,arm_UI,arm_UI,arm_UI,arm_UI,  // 168
-    arm170,arm171,arm172,arm173,arm174,arm175,arm176,arm177,  // 170
-    arm170,arm_UI,arm172,arm17B,arm174,arm17D,arm176,arm17F,  // 178
-    arm180,arm181,arm182,arm183,arm184,arm185,arm186,arm187,  // 180
-    arm180,arm_UI,arm182,arm18B,arm184,arm_UI,arm186,arm_UI,  // 188
-    arm190,arm191,arm192,arm193,arm194,arm195,arm196,arm197,  // 190
-    arm190,arm_UI,arm192,arm19B,arm194,arm19D,arm196,arm19F,  // 198
-    arm1A0,arm1A1,arm1A2,arm1A3,arm1A4,arm1A5,arm1A6,arm1A7,  // 1A0
-    arm1A0,arm_UI,arm1A2,arm1AB,arm1A4,arm_UI,arm1A6,arm_UI,  // 1A8
-    arm1B0,arm1B1,arm1B2,arm1B3,arm1B4,arm1B5,arm1B6,arm1B7,  // 1B0
-    arm1B0,arm_UI,arm1B2,arm1BB,arm1B4,arm1BD,arm1B6,arm1BF,  // 1B8
-    arm1C0,arm1C1,arm1C2,arm1C3,arm1C4,arm1C5,arm1C6,arm1C7,  // 1C0
-    arm1C0,arm_UI,arm1C2,arm1CB,arm1C4,arm_UI,arm1C6,arm_UI,  // 1C8
-    arm1D0,arm1D1,arm1D2,arm1D3,arm1D4,arm1D5,arm1D6,arm1D7,  // 1D0
-    arm1D0,arm_UI,arm1D2,arm1DB,arm1D4,arm1DD,arm1D6,arm1DF,  // 1D8
-    arm1E0,arm1E1,arm1E2,arm1E3,arm1E4,arm1E5,arm1E6,arm1E7,  // 1E0
-    arm1E0,arm_UI,arm1E2,arm1EB,arm1E4,arm_UI,arm1E6,arm_UI,  // 1E8
-    arm1F0,arm1F1,arm1F2,arm1F3,arm1F4,arm1F5,arm1F6,arm1F7,  // 1F0
-    arm1F0,arm_UI,arm1F2,arm1FB,arm1F4,arm1FD,arm1F6,arm1FF,  // 1F8
+    arm100,arm_UI,arm_UI,arm_UI,arm_UI,arm_UI,arm_UI,arm_UI,  /* 100 */
+    arm_UI,arm109,arm_UI,arm10B,arm_UI,arm_UI,arm_UI,arm_UI,  /* 108 */
+    arm110,arm111,arm112,arm113,arm114,arm115,arm116,arm117,  /* 110 */
+    arm110,arm_UI,arm112,arm11B,arm114,arm11D,arm116,arm11F,  /* 118 */
+    arm120,arm121,arm_UI,arm_UI,arm_UI,arm_UI,arm_UI,arm_BP,  /* 120 */
+    arm_UI,arm_UI,arm_UI,arm12B,arm_UI,arm_UI,arm_UI,arm_UI,  /* 128 */
+    arm130,arm131,arm132,arm133,arm134,arm135,arm136,arm137,  /* 130 */
+    arm130,arm_UI,arm132,arm13B,arm134,arm13D,arm136,arm13F,  /* 138 */
+    arm140,arm_UI,arm_UI,arm_UI,arm_UI,arm_UI,arm_UI,arm_UI,  /* 140 */
+    arm_UI,arm149,arm_UI,arm14B,arm_UI,arm_UI,arm_UI,arm_UI,  /* 148 */
+    arm150,arm151,arm152,arm153,arm154,arm155,arm156,arm157,  /* 150 */
+    arm150,arm_UI,arm152,arm15B,arm154,arm15D,arm156,arm15F,  /* 158 */
+    arm160,arm_UI,arm_UI,arm_UI,arm_UI,arm_UI,arm_UI,arm_UI,  /* 160 */
+    arm_UI,arm_UI,arm_UI,arm16B,arm_UI,arm_UI,arm_UI,arm_UI,  /* 168 */
+    arm170,arm171,arm172,arm173,arm174,arm175,arm176,arm177,  /* 170 */
+    arm170,arm_UI,arm172,arm17B,arm174,arm17D,arm176,arm17F,  /* 178 */
+    arm180,arm181,arm182,arm183,arm184,arm185,arm186,arm187,  /* 180 */
+    arm180,arm_UI,arm182,arm18B,arm184,arm_UI,arm186,arm_UI,  /* 188 */
+    arm190,arm191,arm192,arm193,arm194,arm195,arm196,arm197,  /* 190 */
+    arm190,arm_UI,arm192,arm19B,arm194,arm19D,arm196,arm19F,  /* 198 */
+    arm1A0,arm1A1,arm1A2,arm1A3,arm1A4,arm1A5,arm1A6,arm1A7,  /* 1A0 */
+    arm1A0,arm_UI,arm1A2,arm1AB,arm1A4,arm_UI,arm1A6,arm_UI,  /* 1A8 */
+    arm1B0,arm1B1,arm1B2,arm1B3,arm1B4,arm1B5,arm1B6,arm1B7,  /* 1B0 */
+    arm1B0,arm_UI,arm1B2,arm1BB,arm1B4,arm1BD,arm1B6,arm1BF,  /* 1B8 */
+    arm1C0,arm1C1,arm1C2,arm1C3,arm1C4,arm1C5,arm1C6,arm1C7,  /* 1C0 */
+    arm1C0,arm_UI,arm1C2,arm1CB,arm1C4,arm_UI,arm1C6,arm_UI,  /* 1C8 */
+    arm1D0,arm1D1,arm1D2,arm1D3,arm1D4,arm1D5,arm1D6,arm1D7,  /* 1D0 */
+    arm1D0,arm_UI,arm1D2,arm1DB,arm1D4,arm1DD,arm1D6,arm1DF,  /* 1D8 */
+    arm1E0,arm1E1,arm1E2,arm1E3,arm1E4,arm1E5,arm1E6,arm1E7,  /* 1E0 */
+    arm1E0,arm_UI,arm1E2,arm1EB,arm1E4,arm_UI,arm1E6,arm_UI,  /* 1E8 */
+    arm1F0,arm1F1,arm1F2,arm1F3,arm1F4,arm1F5,arm1F6,arm1F7,  /* 1F0 */
+    arm1F0,arm_UI,arm1F2,arm1FB,arm1F4,arm1FD,arm1F6,arm1FF,  /* 1F8 */
 
-    REP16(arm200),REP16(arm210),REP16(arm220),REP16(arm230),  // 200
-    REP16(arm240),REP16(arm250),REP16(arm260),REP16(arm270),  // 240
-    REP16(arm280),REP16(arm290),REP16(arm2A0),REP16(arm2B0),  // 280
-    REP16(arm2C0),REP16(arm2D0),REP16(arm2E0),REP16(arm2F0),  // 2C0
-    REP16(arm_UI),REP16(arm310),REP16(arm320),REP16(arm330),  // 300
-    REP16(arm_UI),REP16(arm350),REP16(arm360),REP16(arm370),  // 340
-    REP16(arm380),REP16(arm390),REP16(arm3A0),REP16(arm3B0),  // 380
-    REP16(arm3C0),REP16(arm3D0),REP16(arm3E0),REP16(arm3F0),  // 3C0
+    REP16(arm200),REP16(arm210),REP16(arm220),REP16(arm230),  /* 200 */
+    REP16(arm240),REP16(arm250),REP16(arm260),REP16(arm270),  /* 240 */
+    REP16(arm280),REP16(arm290),REP16(arm2A0),REP16(arm2B0),  /* 280 */
+    REP16(arm2C0),REP16(arm2D0),REP16(arm2E0),REP16(arm2F0),  /* 2C0 */
+    REP16(arm_UI),REP16(arm310),REP16(arm320),REP16(arm330),  /* 300 */
+    REP16(arm_UI),REP16(arm350),REP16(arm360),REP16(arm370),  /* 340 */
+    REP16(arm380),REP16(arm390),REP16(arm3A0),REP16(arm3B0),  /* 380 */
+    REP16(arm3C0),REP16(arm3D0),REP16(arm3E0),REP16(arm3F0),  /* 3C0 */
 
-    REP16(arm400),REP16(arm410),REP16(arm400),REP16(arm410),  // 400
-    REP16(arm440),REP16(arm450),REP16(arm440),REP16(arm450),  // 440
-    REP16(arm480),REP16(arm490),REP16(arm480),REP16(arm490),  // 480
-    REP16(arm4C0),REP16(arm4D0),REP16(arm4C0),REP16(arm4D0),  // 4C0
-    REP16(arm500),REP16(arm510),REP16(arm520),REP16(arm530),  // 500
-    REP16(arm540),REP16(arm550),REP16(arm560),REP16(arm570),  // 540
-    REP16(arm580),REP16(arm590),REP16(arm5A0),REP16(arm5B0),  // 580
-    REP16(arm5C0),REP16(arm5D0),REP16(arm5E0),REP16(arm5F0),  // 5C0
+    REP16(arm400),REP16(arm410),REP16(arm400),REP16(arm410),  /* 400 */
+    REP16(arm440),REP16(arm450),REP16(arm440),REP16(arm450),  /* 440 */
+    REP16(arm480),REP16(arm490),REP16(arm480),REP16(arm490),  /* 480 */
+    REP16(arm4C0),REP16(arm4D0),REP16(arm4C0),REP16(arm4D0),  /* 4C0 */
+    REP16(arm500),REP16(arm510),REP16(arm520),REP16(arm530),  /* 500 */
+    REP16(arm540),REP16(arm550),REP16(arm560),REP16(arm570),  /* 540 */
+    REP16(arm580),REP16(arm590),REP16(arm5A0),REP16(arm5B0),  /* 580 */
+    REP16(arm5C0),REP16(arm5D0),REP16(arm5E0),REP16(arm5F0),  /* 5C0 */
 
-    arm600,arm_UI,arm602,arm_UI,arm604,arm_UI,arm606,arm_UI,  // 600
-    arm600,arm_UI,arm602,arm_UI,arm604,arm_UI,arm606,arm_UI,  // 608
-    arm610,arm_UI,arm612,arm_UI,arm614,arm_UI,arm616,arm_UI,  // 610
-    arm610,arm_UI,arm612,arm_UI,arm614,arm_UI,arm616,arm_UI,  // 618
-    arm600,arm_UI,arm602,arm_UI,arm604,arm_UI,arm606,arm_UI,  // 620
-    arm600,arm_UI,arm602,arm_UI,arm604,arm_UI,arm606,arm_UI,  // 628
-    arm610,arm_UI,arm612,arm_UI,arm614,arm_UI,arm616,arm_UI,  // 630
-    arm610,arm_UI,arm612,arm_UI,arm614,arm_UI,arm616,arm_UI,  // 638
-    arm640,arm_UI,arm642,arm_UI,arm644,arm_UI,arm646,arm_UI,  // 640
-    arm640,arm_UI,arm642,arm_UI,arm644,arm_UI,arm646,arm_UI,  // 648
-    arm650,arm_UI,arm652,arm_UI,arm654,arm_UI,arm656,arm_UI,  // 650
-    arm650,arm_UI,arm652,arm_UI,arm654,arm_UI,arm656,arm_UI,  // 658
-    arm640,arm_UI,arm642,arm_UI,arm644,arm_UI,arm646,arm_UI,  // 660
-    arm640,arm_UI,arm642,arm_UI,arm644,arm_UI,arm646,arm_UI,  // 668
-    arm650,arm_UI,arm652,arm_UI,arm654,arm_UI,arm656,arm_UI,  // 670
-    arm650,arm_UI,arm652,arm_UI,arm654,arm_UI,arm656,arm_UI,  // 678
-    arm680,arm_UI,arm682,arm_UI,arm684,arm_UI,arm686,arm_UI,  // 680
-    arm680,arm_UI,arm682,arm_UI,arm684,arm_UI,arm686,arm_UI,  // 688
-    arm690,arm_UI,arm692,arm_UI,arm694,arm_UI,arm696,arm_UI,  // 690
-    arm690,arm_UI,arm692,arm_UI,arm694,arm_UI,arm696,arm_UI,  // 698
-    arm680,arm_UI,arm682,arm_UI,arm684,arm_UI,arm686,arm_UI,  // 6A0
-    arm680,arm_UI,arm682,arm_UI,arm684,arm_UI,arm686,arm_UI,  // 6A8
-    arm690,arm_UI,arm692,arm_UI,arm694,arm_UI,arm696,arm_UI,  // 6B0
-    arm690,arm_UI,arm692,arm_UI,arm694,arm_UI,arm696,arm_UI,  // 6B8
-    arm6C0,arm_UI,arm6C2,arm_UI,arm6C4,arm_UI,arm6C6,arm_UI,  // 6C0
-    arm6C0,arm_UI,arm6C2,arm_UI,arm6C4,arm_UI,arm6C6,arm_UI,  // 6C8
-    arm6D0,arm_UI,arm6D2,arm_UI,arm6D4,arm_UI,arm6D6,arm_UI,  // 6D0
-    arm6D0,arm_UI,arm6D2,arm_UI,arm6D4,arm_UI,arm6D6,arm_UI,  // 6D8
-    arm6C0,arm_UI,arm6C2,arm_UI,arm6C4,arm_UI,arm6C6,arm_UI,  // 6E0
-    arm6C0,arm_UI,arm6C2,arm_UI,arm6C4,arm_UI,arm6C6,arm_UI,  // 6E8
-    arm6D0,arm_UI,arm6D2,arm_UI,arm6D4,arm_UI,arm6D6,arm_UI,  // 6F0
-    arm6D0,arm_UI,arm6D2,arm_UI,arm6D4,arm_UI,arm6D6,arm_UI,  // 6F8
+    arm600,arm_UI,arm602,arm_UI,arm604,arm_UI,arm606,arm_UI,  /* 600 */
+    arm600,arm_UI,arm602,arm_UI,arm604,arm_UI,arm606,arm_UI,  /* 608 */
+    arm610,arm_UI,arm612,arm_UI,arm614,arm_UI,arm616,arm_UI,  /* 610 */
+    arm610,arm_UI,arm612,arm_UI,arm614,arm_UI,arm616,arm_UI,  /* 618 */
+    arm600,arm_UI,arm602,arm_UI,arm604,arm_UI,arm606,arm_UI,  /* 620 */
+    arm600,arm_UI,arm602,arm_UI,arm604,arm_UI,arm606,arm_UI,  /* 628 */
+    arm610,arm_UI,arm612,arm_UI,arm614,arm_UI,arm616,arm_UI,  /* 630 */
+    arm610,arm_UI,arm612,arm_UI,arm614,arm_UI,arm616,arm_UI,  /* 638 */
+    arm640,arm_UI,arm642,arm_UI,arm644,arm_UI,arm646,arm_UI,  /* 640 */
+    arm640,arm_UI,arm642,arm_UI,arm644,arm_UI,arm646,arm_UI,  /* 648 */
+    arm650,arm_UI,arm652,arm_UI,arm654,arm_UI,arm656,arm_UI,  /* 650 */
+    arm650,arm_UI,arm652,arm_UI,arm654,arm_UI,arm656,arm_UI,  /* 658 */
+    arm640,arm_UI,arm642,arm_UI,arm644,arm_UI,arm646,arm_UI,  /* 660 */
+    arm640,arm_UI,arm642,arm_UI,arm644,arm_UI,arm646,arm_UI,  /* 668 */
+    arm650,arm_UI,arm652,arm_UI,arm654,arm_UI,arm656,arm_UI,  /* 670 */
+    arm650,arm_UI,arm652,arm_UI,arm654,arm_UI,arm656,arm_UI,  /* 678 */
+    arm680,arm_UI,arm682,arm_UI,arm684,arm_UI,arm686,arm_UI,  /* 680 */
+    arm680,arm_UI,arm682,arm_UI,arm684,arm_UI,arm686,arm_UI,  /* 688 */
+    arm690,arm_UI,arm692,arm_UI,arm694,arm_UI,arm696,arm_UI,  /* 690 */
+    arm690,arm_UI,arm692,arm_UI,arm694,arm_UI,arm696,arm_UI,  /* 698 */
+    arm680,arm_UI,arm682,arm_UI,arm684,arm_UI,arm686,arm_UI,  /* 6A0 */
+    arm680,arm_UI,arm682,arm_UI,arm684,arm_UI,arm686,arm_UI,  /* 6A8 */
+    arm690,arm_UI,arm692,arm_UI,arm694,arm_UI,arm696,arm_UI,  /* 6B0 */
+    arm690,arm_UI,arm692,arm_UI,arm694,arm_UI,arm696,arm_UI,  /* 6B8 */
+    arm6C0,arm_UI,arm6C2,arm_UI,arm6C4,arm_UI,arm6C6,arm_UI,  /* 6C0 */
+    arm6C0,arm_UI,arm6C2,arm_UI,arm6C4,arm_UI,arm6C6,arm_UI,  /* 6C8 */
+    arm6D0,arm_UI,arm6D2,arm_UI,arm6D4,arm_UI,arm6D6,arm_UI,  /* 6D0 */
+    arm6D0,arm_UI,arm6D2,arm_UI,arm6D4,arm_UI,arm6D6,arm_UI,  /* 6D8 */
+    arm6C0,arm_UI,arm6C2,arm_UI,arm6C4,arm_UI,arm6C6,arm_UI,  /* 6E0 */
+    arm6C0,arm_UI,arm6C2,arm_UI,arm6C4,arm_UI,arm6C6,arm_UI,  /* 6E8 */
+    arm6D0,arm_UI,arm6D2,arm_UI,arm6D4,arm_UI,arm6D6,arm_UI,  /* 6F0 */
+    arm6D0,arm_UI,arm6D2,arm_UI,arm6D4,arm_UI,arm6D6,arm_UI,  /* 6F8 */
 
-    arm700,arm_UI,arm702,arm_UI,arm704,arm_UI,arm706,arm_UI,  // 700
-    arm700,arm_UI,arm702,arm_UI,arm704,arm_UI,arm706,arm_UI,  // 708
-    arm710,arm_UI,arm712,arm_UI,arm714,arm_UI,arm716,arm_UI,  // 710
-    arm710,arm_UI,arm712,arm_UI,arm714,arm_UI,arm716,arm_UI,  // 718
-    arm720,arm_UI,arm722,arm_UI,arm724,arm_UI,arm726,arm_UI,  // 720
-    arm720,arm_UI,arm722,arm_UI,arm724,arm_UI,arm726,arm_UI,  // 728
-    arm730,arm_UI,arm732,arm_UI,arm734,arm_UI,arm736,arm_UI,  // 730
-    arm730,arm_UI,arm732,arm_UI,arm734,arm_UI,arm736,arm_UI,  // 738
-    arm740,arm_UI,arm742,arm_UI,arm744,arm_UI,arm746,arm_UI,  // 740
-    arm740,arm_UI,arm742,arm_UI,arm744,arm_UI,arm746,arm_UI,  // 748
-    arm750,arm_UI,arm752,arm_UI,arm754,arm_UI,arm756,arm_UI,  // 750
-    arm750,arm_UI,arm752,arm_UI,arm754,arm_UI,arm756,arm_UI,  // 758
-    arm760,arm_UI,arm762,arm_UI,arm764,arm_UI,arm766,arm_UI,  // 760
-    arm760,arm_UI,arm762,arm_UI,arm764,arm_UI,arm766,arm_UI,  // 768
-    arm770,arm_UI,arm772,arm_UI,arm774,arm_UI,arm776,arm_UI,  // 770
-    arm770,arm_UI,arm772,arm_UI,arm774,arm_UI,arm776,arm_UI,  // 778
-    arm780,arm_UI,arm782,arm_UI,arm784,arm_UI,arm786,arm_UI,  // 780
-    arm780,arm_UI,arm782,arm_UI,arm784,arm_UI,arm786,arm_UI,  // 788
-    arm790,arm_UI,arm792,arm_UI,arm794,arm_UI,arm796,arm_UI,  // 790
-    arm790,arm_UI,arm792,arm_UI,arm794,arm_UI,arm796,arm_UI,  // 798
-    arm7A0,arm_UI,arm7A2,arm_UI,arm7A4,arm_UI,arm7A6,arm_UI,  // 7A0
-    arm7A0,arm_UI,arm7A2,arm_UI,arm7A4,arm_UI,arm7A6,arm_UI,  // 7A8
-    arm7B0,arm_UI,arm7B2,arm_UI,arm7B4,arm_UI,arm7B6,arm_UI,  // 7B0
-    arm7B0,arm_UI,arm7B2,arm_UI,arm7B4,arm_UI,arm7B6,arm_UI,  // 7B8
-    arm7C0,arm_UI,arm7C2,arm_UI,arm7C4,arm_UI,arm7C6,arm_UI,  // 7C0
-    arm7C0,arm_UI,arm7C2,arm_UI,arm7C4,arm_UI,arm7C6,arm_UI,  // 7C8
-    arm7D0,arm_UI,arm7D2,arm_UI,arm7D4,arm_UI,arm7D6,arm_UI,  // 7D0
-    arm7D0,arm_UI,arm7D2,arm_UI,arm7D4,arm_UI,arm7D6,arm_UI,  // 7D8
-    arm7E0,arm_UI,arm7E2,arm_UI,arm7E4,arm_UI,arm7E6,arm_UI,  // 7E0
-    arm7E0,arm_UI,arm7E2,arm_UI,arm7E4,arm_UI,arm7E6,arm_UI,  // 7E8
-    arm7F0,arm_UI,arm7F2,arm_UI,arm7F4,arm_UI,arm7F6,arm_UI,  // 7F0
-    arm7F0,arm_UI,arm7F2,arm_UI,arm7F4,arm_UI,arm7F6,arm_BP,  // 7F8
+    arm700,arm_UI,arm702,arm_UI,arm704,arm_UI,arm706,arm_UI,  /* 700 */
+    arm700,arm_UI,arm702,arm_UI,arm704,arm_UI,arm706,arm_UI,  /* 708 */
+    arm710,arm_UI,arm712,arm_UI,arm714,arm_UI,arm716,arm_UI,  /* 710 */
+    arm710,arm_UI,arm712,arm_UI,arm714,arm_UI,arm716,arm_UI,  /* 718 */
+    arm720,arm_UI,arm722,arm_UI,arm724,arm_UI,arm726,arm_UI,  /* 720 */
+    arm720,arm_UI,arm722,arm_UI,arm724,arm_UI,arm726,arm_UI,  /* 728 */
+    arm730,arm_UI,arm732,arm_UI,arm734,arm_UI,arm736,arm_UI,  /* 730 */
+    arm730,arm_UI,arm732,arm_UI,arm734,arm_UI,arm736,arm_UI,  /* 738 */
+    arm740,arm_UI,arm742,arm_UI,arm744,arm_UI,arm746,arm_UI,  /* 740 */
+    arm740,arm_UI,arm742,arm_UI,arm744,arm_UI,arm746,arm_UI,  /* 748 */
+    arm750,arm_UI,arm752,arm_UI,arm754,arm_UI,arm756,arm_UI,  /* 750 */
+    arm750,arm_UI,arm752,arm_UI,arm754,arm_UI,arm756,arm_UI,  /* 758 */
+    arm760,arm_UI,arm762,arm_UI,arm764,arm_UI,arm766,arm_UI,  /* 760 */
+    arm760,arm_UI,arm762,arm_UI,arm764,arm_UI,arm766,arm_UI,  /* 768 */
+    arm770,arm_UI,arm772,arm_UI,arm774,arm_UI,arm776,arm_UI,  /* 770 */
+    arm770,arm_UI,arm772,arm_UI,arm774,arm_UI,arm776,arm_UI,  /* 778 */
+    arm780,arm_UI,arm782,arm_UI,arm784,arm_UI,arm786,arm_UI,  /* 780 */
+    arm780,arm_UI,arm782,arm_UI,arm784,arm_UI,arm786,arm_UI,  /* 788 */
+    arm790,arm_UI,arm792,arm_UI,arm794,arm_UI,arm796,arm_UI,  /* 790 */
+    arm790,arm_UI,arm792,arm_UI,arm794,arm_UI,arm796,arm_UI,  /* 798 */
+    arm7A0,arm_UI,arm7A2,arm_UI,arm7A4,arm_UI,arm7A6,arm_UI,  /* 7A0 */
+    arm7A0,arm_UI,arm7A2,arm_UI,arm7A4,arm_UI,arm7A6,arm_UI,  /* 7A8 */
+    arm7B0,arm_UI,arm7B2,arm_UI,arm7B4,arm_UI,arm7B6,arm_UI,  /* 7B0 */
+    arm7B0,arm_UI,arm7B2,arm_UI,arm7B4,arm_UI,arm7B6,arm_UI,  /* 7B8 */
+    arm7C0,arm_UI,arm7C2,arm_UI,arm7C4,arm_UI,arm7C6,arm_UI,  /* 7C0 */
+    arm7C0,arm_UI,arm7C2,arm_UI,arm7C4,arm_UI,arm7C6,arm_UI,  /* 7C8 */
+    arm7D0,arm_UI,arm7D2,arm_UI,arm7D4,arm_UI,arm7D6,arm_UI,  /* 7D0 */
+    arm7D0,arm_UI,arm7D2,arm_UI,arm7D4,arm_UI,arm7D6,arm_UI,  /* 7D8 */
+    arm7E0,arm_UI,arm7E2,arm_UI,arm7E4,arm_UI,arm7E6,arm_UI,  /* 7E0 */
+    arm7E0,arm_UI,arm7E2,arm_UI,arm7E4,arm_UI,arm7E6,arm_UI,  /* 7E8 */
+    arm7F0,arm_UI,arm7F2,arm_UI,arm7F4,arm_UI,arm7F6,arm_UI,  /* 7F0 */
+    arm7F0,arm_UI,arm7F2,arm_UI,arm7F4,arm_UI,arm7F6,arm_BP,  /* 7F8 */
 
-    REP16(arm800),REP16(arm810),REP16(arm820),REP16(arm830),  // 800
-    REP16(arm840),REP16(arm850),REP16(arm860),REP16(arm870),  // 840
-    REP16(arm880),REP16(arm890),REP16(arm8A0),REP16(arm8B0),  // 880
-    REP16(arm8C0),REP16(arm8D0),REP16(arm8E0),REP16(arm8F0),  // 8C0
-    REP16(arm900),REP16(arm910),REP16(arm920),REP16(arm930),  // 900
-    REP16(arm940),REP16(arm950),REP16(arm960),REP16(arm970),  // 940
-    REP16(arm980),REP16(arm990),REP16(arm9A0),REP16(arm9B0),  // 980
-    REP16(arm9C0),REP16(arm9D0),REP16(arm9E0),REP16(arm9F0),  // 9C0
+    REP16(arm800),REP16(arm810),REP16(arm820),REP16(arm830),  /* 800 */
+    REP16(arm840),REP16(arm850),REP16(arm860),REP16(arm870),  /* 840 */
+    REP16(arm880),REP16(arm890),REP16(arm8A0),REP16(arm8B0),  /* 880 */
+    REP16(arm8C0),REP16(arm8D0),REP16(arm8E0),REP16(arm8F0),  /* 8C0 */
+    REP16(arm900),REP16(arm910),REP16(arm920),REP16(arm930),  /* 900 */
+    REP16(arm940),REP16(arm950),REP16(arm960),REP16(arm970),  /* 940 */
+    REP16(arm980),REP16(arm990),REP16(arm9A0),REP16(arm9B0),  /* 980 */
+    REP16(arm9C0),REP16(arm9D0),REP16(arm9E0),REP16(arm9F0),  /* 9C0 */
 
-    REP256(armA00),                                           // A00
-    REP256(armB00),                                           // B00
-    REP256(arm_UI),                                           // C00
-    REP256(arm_UI),                                           // D00
+    REP256(armA00),                                           /* A00 */
+    REP256(armB00),                                           /* B00 */
+    REP256(arm_UI),                                           /* C00 */
+    REP256(arm_UI),                                           /* D00 */
 
-    arm_UI,armE01,arm_UI,armE01,arm_UI,armE01,arm_UI,armE01,  // E00
-    arm_UI,armE01,arm_UI,armE01,arm_UI,armE01,arm_UI,armE01,  // E08
-    arm_UI,armE01,arm_UI,armE01,arm_UI,armE01,arm_UI,armE01,  // E10
-    arm_UI,armE01,arm_UI,armE01,arm_UI,armE01,arm_UI,armE01,  // E18
-    REP16(arm_UI),                                            // E20
-    REP16(arm_UI),                                            // E30
-    REP16(arm_UI),REP16(arm_UI),REP16(arm_UI),REP16(arm_UI),  // E40
-    REP16(arm_UI),REP16(arm_UI),REP16(arm_UI),REP16(arm_UI),  // E80
-    REP16(arm_UI),REP16(arm_UI),REP16(arm_UI),REP16(arm_UI),  // EC0
+    arm_UI,armE01,arm_UI,armE01,arm_UI,armE01,arm_UI,armE01,  /* E00 */
+    arm_UI,armE01,arm_UI,armE01,arm_UI,armE01,arm_UI,armE01,  /* E08 */
+    arm_UI,armE01,arm_UI,armE01,arm_UI,armE01,arm_UI,armE01,  /* E10 */
+    arm_UI,armE01,arm_UI,armE01,arm_UI,armE01,arm_UI,armE01,  /* E18 */
+    REP16(arm_UI),                                            /* E20 */
+    REP16(arm_UI),                                            /* E30 */
+    REP16(arm_UI),REP16(arm_UI),REP16(arm_UI),REP16(arm_UI),  /* E40 */
+    REP16(arm_UI),REP16(arm_UI),REP16(arm_UI),REP16(arm_UI),  /* E80 */
+    REP16(arm_UI),REP16(arm_UI),REP16(arm_UI),REP16(arm_UI),  /* EC0 */
 
-    REP256(armF00),                                           // F00
+    REP256(armF00),                                           /* F00 */
 };
 
-// Emulates the Cheat System (m) code
+/* Emulates the Cheat System (m) code */
 static INLINE void cpuMasterCodeCheck()
 {
    if((mastercode) && (mastercode == bus.armNextPC))
@@ -4833,7 +4839,7 @@ static INLINE void cpuMasterCodeCheck()
    }
 }
 
-// Wrapper routine (execution loop) ///////////////////////////////////////
+/* Wrapper routine (execution loop) /////////////////////////////////////// */
 static int armExecute (void)
 {
    int ct    = 0;
@@ -4875,56 +4881,56 @@ static int armExecute (void)
 
       int cond = opcode >> 28;
       bool cond_res = true;
-      if (cond != 0x0E) {  // most opcodes are AL (always)
+      if (cond != 0x0E) {  /* most opcodes are AL (always) */
          switch(cond) {
-            case 0x00: // EQ
+            case 0x00: /* EQ */
                cond_res = Z_FLAG;
                break;
-            case 0x01: // NE
+            case 0x01: /* NE */
                cond_res = !Z_FLAG;
                break;
-            case 0x02: // CS
+            case 0x02: /* CS */
                cond_res = C_FLAG;
                break;
-            case 0x03: // CC
+            case 0x03: /* CC */
                cond_res = !C_FLAG;
                break;
-            case 0x04: // MI
+            case 0x04: /* MI */
                cond_res = N_FLAG;
                break;
-            case 0x05: // PL
+            case 0x05: /* PL */
                cond_res = !N_FLAG;
                break;
-            case 0x06: // VS
+            case 0x06: /* VS */
                cond_res = V_FLAG;
                break;
-            case 0x07: // VC
+            case 0x07: /* VC */
                cond_res = !V_FLAG;
                break;
-            case 0x08: // HI
+            case 0x08: /* HI */
                cond_res = C_FLAG && !Z_FLAG;
                break;
-            case 0x09: // LS
+            case 0x09: /* LS */
                cond_res = !C_FLAG || Z_FLAG;
                break;
-            case 0x0A: // GE
+            case 0x0A: /* GE */
                cond_res = N_FLAG == V_FLAG;
                break;
-            case 0x0B: // LT
+            case 0x0B: /* LT */
                cond_res = N_FLAG != V_FLAG;
                break;
-            case 0x0C: // GT
+            case 0x0C: /* GT */
                cond_res = !Z_FLAG &&(N_FLAG == V_FLAG);
                break;
-            case 0x0D: // LE
+            case 0x0D: /* LE */
                cond_res = Z_FLAG || (N_FLAG != V_FLAG);
                break;
-            case 0x0E: // AL (impossible, checked above)
+            case 0x0E: /* AL (impossible, checked above) */
                cond_res = true;
                break;
             case 0x0F:
             default:
-               // ???
+               /* ??? */
                cond_res = false;
                break;
          }
@@ -4943,7 +4949,7 @@ static int armExecute (void)
       if (ct < 0)
          return 0;
 
-      /// better pipelining
+      /*/ better pipelining */
 
       if (ct == 0)
          clockTicks = 1 + codeTicksAccessSeq32(oldArmNextPC);
@@ -4981,7 +4987,7 @@ static  void thumbUnknownInsn(u32 opcode)
 #define NEG(i) ((i) >> 31)
 #define POS(i) ((~(i)) >> 31)
 
-// C core
+/* C core */
 #ifndef ADDCARRY
  #define ADDCARRY(a, b, c) \
   C_FLAG = ((NEG(a) & NEG(b)) |\
@@ -5282,7 +5288,7 @@ static  void thumbUnknownInsn(u32 opcode)
   OP(N);
 #endif
 
-// Shift instructions /////////////////////////////////////////////////////
+/* Shift instructions ///////////////////////////////////////////////////// */
 
 #define DEFINE_IMM5_INSN(OP,BASE) \
   static  void thumb##BASE##_00(u32 opcode) { IMM5_INSN_0(OP##_0); } \
@@ -5318,14 +5324,14 @@ static  void thumbUnknownInsn(u32 opcode)
   static  void thumb##BASE##_1E(u32 opcode) { IMM5_INSN(OP,30); } \
   static  void thumb##BASE##_1F(u32 opcode) { IMM5_INSN(OP,31); }
 
-// LSL Rd, Rm, #Imm 5
+/* LSL Rd, Rm, #Imm 5 */
 DEFINE_IMM5_INSN(IMM5_LSL,00)
-// LSR Rd, Rm, #Imm 5
+/* LSR Rd, Rm, #Imm 5 */
 DEFINE_IMM5_INSN(IMM5_LSR,08)
-// ASR Rd, Rm, #Imm 5
+/* ASR Rd, Rm, #Imm 5 */
 DEFINE_IMM5_INSN(IMM5_ASR,10)
 
-// 3-argument ADD/SUB /////////////////////////////////////////////////////
+/* 3-argument ADD/SUB ///////////////////////////////////////////////////// */
 
 #define DEFINE_REG3_INSN(OP,BASE) \
   static  void thumb##BASE##_0(u32 opcode) { THREEARG_INSN(OP,0); } \
@@ -5347,94 +5353,94 @@ DEFINE_IMM5_INSN(IMM5_ASR,10)
   static  void thumb##BASE##_6(u32 opcode) { THREEARG_INSN(OP,6); } \
   static  void thumb##BASE##_7(u32 opcode) { THREEARG_INSN(OP,7); }
 
-// ADD Rd, Rs, Rn
+/* ADD Rd, Rs, Rn */
 DEFINE_REG3_INSN(ADD_RD_RS_RN,18)
-// SUB Rd, Rs, Rn
+/* SUB Rd, Rs, Rn */
 DEFINE_REG3_INSN(SUB_RD_RS_RN,1A)
-// ADD Rd, Rs, #Offset3
+/* ADD Rd, Rs, #Offset3 */
 DEFINE_IMM3_INSN(ADD_RD_RS_O3,1C)
-// SUB Rd, Rs, #Offset3
+/* SUB Rd, Rs, #Offset3 */
 DEFINE_IMM3_INSN(SUB_RD_RS_O3,1E)
 
-// MOV/CMP/ADD/SUB immediate //////////////////////////////////////////////
+/* MOV/CMP/ADD/SUB immediate ////////////////////////////////////////////// */
 
-// MOV R0, #Offset8
+/* MOV R0, #Offset8 */
 static  void thumb20(u32 opcode) { MOV_RN_O8(0); }
-// MOV R1, #Offset8
+/* MOV R1, #Offset8 */
 static  void thumb21(u32 opcode) { MOV_RN_O8(1); }
-// MOV R2, #Offset8
+/* MOV R2, #Offset8 */
 static  void thumb22(u32 opcode) { MOV_RN_O8(2); }
-// MOV R3, #Offset8
+/* MOV R3, #Offset8 */
 static  void thumb23(u32 opcode) { MOV_RN_O8(3); }
-// MOV R4, #Offset8
+/* MOV R4, #Offset8 */
 static  void thumb24(u32 opcode) { MOV_RN_O8(4); }
-// MOV R5, #Offset8
+/* MOV R5, #Offset8 */
 static  void thumb25(u32 opcode) { MOV_RN_O8(5); }
-// MOV R6, #Offset8
+/* MOV R6, #Offset8 */
 static  void thumb26(u32 opcode) { MOV_RN_O8(6); }
-// MOV R7, #Offset8
+/* MOV R7, #Offset8 */
 static  void thumb27(u32 opcode) { MOV_RN_O8(7); }
 
-// CMP R0, #Offset8
+/* CMP R0, #Offset8 */
 static  void thumb28(u32 opcode) { CMP_RN_O8(0); }
-// CMP R1, #Offset8
+/* CMP R1, #Offset8 */
 static  void thumb29(u32 opcode) { CMP_RN_O8(1); }
-// CMP R2, #Offset8
+/* CMP R2, #Offset8 */
 static  void thumb2A(u32 opcode) { CMP_RN_O8(2); }
-// CMP R3, #Offset8
+/* CMP R3, #Offset8 */
 static  void thumb2B(u32 opcode) { CMP_RN_O8(3); }
-// CMP R4, #Offset8
+/* CMP R4, #Offset8 */
 static  void thumb2C(u32 opcode) { CMP_RN_O8(4); }
-// CMP R5, #Offset8
+/* CMP R5, #Offset8 */
 static  void thumb2D(u32 opcode) { CMP_RN_O8(5); }
-// CMP R6, #Offset8
+/* CMP R6, #Offset8 */
 static  void thumb2E(u32 opcode) { CMP_RN_O8(6); }
-// CMP R7, #Offset8
+/* CMP R7, #Offset8 */
 static  void thumb2F(u32 opcode) { CMP_RN_O8(7); }
 
-// ADD R0,#Offset8
+/* ADD R0,#Offset8 */
 static  void thumb30(u32 opcode) { ADD_RN_O8(0); }
-// ADD R1,#Offset8
+/* ADD R1,#Offset8 */
 static  void thumb31(u32 opcode) { ADD_RN_O8(1); }
-// ADD R2,#Offset8
+/* ADD R2,#Offset8 */
 static  void thumb32(u32 opcode) { ADD_RN_O8(2); }
-// ADD R3,#Offset8
+/* ADD R3,#Offset8 */
 static  void thumb33(u32 opcode) { ADD_RN_O8(3); }
-// ADD R4,#Offset8
+/* ADD R4,#Offset8 */
 static  void thumb34(u32 opcode) { ADD_RN_O8(4); }
-// ADD R5,#Offset8
+/* ADD R5,#Offset8 */
 static  void thumb35(u32 opcode) { ADD_RN_O8(5); }
-// ADD R6,#Offset8
+/* ADD R6,#Offset8 */
 static  void thumb36(u32 opcode) { ADD_RN_O8(6); }
-// ADD R7,#Offset8
+/* ADD R7,#Offset8 */
 static  void thumb37(u32 opcode) { ADD_RN_O8(7); }
 
-// SUB R0,#Offset8
+/* SUB R0,#Offset8 */
 static  void thumb38(u32 opcode) { SUB_RN_O8(0); }
-// SUB R1,#Offset8
+/* SUB R1,#Offset8 */
 static  void thumb39(u32 opcode) { SUB_RN_O8(1); }
-// SUB R2,#Offset8
+/* SUB R2,#Offset8 */
 static  void thumb3A(u32 opcode) { SUB_RN_O8(2); }
-// SUB R3,#Offset8
+/* SUB R3,#Offset8 */
 static  void thumb3B(u32 opcode) { SUB_RN_O8(3); }
-// SUB R4,#Offset8
+/* SUB R4,#Offset8 */
 static  void thumb3C(u32 opcode) { SUB_RN_O8(4); }
-// SUB R5,#Offset8
+/* SUB R5,#Offset8 */
 static  void thumb3D(u32 opcode) { SUB_RN_O8(5); }
-// SUB R6,#Offset8
+/* SUB R6,#Offset8 */
 static  void thumb3E(u32 opcode) { SUB_RN_O8(6); }
-// SUB R7,#Offset8
+/* SUB R7,#Offset8 */
 static  void thumb3F(u32 opcode) { SUB_RN_O8(7); }
 
-// ALU operations /////////////////////////////////////////////////////////
+/* ALU operations ///////////////////////////////////////////////////////// */
 
-// AND Rd, Rs
+/* AND Rd, Rs */
 static  void thumb40_0(u32 opcode)
 {
   int dest = opcode & 7;
   u32 val = (bus.reg[dest].I & bus.reg[(opcode >> 3)&7].I);
 
-  //bus.reg[dest].I &= bus.reg[(opcode >> 3)&7].I;
+  /*bus.reg[dest].I &= bus.reg[(opcode >> 3)&7].I; */
   N_FLAG = val & 0x80000000 ? true : false;
   Z_FLAG = val ? false : true;
 
@@ -5442,7 +5448,7 @@ static  void thumb40_0(u32 opcode)
 
 }
 
-// EOR Rd, Rs
+/* EOR Rd, Rs */
 static  void thumb40_1(u32 opcode)
 {
   int dest = opcode & 7;
@@ -5451,7 +5457,7 @@ static  void thumb40_1(u32 opcode)
   Z_FLAG = bus.reg[dest].I ? false : true;
 }
 
-// LSL Rd, Rs
+/* LSL Rd, Rs */
 static  void thumb40_2(u32 opcode)
 {
   int dest = opcode & 7;
@@ -5474,7 +5480,7 @@ static  void thumb40_2(u32 opcode)
   clockTicks = codeTicksAccess(bus.armNextPC, BITS_16)+2;
 }
 
-// LSR Rd, Rs
+/* LSR Rd, Rs */
 static  void thumb40_3(u32 opcode)
 {
   int dest = opcode & 7;
@@ -5497,7 +5503,7 @@ static  void thumb40_3(u32 opcode)
   clockTicks = codeTicksAccess(bus.armNextPC, BITS_16)+2;
 }
 
-// ASR Rd, Rs
+/* ASR Rd, Rs */
 static  void thumb41_0(u32 opcode)
 {
   int dest = opcode & 7;
@@ -5522,7 +5528,7 @@ static  void thumb41_0(u32 opcode)
   clockTicks = codeTicksAccess(bus.armNextPC, BITS_16)+2;
 }
 
-// ADC Rd, Rs
+/* ADC Rd, Rs */
 static  void thumb41_1(u32 opcode)
 {
   int dest = opcode & 0x07;
@@ -5530,7 +5536,7 @@ static  void thumb41_1(u32 opcode)
   ADC_RD_RS;
 }
 
-// SBC Rd, Rs
+/* SBC Rd, Rs */
 static  void thumb41_2(u32 opcode)
 {
   int dest = opcode & 0x07;
@@ -5538,7 +5544,7 @@ static  void thumb41_2(u32 opcode)
   SBC_RD_RS;
 }
 
-// ROR Rd, Rs
+/* ROR Rd, Rs */
 static  void thumb41_3(u32 opcode)
 {
   int dest = opcode & 7;
@@ -5558,7 +5564,7 @@ static  void thumb41_3(u32 opcode)
   Z_FLAG = bus.reg[dest].I ? false : true;
 }
 
-// TST Rd, Rs
+/* TST Rd, Rs */
 static  void thumb42_0(u32 opcode)
 {
   u32 value = bus.reg[opcode & 7].I & bus.reg[(opcode >> 3) & 7].I;
@@ -5566,7 +5572,7 @@ static  void thumb42_0(u32 opcode)
   Z_FLAG = value ? false : true;
 }
 
-// NEG Rd, Rs
+/* NEG Rd, Rs */
 static  void thumb42_1(u32 opcode)
 {
   int dest = opcode & 7;
@@ -5574,7 +5580,7 @@ static  void thumb42_1(u32 opcode)
   NEG_RD_RS;
 }
 
-// CMP Rd, Rs
+/* CMP Rd, Rs */
 static  void thumb42_2(u32 opcode)
 {
   int dest = opcode & 7;
@@ -5582,7 +5588,7 @@ static  void thumb42_2(u32 opcode)
   CMP_RD_RS;
 }
 
-// CMN Rd, Rs
+/* CMN Rd, Rs */
 static  void thumb42_3(u32 opcode)
 {
   int dest = opcode & 7;
@@ -5590,7 +5596,7 @@ static  void thumb42_3(u32 opcode)
   CMN_RD_RS;
 }
 
-// ORR Rd, Rs
+/* ORR Rd, Rs */
 static  void thumb43_0(u32 opcode)
 {
   int dest = opcode & 7;
@@ -5599,7 +5605,7 @@ static  void thumb43_0(u32 opcode)
   N_FLAG = bus.reg[dest].I & 0x80000000 ? true : false;
 }
 
-// MUL Rd, Rs
+/* MUL Rd, Rs */
 static  void thumb43_1(u32 opcode)
 {
   clockTicks = 1;
@@ -5622,7 +5628,7 @@ static  void thumb43_1(u32 opcode)
   N_FLAG = bus.reg[dest].I & 0x80000000 ? true : false;
 }
 
-// BIC Rd, Rs
+/* BIC Rd, Rs */
 static  void thumb43_2(u32 opcode)
 {
   int dest = opcode & 7;
@@ -5631,7 +5637,7 @@ static  void thumb43_2(u32 opcode)
   N_FLAG = bus.reg[dest].I & 0x80000000 ? true : false;
 }
 
-// MVN Rd, Rs
+/* MVN Rd, Rs */
 static  void thumb43_3(u32 opcode)
 {
   int dest = opcode & 7;
@@ -5640,15 +5646,15 @@ static  void thumb43_3(u32 opcode)
   N_FLAG = bus.reg[dest].I & 0x80000000 ? true : false;
 }
 
-// High-register instructions and BX //////////////////////////////////////
+/* High-register instructions and BX ////////////////////////////////////// */
 
-// ADD Rd, Hs
+/* ADD Rd, Hs */
 static  void thumb44_1(u32 opcode)
 {
   bus.reg[opcode&7].I += bus.reg[((opcode>>3)&7)+8].I;
 }
 
-// ADD Hd, Rs
+/* ADD Hd, Rs */
 static  void thumb44_2(u32 opcode)
 {
   bus.reg[(opcode&7)+8].I += bus.reg[(opcode>>3)&7].I;
@@ -5661,7 +5667,7 @@ static  void thumb44_2(u32 opcode)
   }
 }
 
-// ADD Hd, Hs
+/* ADD Hd, Hs */
 static  void thumb44_3(u32 opcode)
 {
   bus.reg[(opcode&7)+8].I += bus.reg[((opcode>>3)&7)+8].I;
@@ -5674,7 +5680,7 @@ static  void thumb44_3(u32 opcode)
   }
 }
 
-// CMP Rd, Hs
+/* CMP Rd, Hs */
 static  void thumb45_1(u32 opcode)
 {
   int dest = opcode & 7;
@@ -5682,7 +5688,7 @@ static  void thumb45_1(u32 opcode)
   CMP_RD_RS;
 }
 
-// CMP Hd, Rs
+/* CMP Hd, Rs */
 static  void thumb45_2(u32 opcode)
 {
   int dest = (opcode & 7) + 8;
@@ -5690,7 +5696,7 @@ static  void thumb45_2(u32 opcode)
   CMP_RD_RS;
 }
 
-// CMP Hd, Hs
+/* CMP Hd, Hs */
 static  void thumb45_3(u32 opcode)
 {
   int dest = (opcode & 7) + 8;
@@ -5698,7 +5704,7 @@ static  void thumb45_3(u32 opcode)
   CMP_RD_RS;
 }
 
-// MOV Rd, Rs
+/* MOV Rd, Rs */
 static  void thumb46_0(u32 opcode)
 {
   bus.reg[opcode&7].I = bus.reg[((opcode>>3)&7)].I;
@@ -5706,14 +5712,14 @@ static  void thumb46_0(u32 opcode)
 }
 
 
-// MOV Rd, Hs
+/* MOV Rd, Hs */
 static  void thumb46_1(u32 opcode)
 {
   bus.reg[opcode&7].I = bus.reg[((opcode>>3)&7)+8].I;
   clockTicks = CLOCKTICKS_UPDATE_TYPE16;
 }
 
-// MOV Hd, Rs
+/* MOV Hd, Rs */
 static  void thumb46_2(u32 opcode)
 {
   bus.reg[(opcode&7)+8].I = bus.reg[(opcode>>3)&7].I;
@@ -5726,7 +5732,7 @@ static  void thumb46_2(u32 opcode)
   }
 }
 
-// MOV Hd, Hs
+/* MOV Hd, Hs */
 static  void thumb46_3(u32 opcode)
 {
   bus.reg[(opcode&7)+8].I = bus.reg[((opcode>>3)&7)+8].I;
@@ -5740,7 +5746,7 @@ static  void thumb46_3(u32 opcode)
 }
 
 
-// BX Rs
+/* BX Rs */
 static  void thumb47(u32 opcode)
 {
 	int base = (opcode >> 3) & 15;
@@ -5764,9 +5770,9 @@ static  void thumb47(u32 opcode)
 	}
 }
 
-// Load/store instructions ////////////////////////////////////////////////
+/* Load/store instructions //////////////////////////////////////////////// */
 
-// LDR R0~R7,[PC, #Imm]
+/* LDR R0~R7,[PC, #Imm] */
 static  void thumb48(u32 opcode)
 {
 	u8 regist = (opcode >> 8) & 7;
@@ -5780,7 +5786,7 @@ static  void thumb48(u32 opcode)
 	clockTicks = 3 + dataticks_value + codeTicksAccess(bus.armNextPC, BITS_16);
 }
 
-// STR Rd, [Rs, Rn]
+/* STR Rd, [Rs, Rn] */
 static  void thumb50(u32 opcode)
 {
 	if (bus.busPrefetchCount == 0)
@@ -5792,7 +5798,7 @@ static  void thumb50(u32 opcode)
 	clockTicks = dataticks_value + codeTicksAccess(bus.armNextPC, BITS_16) + 2;
 }
 
-// STRH Rd, [Rs, Rn]
+/* STRH Rd, [Rs, Rn] */
 static  void thumb52(u32 opcode)
 {
 	if (bus.busPrefetchCount == 0)
@@ -5804,7 +5810,7 @@ static  void thumb52(u32 opcode)
 	clockTicks = dataticks_value + codeTicksAccess(bus.armNextPC, BITS_16) + 2;
 }
 
-// STRB Rd, [Rs, Rn]
+/* STRB Rd, [Rs, Rn] */
 static  void thumb54(u32 opcode)
 {
 	if (bus.busPrefetchCount == 0)
@@ -5816,7 +5822,7 @@ static  void thumb54(u32 opcode)
 	clockTicks = dataticks_value + codeTicksAccess(bus.armNextPC, BITS_16) + 2;
 }
 
-// LDSB Rd, [Rs, Rn]
+/* LDSB Rd, [Rs, Rn] */
 static  void thumb56(u32 opcode)
 {
 	if (bus.busPrefetchCount == 0)
@@ -5828,7 +5834,7 @@ static  void thumb56(u32 opcode)
 	clockTicks = 3 + dataticks_value + codeTicksAccess(bus.armNextPC, BITS_16);
 }
 
-// LDR Rd, [Rs, Rn]
+/* LDR Rd, [Rs, Rn] */
 static  void thumb58(u32 opcode)
 {
 	if (bus.busPrefetchCount == 0)
@@ -5840,7 +5846,7 @@ static  void thumb58(u32 opcode)
 	clockTicks = 3 + dataticks_value + codeTicksAccess(bus.armNextPC, BITS_16);
 }
 
-// LDRH Rd, [Rs, Rn]
+/* LDRH Rd, [Rs, Rn] */
 static  void thumb5A(u32 opcode)
 {
 	if (bus.busPrefetchCount == 0)
@@ -5852,7 +5858,7 @@ static  void thumb5A(u32 opcode)
 	clockTicks = 3 + dataticks_value + codeTicksAccess(bus.armNextPC, BITS_16);
 }
 
-// LDRB Rd, [Rs, Rn]
+/* LDRB Rd, [Rs, Rn] */
 static  void thumb5C(u32 opcode)
 {
 	if (bus.busPrefetchCount == 0)
@@ -5864,7 +5870,7 @@ static  void thumb5C(u32 opcode)
 	clockTicks = 3 + dataticks_value + codeTicksAccess(bus.armNextPC, BITS_16);
 }
 
-// LDSH Rd, [Rs, Rn]
+/* LDSH Rd, [Rs, Rn] */
 static  void thumb5E(u32 opcode)
 {
 	if (bus.busPrefetchCount == 0)
@@ -5876,7 +5882,7 @@ static  void thumb5E(u32 opcode)
 	clockTicks = 3 + dataticks_value + codeTicksAccess(bus.armNextPC, BITS_16);
 }
 
-// STR Rd, [Rs, #Imm]
+/* STR Rd, [Rs, #Imm] */
 static  void thumb60(u32 opcode)
 {
 	if (bus.busPrefetchCount == 0)
@@ -5888,7 +5894,7 @@ static  void thumb60(u32 opcode)
 	clockTicks = dataticks_value + codeTicksAccess(bus.armNextPC, BITS_16) + 2;
 }
 
-// LDR Rd, [Rs, #Imm]
+/* LDR Rd, [Rs, #Imm] */
 static  void thumb68(u32 opcode)
 {
 	if (bus.busPrefetchCount == 0)
@@ -5900,7 +5906,7 @@ static  void thumb68(u32 opcode)
 	clockTicks = 3 + dataticks_value + codeTicksAccess(bus.armNextPC, BITS_16);
 }
 
-// STRB Rd, [Rs, #Imm]
+/* STRB Rd, [Rs, #Imm] */
 static  void thumb70(u32 opcode)
 {
 	if (bus.busPrefetchCount == 0)
@@ -5912,7 +5918,7 @@ static  void thumb70(u32 opcode)
 	clockTicks = dataticks_value + codeTicksAccess(bus.armNextPC, BITS_16) + 2;
 }
 
-// LDRB Rd, [Rs, #Imm]
+/* LDRB Rd, [Rs, #Imm] */
 static  void thumb78(u32 opcode)
 {
 	if (bus.busPrefetchCount == 0)
@@ -5924,7 +5930,7 @@ static  void thumb78(u32 opcode)
 	clockTicks = 3 + dataticks_value + codeTicksAccess(bus.armNextPC, BITS_16);
 }
 
-// STRH Rd, [Rs, #Imm]
+/* STRH Rd, [Rs, #Imm] */
 static  void thumb80(u32 opcode)
 {
 	if (bus.busPrefetchCount == 0)
@@ -5936,7 +5942,7 @@ static  void thumb80(u32 opcode)
 	clockTicks = dataticks_value + codeTicksAccess(bus.armNextPC, BITS_16) + 2;
 }
 
-// LDRH Rd, [Rs, #Imm]
+/* LDRH Rd, [Rs, #Imm] */
 static  void thumb88(u32 opcode)
 {
 	if (bus.busPrefetchCount == 0)
@@ -5948,7 +5954,7 @@ static  void thumb88(u32 opcode)
 	clockTicks = 3 + dataticks_value + codeTicksAccess(bus.armNextPC, BITS_16);
 }
 
-// STR R0~R7, [SP, #Imm]
+/* STR R0~R7, [SP, #Imm] */
 static  void thumb90(u32 opcode)
 {
 	u8 regist = (opcode >> 8) & 7;
@@ -5961,7 +5967,7 @@ static  void thumb90(u32 opcode)
 	clockTicks = dataticks_value + codeTicksAccess(bus.armNextPC, BITS_16) + 2;
 }
 
-// LDR R0~R7, [SP, #Imm]
+/* LDR R0~R7, [SP, #Imm] */
 static  void thumb98(u32 opcode)
 {
 	u8 regist = (opcode >> 8) & 7;
@@ -5974,9 +5980,9 @@ static  void thumb98(u32 opcode)
 	clockTicks = 3 + dataticks_value + codeTicksAccess(bus.armNextPC, BITS_16);
 }
 
-// PC/stack-related ///////////////////////////////////////////////////////
+/* PC/stack-related /////////////////////////////////////////////////////// */
 
-// ADD R0~R7, PC, Imm
+/* ADD R0~R7, PC, Imm */
 static  void thumbA0(u32 opcode)
 {
   u8 regist = (opcode >> 8) & 7;
@@ -5984,7 +5990,7 @@ static  void thumbA0(u32 opcode)
   clockTicks = 1 + codeTicksAccess(bus.armNextPC, BITS_16);
 }
 
-// ADD R0~R7, SP, Imm
+/* ADD R0~R7, SP, Imm */
 static  void thumbA8(u32 opcode)
 {
   u8 regist = (opcode >> 8) & 7;
@@ -5992,7 +5998,7 @@ static  void thumbA8(u32 opcode)
   clockTicks = 1 + codeTicksAccess(bus.armNextPC, BITS_16);
 }
 
-// ADD SP, Imm
+/* ADD SP, Imm */
 static  void thumbB0(u32 opcode)
 {
   int offset = (opcode & 127) << 2;
@@ -6002,7 +6008,7 @@ static  void thumbB0(u32 opcode)
   clockTicks = 1 + codeTicksAccess(bus.armNextPC, BITS_16);
 }
 
-// Push and pop ///////////////////////////////////////////////////////////
+/* Push and pop /////////////////////////////////////////////////////////// */
 
 #define PUSH_REG(val, r)                                    \
   if (opcode & (val)) {                                     \
@@ -6024,7 +6030,7 @@ static  void thumbB0(u32 opcode)
     address += 4;                                           \
   }
 
-// PUSH {Rlist}
+/* PUSH {Rlist} */
 static  void thumbB4(u32 opcode)
 {
   if (bus.busPrefetchCount == 0)
@@ -6044,7 +6050,7 @@ static  void thumbB4(u32 opcode)
   bus.reg[13].I = temp;
 }
 
-// PUSH {Rlist, LR}
+/* PUSH {Rlist, LR} */
 static  void thumbB5(u32 opcode)
 {
   if (bus.busPrefetchCount == 0)
@@ -6065,7 +6071,7 @@ static  void thumbB5(u32 opcode)
   bus.reg[13].I = temp;
 }
 
-// POP {Rlist}
+/* POP {Rlist} */
 static  void thumbBC(u32 opcode)
 {
   if (bus.busPrefetchCount == 0)
@@ -6085,7 +6091,7 @@ static  void thumbBC(u32 opcode)
   clockTicks += 2 + codeTicksAccess(bus.armNextPC, BITS_16);
 }
 
-// POP {Rlist, PC}
+/* POP {Rlist, PC} */
 static  void thumbBD(u32 opcode)
 {
   if (bus.busPrefetchCount == 0)
@@ -6114,7 +6120,7 @@ static  void thumbBD(u32 opcode)
   clockTicks += 3 + (codeTicksAccess(bus.armNextPC, BITS_16) << 1);
 }
 
-// Load/store multiple ////////////////////////////////////////////////////
+/* Load/store multiple //////////////////////////////////////////////////// */
 
 #define THUMB_STM_REG(val,r,b)                              \
   if(opcode & (val)) {                                      \
@@ -6137,7 +6143,7 @@ static  void thumbBD(u32 opcode)
     address += 4;                                           \
   }
 
-// STM R0~7!, {Rlist}
+/* STM R0~7!, {Rlist} */
 static  void thumbC0(u32 opcode)
 {
   u8 regist = (opcode >> 8) & 7;
@@ -6146,7 +6152,7 @@ static  void thumbC0(u32 opcode)
   u32 address = bus.reg[regist].I & 0xFFFFFFFC;
   u32 temp = bus.reg[regist].I + 4*cpuBitsSet[opcode & 0xff];
   int count = 0;
-  // store
+  /* store */
   THUMB_STM_REG(1, 0, regist);
   THUMB_STM_REG(2, 1, regist);
   THUMB_STM_REG(4, 2, regist);
@@ -6158,7 +6164,7 @@ static  void thumbC0(u32 opcode)
   clockTicks += 1 + codeTicksAccess(bus.armNextPC, BITS_16);
 }
 
-// LDM R0~R7!, {Rlist}
+/* LDM R0~R7!, {Rlist} */
 static  void thumbC8(u32 opcode)
 {
   u8 regist = (opcode >> 8) & 7;
@@ -6167,7 +6173,7 @@ static  void thumbC8(u32 opcode)
   u32 address = bus.reg[regist].I & 0xFFFFFFFC;
   u32 temp = bus.reg[regist].I + 4*cpuBitsSet[opcode & 0xFF];
   int count = 0;
-  // load
+  /* load */
   THUMB_LDM_REG(1, 0);
   THUMB_LDM_REG(2, 1);
   THUMB_LDM_REG(4, 2);
@@ -6181,9 +6187,9 @@ static  void thumbC8(u32 opcode)
     bus.reg[regist].I = temp;
 }
 
-// Conditional branches ///////////////////////////////////////////////////
+/* Conditional branches /////////////////////////////////////////////////// */
 
-// BEQ offset
+/* BEQ offset */
 static  void thumbD0(u32 opcode)
 {
 #if !USE_TWEAK_SPEEDHACK
@@ -6204,7 +6210,7 @@ static  void thumbD0(u32 opcode)
 	}
 }
 
-// BNE offset
+/* BNE offset */
 static  void thumbD1(u32 opcode)
 {
   clockTicks = CLOCKTICKS_UPDATE_TYPE16;
@@ -6218,7 +6224,7 @@ static  void thumbD1(u32 opcode)
   }
 }
 
-// BCS offset
+/* BCS offset */
 static  void thumbD2(u32 opcode)
 {
   clockTicks = CLOCKTICKS_UPDATE_TYPE16;
@@ -6232,7 +6238,7 @@ static  void thumbD2(u32 opcode)
   }
 }
 
-// BCC offset
+/* BCC offset */
 static  void thumbD3(u32 opcode)
 {
   clockTicks = CLOCKTICKS_UPDATE_TYPE16;
@@ -6246,7 +6252,7 @@ static  void thumbD3(u32 opcode)
   }
 }
 
-// BMI offset
+/* BMI offset */
 static  void thumbD4(u32 opcode)
 {
   clockTicks = CLOCKTICKS_UPDATE_TYPE16;
@@ -6260,7 +6266,7 @@ static  void thumbD4(u32 opcode)
   }
 }
 
-// BPL offset
+/* BPL offset */
 static  void thumbD5(u32 opcode)
 {
   clockTicks = CLOCKTICKS_UPDATE_TYPE16;
@@ -6274,7 +6280,7 @@ static  void thumbD5(u32 opcode)
   }
 }
 
-// BVS offset
+/* BVS offset */
 static  void thumbD6(u32 opcode)
 {
   clockTicks = CLOCKTICKS_UPDATE_TYPE16;
@@ -6288,7 +6294,7 @@ static  void thumbD6(u32 opcode)
   }
 }
 
-// BVC offset
+/* BVC offset */
 static  void thumbD7(u32 opcode)
 {
   clockTicks = CLOCKTICKS_UPDATE_TYPE16;
@@ -6302,7 +6308,7 @@ static  void thumbD7(u32 opcode)
   }
 }
 
-// BHI offset
+/* BHI offset */
 static  void thumbD8(u32 opcode)
 {
   clockTicks = CLOCKTICKS_UPDATE_TYPE16;
@@ -6316,7 +6322,7 @@ static  void thumbD8(u32 opcode)
   }
 }
 
-// BLS offset
+/* BLS offset */
 static  void thumbD9(u32 opcode)
 {
   clockTicks = CLOCKTICKS_UPDATE_TYPE16;
@@ -6330,7 +6336,7 @@ static  void thumbD9(u32 opcode)
   }
 }
 
-// BGE offset
+/* BGE offset */
 static  void thumbDA(u32 opcode)
 {
   clockTicks = CLOCKTICKS_UPDATE_TYPE16;
@@ -6344,7 +6350,7 @@ static  void thumbDA(u32 opcode)
   }
 }
 
-// BLT offset
+/* BLT offset */
 static  void thumbDB(u32 opcode)
 {
   clockTicks = CLOCKTICKS_UPDATE_TYPE16;
@@ -6358,7 +6364,7 @@ static  void thumbDB(u32 opcode)
   }
 }
 
-// BGT offset
+/* BGT offset */
 static  void thumbDC(u32 opcode)
 {
   clockTicks = CLOCKTICKS_UPDATE_TYPE16;
@@ -6372,7 +6378,7 @@ static  void thumbDC(u32 opcode)
   }
 }
 
-// BLE offset
+/* BLE offset */
 static  void thumbDD(u32 opcode)
 {
   clockTicks = CLOCKTICKS_UPDATE_TYPE16;
@@ -6386,9 +6392,9 @@ static  void thumbDD(u32 opcode)
   }
 }
 
-// SWI, B, BL /////////////////////////////////////////////////////////////
+/* SWI, B, BL ///////////////////////////////////////////////////////////// */
 
-// SWI #comment
+/* SWI #comment */
 static  void thumbDF(u32 opcode)
 {
   clockTicks = 3;
@@ -6396,7 +6402,7 @@ static  void thumbDF(u32 opcode)
   CPUSoftwareInterrupt(opcode & 0xFF);
 }
 
-// B offset
+/* B offset */
 static  void thumbE0(u32 opcode)
 {
   int offset = (opcode & 0x3FF) << 1;
@@ -6410,7 +6416,7 @@ static  void thumbE0(u32 opcode)
   bus.busPrefetchCount=0;
 }
 
-// BLL #offset (forward)
+/* BLL #offset (forward) */
 static  void thumbF0(u32 opcode)
 {
   int offset = (opcode & 0x7FF);
@@ -6418,7 +6424,7 @@ static  void thumbF0(u32 opcode)
   clockTicks = CLOCKTICKS_UPDATE_TYPE16;
 }
 
-// BLL #offset (backward)
+/* BLL #offset (backward) */
 static  void thumbF4(u32 opcode)
 {
   int offset = (opcode & 0x7FF);
@@ -6426,7 +6432,7 @@ static  void thumbF4(u32 opcode)
   clockTicks = CLOCKTICKS_UPDATE_TYPE16;
 }
 
-// BLH #offset
+/* BLH #offset */
 static  void thumbF8(u32 opcode)
 {
   int offset = (opcode & 0x7FF);
@@ -6440,7 +6446,7 @@ static  void thumbF8(u32 opcode)
   bus.busPrefetchCount = 0;
 }
 
-// Instruction table //////////////////////////////////////////////////////
+/* Instruction table ////////////////////////////////////////////////////// */
 
 typedef  void (*insnfunc_t)(u32 opcode);
 #define thumbUI thumbUnknownInsn
@@ -6448,137 +6454,137 @@ typedef  void (*insnfunc_t)(u32 opcode);
 
 static insnfunc_t thumbInsnTable[1024] =
 {
-  thumb00_00,thumb00_01,thumb00_02,thumb00_03,thumb00_04,thumb00_05,thumb00_06,thumb00_07,  // 00
+  thumb00_00,thumb00_01,thumb00_02,thumb00_03,thumb00_04,thumb00_05,thumb00_06,thumb00_07,  /* 00 */
   thumb00_08,thumb00_09,thumb00_0A,thumb00_0B,thumb00_0C,thumb00_0D,thumb00_0E,thumb00_0F,
   thumb00_10,thumb00_11,thumb00_12,thumb00_13,thumb00_14,thumb00_15,thumb00_16,thumb00_17,
   thumb00_18,thumb00_19,thumb00_1A,thumb00_1B,thumb00_1C,thumb00_1D,thumb00_1E,thumb00_1F,
-  thumb08_00,thumb08_01,thumb08_02,thumb08_03,thumb08_04,thumb08_05,thumb08_06,thumb08_07,  // 08
+  thumb08_00,thumb08_01,thumb08_02,thumb08_03,thumb08_04,thumb08_05,thumb08_06,thumb08_07,  /* 08 */
   thumb08_08,thumb08_09,thumb08_0A,thumb08_0B,thumb08_0C,thumb08_0D,thumb08_0E,thumb08_0F,
   thumb08_10,thumb08_11,thumb08_12,thumb08_13,thumb08_14,thumb08_15,thumb08_16,thumb08_17,
   thumb08_18,thumb08_19,thumb08_1A,thumb08_1B,thumb08_1C,thumb08_1D,thumb08_1E,thumb08_1F,
-  thumb10_00,thumb10_01,thumb10_02,thumb10_03,thumb10_04,thumb10_05,thumb10_06,thumb10_07,  // 10
+  thumb10_00,thumb10_01,thumb10_02,thumb10_03,thumb10_04,thumb10_05,thumb10_06,thumb10_07,  /* 10 */
   thumb10_08,thumb10_09,thumb10_0A,thumb10_0B,thumb10_0C,thumb10_0D,thumb10_0E,thumb10_0F,
   thumb10_10,thumb10_11,thumb10_12,thumb10_13,thumb10_14,thumb10_15,thumb10_16,thumb10_17,
   thumb10_18,thumb10_19,thumb10_1A,thumb10_1B,thumb10_1C,thumb10_1D,thumb10_1E,thumb10_1F,
-  thumb18_0,thumb18_1,thumb18_2,thumb18_3,thumb18_4,thumb18_5,thumb18_6,thumb18_7,          // 18
+  thumb18_0,thumb18_1,thumb18_2,thumb18_3,thumb18_4,thumb18_5,thumb18_6,thumb18_7,          /* 18 */
   thumb1A_0,thumb1A_1,thumb1A_2,thumb1A_3,thumb1A_4,thumb1A_5,thumb1A_6,thumb1A_7,
   thumb1C_0,thumb1C_1,thumb1C_2,thumb1C_3,thumb1C_4,thumb1C_5,thumb1C_6,thumb1C_7,
   thumb1E_0,thumb1E_1,thumb1E_2,thumb1E_3,thumb1E_4,thumb1E_5,thumb1E_6,thumb1E_7,
-  thumb20,thumb20,thumb20,thumb20,thumb21,thumb21,thumb21,thumb21,  // 20
+  thumb20,thumb20,thumb20,thumb20,thumb21,thumb21,thumb21,thumb21,  /* 20 */
   thumb22,thumb22,thumb22,thumb22,thumb23,thumb23,thumb23,thumb23,
   thumb24,thumb24,thumb24,thumb24,thumb25,thumb25,thumb25,thumb25,
   thumb26,thumb26,thumb26,thumb26,thumb27,thumb27,thumb27,thumb27,
-  thumb28,thumb28,thumb28,thumb28,thumb29,thumb29,thumb29,thumb29,  // 28
+  thumb28,thumb28,thumb28,thumb28,thumb29,thumb29,thumb29,thumb29,  /* 28 */
   thumb2A,thumb2A,thumb2A,thumb2A,thumb2B,thumb2B,thumb2B,thumb2B,
   thumb2C,thumb2C,thumb2C,thumb2C,thumb2D,thumb2D,thumb2D,thumb2D,
   thumb2E,thumb2E,thumb2E,thumb2E,thumb2F,thumb2F,thumb2F,thumb2F,
-  thumb30,thumb30,thumb30,thumb30,thumb31,thumb31,thumb31,thumb31,  // 30
+  thumb30,thumb30,thumb30,thumb30,thumb31,thumb31,thumb31,thumb31,  /* 30 */
   thumb32,thumb32,thumb32,thumb32,thumb33,thumb33,thumb33,thumb33,
   thumb34,thumb34,thumb34,thumb34,thumb35,thumb35,thumb35,thumb35,
   thumb36,thumb36,thumb36,thumb36,thumb37,thumb37,thumb37,thumb37,
-  thumb38,thumb38,thumb38,thumb38,thumb39,thumb39,thumb39,thumb39,  // 38
+  thumb38,thumb38,thumb38,thumb38,thumb39,thumb39,thumb39,thumb39,  /* 38 */
   thumb3A,thumb3A,thumb3A,thumb3A,thumb3B,thumb3B,thumb3B,thumb3B,
   thumb3C,thumb3C,thumb3C,thumb3C,thumb3D,thumb3D,thumb3D,thumb3D,
   thumb3E,thumb3E,thumb3E,thumb3E,thumb3F,thumb3F,thumb3F,thumb3F,
-  thumb40_0,thumb40_1,thumb40_2,thumb40_3,thumb41_0,thumb41_1,thumb41_2,thumb41_3,  // 40
+  thumb40_0,thumb40_1,thumb40_2,thumb40_3,thumb41_0,thumb41_1,thumb41_2,thumb41_3,  /* 40 */
   thumb42_0,thumb42_1,thumb42_2,thumb42_3,thumb43_0,thumb43_1,thumb43_2,thumb43_3,
   thumbUI,thumb44_1,thumb44_2,thumb44_3,thumbUI,thumb45_1,thumb45_2,thumb45_3,
   thumb46_0,thumb46_1,thumb46_2,thumb46_3,thumb47,thumb47,thumbUI,thumbUI,
-  thumb48,thumb48,thumb48,thumb48,thumb48,thumb48,thumb48,thumb48,  // 48
+  thumb48,thumb48,thumb48,thumb48,thumb48,thumb48,thumb48,thumb48,  /* 48 */
   thumb48,thumb48,thumb48,thumb48,thumb48,thumb48,thumb48,thumb48,
   thumb48,thumb48,thumb48,thumb48,thumb48,thumb48,thumb48,thumb48,
   thumb48,thumb48,thumb48,thumb48,thumb48,thumb48,thumb48,thumb48,
-  thumb50,thumb50,thumb50,thumb50,thumb50,thumb50,thumb50,thumb50,  // 50
+  thumb50,thumb50,thumb50,thumb50,thumb50,thumb50,thumb50,thumb50,  /* 50 */
   thumb52,thumb52,thumb52,thumb52,thumb52,thumb52,thumb52,thumb52,
   thumb54,thumb54,thumb54,thumb54,thumb54,thumb54,thumb54,thumb54,
   thumb56,thumb56,thumb56,thumb56,thumb56,thumb56,thumb56,thumb56,
-  thumb58,thumb58,thumb58,thumb58,thumb58,thumb58,thumb58,thumb58,  // 58
+  thumb58,thumb58,thumb58,thumb58,thumb58,thumb58,thumb58,thumb58,  /* 58 */
   thumb5A,thumb5A,thumb5A,thumb5A,thumb5A,thumb5A,thumb5A,thumb5A,
   thumb5C,thumb5C,thumb5C,thumb5C,thumb5C,thumb5C,thumb5C,thumb5C,
   thumb5E,thumb5E,thumb5E,thumb5E,thumb5E,thumb5E,thumb5E,thumb5E,
-  thumb60,thumb60,thumb60,thumb60,thumb60,thumb60,thumb60,thumb60,  // 60
+  thumb60,thumb60,thumb60,thumb60,thumb60,thumb60,thumb60,thumb60,  /* 60 */
   thumb60,thumb60,thumb60,thumb60,thumb60,thumb60,thumb60,thumb60,
   thumb60,thumb60,thumb60,thumb60,thumb60,thumb60,thumb60,thumb60,
   thumb60,thumb60,thumb60,thumb60,thumb60,thumb60,thumb60,thumb60,
-  thumb68,thumb68,thumb68,thumb68,thumb68,thumb68,thumb68,thumb68,  // 68
+  thumb68,thumb68,thumb68,thumb68,thumb68,thumb68,thumb68,thumb68,  /* 68 */
   thumb68,thumb68,thumb68,thumb68,thumb68,thumb68,thumb68,thumb68,
   thumb68,thumb68,thumb68,thumb68,thumb68,thumb68,thumb68,thumb68,
   thumb68,thumb68,thumb68,thumb68,thumb68,thumb68,thumb68,thumb68,
-  thumb70,thumb70,thumb70,thumb70,thumb70,thumb70,thumb70,thumb70,  // 70
+  thumb70,thumb70,thumb70,thumb70,thumb70,thumb70,thumb70,thumb70,  /* 70 */
   thumb70,thumb70,thumb70,thumb70,thumb70,thumb70,thumb70,thumb70,
   thumb70,thumb70,thumb70,thumb70,thumb70,thumb70,thumb70,thumb70,
   thumb70,thumb70,thumb70,thumb70,thumb70,thumb70,thumb70,thumb70,
-  thumb78,thumb78,thumb78,thumb78,thumb78,thumb78,thumb78,thumb78,  // 78
+  thumb78,thumb78,thumb78,thumb78,thumb78,thumb78,thumb78,thumb78,  /* 78 */
   thumb78,thumb78,thumb78,thumb78,thumb78,thumb78,thumb78,thumb78,
   thumb78,thumb78,thumb78,thumb78,thumb78,thumb78,thumb78,thumb78,
   thumb78,thumb78,thumb78,thumb78,thumb78,thumb78,thumb78,thumb78,
-  thumb80,thumb80,thumb80,thumb80,thumb80,thumb80,thumb80,thumb80,  // 80
+  thumb80,thumb80,thumb80,thumb80,thumb80,thumb80,thumb80,thumb80,  /* 80 */
   thumb80,thumb80,thumb80,thumb80,thumb80,thumb80,thumb80,thumb80,
   thumb80,thumb80,thumb80,thumb80,thumb80,thumb80,thumb80,thumb80,
   thumb80,thumb80,thumb80,thumb80,thumb80,thumb80,thumb80,thumb80,
-  thumb88,thumb88,thumb88,thumb88,thumb88,thumb88,thumb88,thumb88,  // 88
+  thumb88,thumb88,thumb88,thumb88,thumb88,thumb88,thumb88,thumb88,  /* 88 */
   thumb88,thumb88,thumb88,thumb88,thumb88,thumb88,thumb88,thumb88,
   thumb88,thumb88,thumb88,thumb88,thumb88,thumb88,thumb88,thumb88,
   thumb88,thumb88,thumb88,thumb88,thumb88,thumb88,thumb88,thumb88,
-  thumb90,thumb90,thumb90,thumb90,thumb90,thumb90,thumb90,thumb90,  // 90
+  thumb90,thumb90,thumb90,thumb90,thumb90,thumb90,thumb90,thumb90,  /* 90 */
   thumb90,thumb90,thumb90,thumb90,thumb90,thumb90,thumb90,thumb90,
   thumb90,thumb90,thumb90,thumb90,thumb90,thumb90,thumb90,thumb90,
   thumb90,thumb90,thumb90,thumb90,thumb90,thumb90,thumb90,thumb90,
-  thumb98,thumb98,thumb98,thumb98,thumb98,thumb98,thumb98,thumb98,  // 98
+  thumb98,thumb98,thumb98,thumb98,thumb98,thumb98,thumb98,thumb98,  /* 98 */
   thumb98,thumb98,thumb98,thumb98,thumb98,thumb98,thumb98,thumb98,
   thumb98,thumb98,thumb98,thumb98,thumb98,thumb98,thumb98,thumb98,
   thumb98,thumb98,thumb98,thumb98,thumb98,thumb98,thumb98,thumb98,
-  thumbA0,thumbA0,thumbA0,thumbA0,thumbA0,thumbA0,thumbA0,thumbA0,  // A0
+  thumbA0,thumbA0,thumbA0,thumbA0,thumbA0,thumbA0,thumbA0,thumbA0,  /* A0 */
   thumbA0,thumbA0,thumbA0,thumbA0,thumbA0,thumbA0,thumbA0,thumbA0,
   thumbA0,thumbA0,thumbA0,thumbA0,thumbA0,thumbA0,thumbA0,thumbA0,
   thumbA0,thumbA0,thumbA0,thumbA0,thumbA0,thumbA0,thumbA0,thumbA0,
-  thumbA8,thumbA8,thumbA8,thumbA8,thumbA8,thumbA8,thumbA8,thumbA8,  // A8
+  thumbA8,thumbA8,thumbA8,thumbA8,thumbA8,thumbA8,thumbA8,thumbA8,  /* A8 */
   thumbA8,thumbA8,thumbA8,thumbA8,thumbA8,thumbA8,thumbA8,thumbA8,
   thumbA8,thumbA8,thumbA8,thumbA8,thumbA8,thumbA8,thumbA8,thumbA8,
   thumbA8,thumbA8,thumbA8,thumbA8,thumbA8,thumbA8,thumbA8,thumbA8,
-  thumbB0,thumbB0,thumbB0,thumbB0,thumbUI,thumbUI,thumbUI,thumbUI,  // B0
+  thumbB0,thumbB0,thumbB0,thumbB0,thumbUI,thumbUI,thumbUI,thumbUI,  /* B0 */
   thumbUI,thumbUI,thumbUI,thumbUI,thumbUI,thumbUI,thumbUI,thumbUI,
   thumbB4,thumbB4,thumbB4,thumbB4,thumbB5,thumbB5,thumbB5,thumbB5,
   thumbUI,thumbUI,thumbUI,thumbUI,thumbUI,thumbUI,thumbUI,thumbUI,
-  thumbUI,thumbUI,thumbUI,thumbUI,thumbUI,thumbUI,thumbUI,thumbUI,  // B8
+  thumbUI,thumbUI,thumbUI,thumbUI,thumbUI,thumbUI,thumbUI,thumbUI,  /* B8 */
   thumbUI,thumbUI,thumbUI,thumbUI,thumbUI,thumbUI,thumbUI,thumbUI,
   thumbBC,thumbBC,thumbBC,thumbBC,thumbBD,thumbBD,thumbBD,thumbBD,
   thumbBP,thumbBP,thumbBP,thumbBP,thumbUI,thumbUI,thumbUI,thumbUI,
-  thumbC0,thumbC0,thumbC0,thumbC0,thumbC0,thumbC0,thumbC0,thumbC0,  // C0
+  thumbC0,thumbC0,thumbC0,thumbC0,thumbC0,thumbC0,thumbC0,thumbC0,  /* C0 */
   thumbC0,thumbC0,thumbC0,thumbC0,thumbC0,thumbC0,thumbC0,thumbC0,
   thumbC0,thumbC0,thumbC0,thumbC0,thumbC0,thumbC0,thumbC0,thumbC0,
   thumbC0,thumbC0,thumbC0,thumbC0,thumbC0,thumbC0,thumbC0,thumbC0,
-  thumbC8,thumbC8,thumbC8,thumbC8,thumbC8,thumbC8,thumbC8,thumbC8,  // C8
+  thumbC8,thumbC8,thumbC8,thumbC8,thumbC8,thumbC8,thumbC8,thumbC8,  /* C8 */
   thumbC8,thumbC8,thumbC8,thumbC8,thumbC8,thumbC8,thumbC8,thumbC8,
   thumbC8,thumbC8,thumbC8,thumbC8,thumbC8,thumbC8,thumbC8,thumbC8,
   thumbC8,thumbC8,thumbC8,thumbC8,thumbC8,thumbC8,thumbC8,thumbC8,
-  thumbD0,thumbD0,thumbD0,thumbD0,thumbD1,thumbD1,thumbD1,thumbD1,  // D0
+  thumbD0,thumbD0,thumbD0,thumbD0,thumbD1,thumbD1,thumbD1,thumbD1,  /* D0 */
   thumbD2,thumbD2,thumbD2,thumbD2,thumbD3,thumbD3,thumbD3,thumbD3,
   thumbD4,thumbD4,thumbD4,thumbD4,thumbD5,thumbD5,thumbD5,thumbD5,
   thumbD6,thumbD6,thumbD6,thumbD6,thumbD7,thumbD7,thumbD7,thumbD7,
-  thumbD8,thumbD8,thumbD8,thumbD8,thumbD9,thumbD9,thumbD9,thumbD9,  // D8
+  thumbD8,thumbD8,thumbD8,thumbD8,thumbD9,thumbD9,thumbD9,thumbD9,  /* D8 */
   thumbDA,thumbDA,thumbDA,thumbDA,thumbDB,thumbDB,thumbDB,thumbDB,
   thumbDC,thumbDC,thumbDC,thumbDC,thumbDD,thumbDD,thumbDD,thumbDD,
   thumbUI,thumbUI,thumbUI,thumbUI,thumbDF,thumbDF,thumbDF,thumbDF,
-  thumbE0,thumbE0,thumbE0,thumbE0,thumbE0,thumbE0,thumbE0,thumbE0,  // E0
+  thumbE0,thumbE0,thumbE0,thumbE0,thumbE0,thumbE0,thumbE0,thumbE0,  /* E0 */
   thumbE0,thumbE0,thumbE0,thumbE0,thumbE0,thumbE0,thumbE0,thumbE0,
   thumbE0,thumbE0,thumbE0,thumbE0,thumbE0,thumbE0,thumbE0,thumbE0,
   thumbE0,thumbE0,thumbE0,thumbE0,thumbE0,thumbE0,thumbE0,thumbE0,
-  thumbUI,thumbUI,thumbUI,thumbUI,thumbUI,thumbUI,thumbUI,thumbUI,  // E8
+  thumbUI,thumbUI,thumbUI,thumbUI,thumbUI,thumbUI,thumbUI,thumbUI,  /* E8 */
   thumbUI,thumbUI,thumbUI,thumbUI,thumbUI,thumbUI,thumbUI,thumbUI,
   thumbUI,thumbUI,thumbUI,thumbUI,thumbUI,thumbUI,thumbUI,thumbUI,
   thumbUI,thumbUI,thumbUI,thumbUI,thumbUI,thumbUI,thumbUI,thumbUI,
-  thumbF0,thumbF0,thumbF0,thumbF0,thumbF0,thumbF0,thumbF0,thumbF0,  // F0
+  thumbF0,thumbF0,thumbF0,thumbF0,thumbF0,thumbF0,thumbF0,thumbF0,  /* F0 */
   thumbF0,thumbF0,thumbF0,thumbF0,thumbF0,thumbF0,thumbF0,thumbF0,
   thumbF4,thumbF4,thumbF4,thumbF4,thumbF4,thumbF4,thumbF4,thumbF4,
   thumbF4,thumbF4,thumbF4,thumbF4,thumbF4,thumbF4,thumbF4,thumbF4,
-  thumbF8,thumbF8,thumbF8,thumbF8,thumbF8,thumbF8,thumbF8,thumbF8,  // F8
+  thumbF8,thumbF8,thumbF8,thumbF8,thumbF8,thumbF8,thumbF8,thumbF8,  /* F8 */
   thumbF8,thumbF8,thumbF8,thumbF8,thumbF8,thumbF8,thumbF8,thumbF8,
   thumbF8,thumbF8,thumbF8,thumbF8,thumbF8,thumbF8,thumbF8,thumbF8,
   thumbF8,thumbF8,thumbF8,thumbF8,thumbF8,thumbF8,thumbF8,thumbF8,
 };
 
-// Wrapper routine (execution loop) ///////////////////////////////////////
+/* Wrapper routine (execution loop) /////////////////////////////////////// */
 
 
 static int thumbExecute (void)
@@ -6623,7 +6629,7 @@ static int thumbExecute (void)
       if (ct < 0)
          return 0;
 
-      /// better pipelining
+      /*/ better pipelining */
       if (ct==0)
          clockTicks = codeTicksAccessSeq16(oldArmNextPC) + 1;
 
@@ -6865,7 +6871,7 @@ static void gfxDrawTextScreen(u16 control, u16 hofs, u16 vofs)
    int x = 0;
    const int firstTileX = xxx & 7;
 
-   // First tile, if clipped
+   /* First tile, if clipped */
    if (firstTileX)
    {
       gfxDrawTileClipped(readTile(screenSource, yyy, charBase, palette, prio), &RENDERER_LINE[layer][x], firstTileX, 8 - firstTileX);
@@ -6884,7 +6890,7 @@ static void gfxDrawTextScreen(u16 control, u16 hofs, u16 vofs)
       }
    }
 
-   // Middle tiles, full
+   /* Middle tiles, full */
    while (x < 240 - firstTileX)
    {
       gfxDrawTile(readTile(screenSource, yyy, charBase, palette, prio), &RENDERER_LINE[layer][x]);
@@ -6901,7 +6907,7 @@ static void gfxDrawTextScreen(u16 control, u16 hofs, u16 vofs)
       }
    }
 
-   // Last tile, if clipped
+   /* Last tile, if clipped */
    if (firstTileX)
       gfxDrawTileClipped(readTile(screenSource, yyy, charBase, palette, prio), &RENDERER_LINE[layer][x], 0, firstTileX);
 
@@ -6917,9 +6923,9 @@ static void gfxDrawTextScreen(u16 control, u16 hofs, u16 vofs)
 template<int layer, int renderer_idx>
 void gfxDrawTextScreen(u16 control, u16 hofs, u16 vofs)
 {
-   if (control & 0x80) // 1 pal / 256 col
+   if (control & 0x80) /* 1 pal / 256 col */
       gfxDrawTextScreen<gfxReadTile, layer, renderer_idx>(control, hofs, vofs);
-   else // 16 pal / 16 col
+   else /* 16 pal / 16 col */
       gfxDrawTextScreen<gfxReadTilePal, layer, renderer_idx>(control, hofs, vofs);
 }
 #else
@@ -7061,8 +7067,10 @@ static inline void gfxDrawTextScreen(u16 control, u16 hofs, u16 vofs)
 static u32 map_sizes_rot[] = { 128, 256, 512, 1024 };
 
 #if THREADED_RENDERER
-static INLINE void fetchDrawRotScreen(u16 control, u16 x_l, u16 x_h, u16 y_l, u16 y_h, u16 pa, u16 pb, u16 pc, u16 pd, int& currentX, int& currentY, int changed)
+static INLINE void fetchDrawRotScreen(u16 control, u16 x_l, u16 x_h, u16 y_l, u16 y_h, u16 pa, u16 pb, u16 pc, u16 pd, int *p_currentX, int *p_currentY, int changed)
 {
+	int currentX = *p_currentX;
+	int currentY = *p_currentY;
 	/* Only dmx/dmy (per-line increments) are consumed here; dx/dy are per-pixel
 	 * and live in the renderer thread. Single-cast sign-extension compiles to
 	 * one extsh on PPC / sxth on ARM. */
@@ -7089,10 +7097,14 @@ static INLINE void fetchDrawRotScreen(u16 control, u16 x_l, u16 x_h, u16 y_l, u1
 		if(y_h & 0x0800)
 			currentY |= 0xF8000000;
 	}
+	*p_currentX = currentX;
+	*p_currentY = currentY;
 }
 
-static INLINE void fetchDrawRotScreen16Bit( int& currentX,  int& currentY, int changed)
+static INLINE void fetchDrawRotScreen16Bit( int *p_currentX,  int *p_currentY, int changed)
 {
+	int currentX = *p_currentX;
+	int currentY = *p_currentY;
 	int dmx = (int)(int16_t)io_registers[REG_BG2PB];
 	int dmy = (int)(int16_t)io_registers[REG_BG2PD];
 
@@ -7115,10 +7127,14 @@ static INLINE void fetchDrawRotScreen16Bit( int& currentX,  int& currentY, int c
 		if(BG2Y_H & 0x0800)
 			currentY |= 0xF8000000;
 	}
+	*p_currentX = currentX;
+	*p_currentY = currentY;
 }
 
-static INLINE void fetchDrawRotScreen256(int &currentX, int& currentY, int changed)
+static INLINE void fetchDrawRotScreen256(int *p_currentX, int *p_currentY, int changed)
 {
+	int currentX = *p_currentX;
+	int currentY = *p_currentY;
 	int dmx = (int)(int16_t)io_registers[REG_BG2PB];
 	int dmy = (int)(int16_t)io_registers[REG_BG2PD];
 
@@ -7141,10 +7157,14 @@ static INLINE void fetchDrawRotScreen256(int &currentX, int& currentY, int chang
 		if(BG2Y_H & 0x0800)
 			currentY |= 0xF8000000;
 	}
+	*p_currentX = currentX;
+	*p_currentY = currentY;
 }
 
-static INLINE void fetchDrawRotScreen16Bit160(int& currentX, int& currentY, int changed)
+static INLINE void fetchDrawRotScreen16Bit160(int *p_currentX, int *p_currentY, int changed)
 {
+	int currentX = *p_currentX;
+	int currentY = *p_currentY;
 	int dmx = (int)(int16_t)io_registers[REG_BG2PB];
 	int dmy = (int)(int16_t)io_registers[REG_BG2PD];
 
@@ -7167,13 +7187,17 @@ static INLINE void fetchDrawRotScreen16Bit160(int& currentX, int& currentY, int 
 		if(BG2Y_H & 0x0800)
 			currentY |= 0xF8000000;
 	}
+	*p_currentX = currentX;
+	*p_currentY = currentY;
 }
 #endif
 
 template<int layer, int renderer_idx>
 static INLINE void gfxDrawRotScreen(u16 control, u16 x_l, u16 x_h, u16 y_l, u16 y_h,
-u16 pa,  u16 pb, u16 pc,  u16 pd, int& currentX, int& currentY, int changed)
+u16 pa,  u16 pb, u16 pc,  u16 pd, int *p_currentX, int *p_currentY, int changed)
 {
+	int currentX = *p_currentX;
+	int currentY = *p_currentY;
 	INIT_RENDERER_CONTEXT(renderer_idx);
 
 	u16 *palette = PAL_U16;
@@ -7227,9 +7251,9 @@ u16 pa,  u16 pb, u16 pc,  u16 pd, int& currentX, int& currentY, int changed)
 	}
 
 	memset(RENDERER_LINE[layer], -1, 240 * sizeof(u32));
-	if(control & 0x2000) // Wraparound
+	if(control & 0x2000) /* Wraparound */
 	{
-		if(dx > 0 && dy == 0) // Common subcase: no rotation or flipping
+		if(dx > 0 && dy == 0) /* Common subcase: no rotation or flipping */
 		{
 			unsigned yyy = (realY >> 8) & maskY;
 			unsigned yyyshift = (yyy>>3)<<yshift;
@@ -7270,9 +7294,9 @@ u16 pa,  u16 pb, u16 pc,  u16 pd, int& currentX, int& currentY, int changed)
 				realY += dy;
 			}
 	}
-	else // Culling
+	else /* Culling */
 	{
-		if(dx > 0 && dy == 0) // Common subcase: no rotation or flipping
+		if(dx > 0 && dy == 0) /* Common subcase: no rotation or flipping */
 		{
 			unsigned yyy = (realY >> 8);
 			if (yyy >= sizeY)
@@ -7333,11 +7357,15 @@ u16 pa,  u16 pb, u16 pc,  u16 pd, int& currentX, int& currentY, int changed)
 			MOSAIC_LOOP(layer, mosaicX);
 		}
 	}
+	*p_currentX = currentX;
+	*p_currentY = currentY;
 }
 
 template<int renderer_idx>
-static INLINE void gfxDrawRotScreen16Bit( int& currentX,  int& currentY, int changed)
+static INLINE void gfxDrawRotScreen16Bit( int *p_currentX,  int *p_currentY, int changed)
 {
+	int currentX = *p_currentX;
+	int currentY = *p_currentY;
 	INIT_RENDERER_CONTEXT(renderer_idx);
 
 	u16 *screenBase = (u16 *)&vram[0];
@@ -7410,11 +7438,15 @@ static INLINE void gfxDrawRotScreen16Bit( int& currentX,  int& currentY, int cha
 			MOSAIC_LOOP(Layer_BG2, mosaicX);
 		}
 	}
+	*p_currentX = currentX;
+	*p_currentY = currentY;
 }
 
 template<int renderer_idx>
-static INLINE void gfxDrawRotScreen256(int &currentX, int& currentY, int changed)
+static INLINE void gfxDrawRotScreen256(int *p_currentX, int *p_currentY, int changed)
 {
+	int currentX = *p_currentX;
+	int currentY = *p_currentY;
 	INIT_RENDERER_CONTEXT(renderer_idx);
 
 	u16 *palette = PAL_U16;
@@ -7490,11 +7522,15 @@ static INLINE void gfxDrawRotScreen256(int &currentX, int& currentY, int changed
 			MOSAIC_LOOP(Layer_BG2, mosaicX);
 		}
 	}
+	*p_currentX = currentX;
+	*p_currentY = currentY;
 }
 
 template<int renderer_idx>
-static INLINE void gfxDrawRotScreen16Bit160(int& currentX, int& currentY, int changed)
+static INLINE void gfxDrawRotScreen16Bit160(int *p_currentX, int *p_currentY, int changed)
 {
+	int currentX = *p_currentX;
+	int currentY = *p_currentY;
 	INIT_RENDERER_CONTEXT(renderer_idx);
 
 	u16 *screenBase = (RENDERER_IO_REGISTERS[REG_DISPCNT] & 0x0010) ? (u16 *)&vram[0xa000] :
@@ -7567,6 +7603,8 @@ static INLINE void gfxDrawRotScreen16Bit160(int& currentX, int& currentY, int ch
 	{
 		MOSAIC_LOOP(Layer_BG2, mosaicX);
 	}
+	*p_currentX = currentX;
+	*p_currentY = currentY;
 }
 
 /* lineOBJpix is used to keep track of the drawn OBJs
@@ -7645,7 +7683,7 @@ static void gfxDrawSprites (void)
 		int sy = (a0 & 255);
 		int sx = (a1 & 0x1FF);
 
-		// computes ticks used by OBJ-WIN if OBJWIN is enabled
+		/* computes ticks used by OBJ-WIN if OBJWIN is enabled */
 		if (((a0 & 0x0c00) == 0x0800) && (RENDERER_R_DISPCNT_OBJ_Window_Display))
 		{
 			if ((a0 & 0x0300) == 0x0300)
@@ -7682,7 +7720,7 @@ static void gfxDrawSprites (void)
 			continue;
 		}
 
-		// else ignores OBJ-WIN if OBJWIN is disabled, and ignored disabled OBJ
+		/* else ignores OBJ-WIN if OBJWIN is disabled, and ignored disabled OBJ */
 		else if(((a0 & 0x0c00) == 0x0800) || ((a0 & 0x0300) == 0x0200))
 			continue;
 
@@ -7930,8 +7968,8 @@ static void gfxDrawSprites (void)
 							{
 								if (xx >= (int)(startpix))
 									--lineOBJpix;
-								//if (lineOBJpix<0)
-								//  continue;
+								/*if (lineOBJpix<0) */
+								/*  continue; */
 								if(sx < 240)
 								{
 									u8 color = vram[address];
@@ -7976,8 +8014,8 @@ static void gfxDrawSprites (void)
 							{
 								if (xx >= startpix)
 									--lineOBJpix;
-								//if (lineOBJpix<0)
-								//  continue;
+								/*if (lineOBJpix<0) */
+								/*  continue; */
 								if(sx < 240)
 								{
 									u8 color = vram[address];
@@ -8040,7 +8078,7 @@ static void gfxDrawOBJWin (void)
 		if (lineOBJpix<=0)
 			return;
 
-		// ignores non OBJ-WIN and disabled OBJ-WIN
+		/* ignores non OBJ-WIN and disabled OBJ-WIN */
 		if(((a0 & 0x0c00) != 0x0800) || ((a0 & 0x0300) == 0x0200))
 			continue;
 
@@ -8108,7 +8146,7 @@ static void gfxDrawOBJWin (void)
 				if((sx < 240) || startpix)
 				{
 					lineOBJpix-=8;
-					// int t2 = t - (fieldY >> 1);
+					/* int t2 = t - (fieldY >> 1); */
 					int rot = (a1 >> 9) & 0x1F;
 					u16 *OAM = OAM_U16;
 					int dx = OAM[3 + (rot << 4)];
@@ -8261,8 +8299,8 @@ static void gfxDrawOBJWin (void)
 							xxx = sizeX - 1;
 						int address = 0x10000 + ((((c + (t>>3) * inc)<<5)
 									+ ((t & 7)<<2) + ((xxx>>3)<<5) + ((xxx & 7) >> 1))&0x7fff);
-						// u32 prio = (((a2 >> 10) & 3) << 25) | ((a0 & 0x0c00)<<6);
-						// int palette = (a2 >> 8) & 0xF0;
+						/* u32 prio = (((a2 >> 10) & 3) << 25) | ((a0 & 0x0c00)<<6); */
+						/* int palette = (a2 >> 8) & 0xF0; */
 						if(a1 & 0x1000)
 						{
 							xxx = 7;
@@ -8892,7 +8930,7 @@ static bool CPUSetupBuffers(void)
 	if(rom != NULL)
 		CPUCleanUp();
 
-	//systemSaveUpdateCounter = SYSTEM_SAVE_NOT_UPDATED;
+	/*systemSaveUpdateCounter = SYSTEM_SAVE_NOT_UPDATED; */
 
 	rom = (uint8_t *)memalign_alloc_aligned(0x2000000);
 	workRAM = (uint8_t *)memalign_alloc_aligned(0x40000);
@@ -8924,7 +8962,7 @@ static bool CPUSetupBuffers(void)
 	flashInit();
 	eepromInit();
 
-	//CPUUpdateRenderBuffers(true);
+	/*CPUUpdateRenderBuffers(true); */
 #if !THREADED_RENDERER
 	memset(line[Layer_BG0], -1, 240 * sizeof(u32));
 	memset(line[Layer_BG1], -1, 240 * sizeof(u32));
@@ -8940,19 +8978,19 @@ static void applyCartridgeOverride(char* code) {
 	hardware.sensor = HARDWARE_SENSOR_NONE;
 
 	do {
-		// Koro Koro Puzzle - Happy Panechu!
+		/* Koro Koro Puzzle - Happy Panechu! */
 		if(memcmp(code, "KHPJ", 4) == 0) {
 			hardware.sensor = HARDWARE_SENSOR_TILT;
 			break;
 		}
 
-		// Yoshi's Universal Gravitation
+		/* Yoshi's Universal Gravitation */
 		if(memcmp(code, "KYGJ", 4) == 0 || memcmp(code, "KYGE", 4) == 0 || memcmp(code, "KYGP", 4) == 0) {
 			hardware.sensor = HARDWARE_SENSOR_TILT;
 			break;
 		}
 
-		// Wario Ware Twisted
+		/* Wario Ware Twisted */
 		if(memcmp(code, "RZWJ", 4) == 0 || memcmp(code, "RZWE", 4) == 0 || memcmp(code, "RZWP", 4) == 0) {
 			hardware.sensor = HARDWARE_SENSOR_GYRO;
 			break;
@@ -8966,7 +9004,7 @@ static void applyCartridgeOverride(char* code) {
 		hardware.tilt_y = 0xFFF;
 	}
 
-	//if(hardware.sensor) while(1);
+	/*if(hardware.sensor) while(1); */
 #endif
 }
 
@@ -8976,7 +9014,7 @@ static void CPULoadRomGeneric(uint8_t *whereToLoad)
    char cartridgeCode[4];
    uint16_t *temp;
 
-	//load cartridge code
+	/*load cartridge code */
 	memcpy(cartridgeCode, whereToLoad + 0xAC, 4);
 	applyCartridgeOverride(cartridgeCode);
 
@@ -9000,7 +9038,7 @@ static int utilGetSize(int size)
 }
 
 static uint8_t *utilLoad(const char *file,
-      bool (*accept)(const char *), uint8_t *data, int &size)
+      bool (*accept)(const char *), uint8_t *data, int *size)
 {
    uint8_t *image  = NULL;
    RFILE *fp       = filestream_open(file, RETRO_VFS_FILE_ACCESS_READ,
@@ -9009,7 +9047,7 @@ static uint8_t *utilLoad(const char *file,
       return NULL;
 
    filestream_seek(fp, 0, SEEK_END); /*go to end*/
-   size = filestream_tell(fp); /* get position at end (length)*/
+   *size = filestream_tell(fp); /* get position at end (length)*/
    filestream_rewind(fp);
 
    image = data;
@@ -9017,7 +9055,7 @@ static uint8_t *utilLoad(const char *file,
    if(!image)
    {
       /*allocate buffer memory if none was passed to the function*/
-      if (!(image = (uint8_t *)malloc(utilGetSize(size))))
+      if (!(image = (uint8_t *)malloc(utilGetSize(*size))))
       {
          systemMessage("Failed to allocate memory for data");
          filestream_close(fp);
@@ -9025,7 +9063,7 @@ static uint8_t *utilLoad(const char *file,
       }
    }
 
-   filestream_read(fp, image, size); /* read into buffer*/
+   filestream_read(fp, image, *size); /* read into buffer*/
    filestream_close(fp);
    return image;
 }
@@ -9089,7 +9127,7 @@ int CPULoadRom(const char * file)
 		if(!utilLoad(file,
 					utilIsGBAImage,
 					whereToLoad,
-					romSize))
+					&romSize))
       {
          CPUCleanUp();
          return 0;
@@ -9125,11 +9163,11 @@ void ThreadedRendererStart(void)
    int u;
 	for(u = 0; u < THREADED_RENDERER_COUNT; ++u)
    {
-      init_renderer_context(threaded_renderer_contexts[u]);
+      init_renderer_context(&threaded_renderer_contexts[u]);
       threaded_renderer_contexts[u].renderer_control = 1;
 
       threaded_renderer_contexts[u].renderer_thread_id =
-         thread_run((u == 0) ? threaded_renderer_loop0 : threaded_renderer_loop, reinterpret_cast<void*>(intptr_t(u)),
+         thread_run((u == 0) ? threaded_renderer_loop0 : threaded_renderer_loop, (void*)(intptr_t)(u),
 #if VITA
                (u == 0) ? THREAD_PRIORITY_NORMAL : THREAD_PRIORITY_LOW);
 #else
@@ -9235,7 +9273,7 @@ static void mode0RenderLine (void)
 
          if(color & 0x00010000)
          {
-            // semi-transparent OBJ
+            /* semi-transparent OBJ */
             uint32_t back = backdrop;
             uint8_t  top2 = SpecialEffectTarget_BD;
 
@@ -9396,7 +9434,7 @@ static void mode0RenderLineNoWindow (void)
       }
       else
       {
-         // semi-transparent OBJ
+         /* semi-transparent OBJ */
          uint32_t back = backdrop;
          uint8_t top2 = SpecialEffectTarget_BD;
 
@@ -9520,7 +9558,7 @@ static void mode0RenderLineAll (void)
 
 		if(color & 0x00010000)
 		{
-			// semi-transparent OBJ
+			/* semi-transparent OBJ */
 			uint32_t back = backdrop;
 			uint8_t top2 = SpecialEffectTarget_BD;
 
@@ -9548,7 +9586,7 @@ static void mode0RenderLineAll (void)
 		}
 		else if((mask & LayerMask_SFX) && (RENDERER_R_BLDCNT_IsTarget1(top)))
 		{
-			// special FX on in the window
+			/* special FX on in the window */
 			switch(RENDERER_R_BLDCNT_Color_Special_Effect)
 			{
 				case SpecialEffect_None:
@@ -9638,7 +9676,7 @@ static void mode1RenderLine (void)
 	if(RENDERER_R_DISPCNT_Screen_Display_BG2) {
 		gfxDrawRotScreen<Layer_BG2, renderer_idx>(RENDERER_IO_REGISTERS[REG_BG2CNT], RENDERER_BG2X_L, RENDERER_BG2X_H, RENDERER_BG2Y_L, RENDERER_BG2Y_H,
 				RENDERER_IO_REGISTERS[REG_BG2PA], RENDERER_IO_REGISTERS[REG_BG2PB], RENDERER_IO_REGISTERS[REG_BG2PC], RENDERER_IO_REGISTERS[REG_BG2PD],
-				RENDERER_BG2X, RENDERER_BG2Y, RENDERER_BG2C);
+				&RENDERER_BG2X, &RENDERER_BG2Y, RENDERER_BG2C);
 	}
 
 	for(uint32_t x = 0; x < 240u; ++x) {
@@ -9672,7 +9710,7 @@ static void mode1RenderLine (void)
 				top = SpecialEffectTarget_OBJ;
 				if((color & 0x00010000))
 				{
-					// semi-transparent OBJ
+					/* semi-transparent OBJ */
 					uint32_t back = backdrop;
 					uint8_t top2 = SpecialEffectTarget_BD;
 
@@ -9735,7 +9773,7 @@ static void mode1RenderLineNoWindow (void)
 	if(RENDERER_R_DISPCNT_Screen_Display_BG2) {
 		gfxDrawRotScreen<Layer_BG2, renderer_idx>(RENDERER_IO_REGISTERS[REG_BG2CNT], RENDERER_BG2X_L, RENDERER_BG2X_H, RENDERER_BG2Y_L, RENDERER_BG2Y_H,
 				RENDERER_IO_REGISTERS[REG_BG2PA], RENDERER_IO_REGISTERS[REG_BG2PB], RENDERER_IO_REGISTERS[REG_BG2PC], RENDERER_IO_REGISTERS[REG_BG2PD],
-				RENDERER_BG2X, RENDERER_BG2Y, RENDERER_BG2C);
+				&RENDERER_BG2X, &RENDERER_BG2Y, RENDERER_BG2C);
 	}
 
 	for(int x = 0; x < 240; ++x) {
@@ -9817,7 +9855,7 @@ static void mode1RenderLineNoWindow (void)
 					break;
 			}
 		} else {
-			// semi-transparent OBJ
+			/* semi-transparent OBJ */
 			uint32_t back = backdrop;
 			uint8_t top2 = SpecialEffectTarget_BD;
 
@@ -9900,7 +9938,7 @@ static void mode1RenderLineAll (void)
 	if(RENDERER_R_DISPCNT_Screen_Display_BG2) {
 		gfxDrawRotScreen<Layer_BG2, renderer_idx>(RENDERER_IO_REGISTERS[REG_BG2CNT], RENDERER_BG2X_L, RENDERER_BG2X_H, RENDERER_BG2Y_L, RENDERER_BG2Y_H,
 				RENDERER_IO_REGISTERS[REG_BG2PA], RENDERER_IO_REGISTERS[REG_BG2PB], RENDERER_IO_REGISTERS[REG_BG2PC], RENDERER_IO_REGISTERS[REG_BG2PD],
-				RENDERER_BG2X, RENDERER_BG2Y, RENDERER_BG2C);
+				&RENDERER_BG2X, &RENDERER_BG2Y, RENDERER_BG2C);
 	}
 
 	uint8_t inWin0Mask = RENDERER_R_WIN_Window0_Mask;
@@ -9919,7 +9957,7 @@ static void mode1RenderLineAll (void)
 		mask = SELECT(inWindow1 && RENDERER_GFX_IN_WIN[1][x], inWin1Mask, mask);
 		mask = SELECT(inWindow0 && RENDERER_GFX_IN_WIN[0][x], inWin0Mask, mask);
 
-		// At the very least, move the inexpensive 'mask' operation up front
+		/* At the very least, move the inexpensive 'mask' operation up front */
 		if((mask & LayerMask_BG0) && RENDERER_LINE[Layer_BG0][x] < backdrop) {
 			color = RENDERER_LINE[Layer_BG0][x];
 			top = SpecialEffectTarget_BG0;
@@ -9941,7 +9979,7 @@ static void mode1RenderLineAll (void)
 		}
 
 		if(color & 0x00010000) {
-			// semi-transparent OBJ
+			/* semi-transparent OBJ */
 			uint32_t back = backdrop;
 			uint8_t top2 = SpecialEffectTarget_BD;
 
@@ -9962,7 +10000,7 @@ static void mode1RenderLineAll (void)
 
 			alpha_blend_brightness_switch();
 		} else if(mask & LayerMask_SFX) {
-			// special FX on the window
+			/* special FX on the window */
 			switch(RENDERER_R_BLDCNT_Color_Special_Effect)
 			{
 				case SpecialEffect_None:
@@ -10042,13 +10080,13 @@ static void mode2RenderLine (void)
 	if(RENDERER_R_DISPCNT_Screen_Display_BG2) {
 		gfxDrawRotScreen<Layer_BG2, renderer_idx>(RENDERER_IO_REGISTERS[REG_BG2CNT], RENDERER_BG2X_L, RENDERER_BG2X_H, RENDERER_BG2Y_L, RENDERER_BG2Y_H,
 				RENDERER_IO_REGISTERS[REG_BG2PA], RENDERER_IO_REGISTERS[REG_BG2PB], RENDERER_IO_REGISTERS[REG_BG2PC], RENDERER_IO_REGISTERS[REG_BG2PD],
-				RENDERER_BG2X, RENDERER_BG2Y, RENDERER_BG2C);
+				&RENDERER_BG2X, &RENDERER_BG2Y, RENDERER_BG2C);
 	}
 
 	if(RENDERER_R_DISPCNT_Screen_Display_BG3) {
 		gfxDrawRotScreen<Layer_BG3, renderer_idx>(RENDERER_IO_REGISTERS[REG_BG3CNT], RENDERER_BG3X_L, RENDERER_BG3X_H, RENDERER_BG3Y_L, RENDERER_BG3Y_H,
 				RENDERER_IO_REGISTERS[REG_BG3PA], RENDERER_IO_REGISTERS[REG_BG3PB], RENDERER_IO_REGISTERS[REG_BG3PC], RENDERER_IO_REGISTERS[REG_BG3PD],
-				RENDERER_BG3X, RENDERER_BG3Y, RENDERER_BG3C);
+				&RENDERER_BG3X, &RENDERER_BG3Y, RENDERER_BG3C);
 	}
 
 	for(int x = 0; x < 240; ++x) {
@@ -10077,7 +10115,7 @@ static void mode2RenderLine (void)
 				top = SpecialEffectTarget_OBJ;
 
 				if(color & 0x00010000) {
-					// semi-transparent OBJ
+					/* semi-transparent OBJ */
 					uint32_t back = backdrop;
 					uint8_t top2 = SpecialEffectTarget_BD;
 
@@ -10125,13 +10163,13 @@ static void mode2RenderLineNoWindow (void)
 	if(RENDERER_R_DISPCNT_Screen_Display_BG2) {
 		gfxDrawRotScreen<Layer_BG2, renderer_idx>(RENDERER_IO_REGISTERS[REG_BG2CNT], RENDERER_BG2X_L, RENDERER_BG2X_H, RENDERER_BG2Y_L, RENDERER_BG2Y_H,
 				RENDERER_IO_REGISTERS[REG_BG2PA], RENDERER_IO_REGISTERS[REG_BG2PB], RENDERER_IO_REGISTERS[REG_BG2PC], RENDERER_IO_REGISTERS[REG_BG2PD],
-				RENDERER_BG2X, RENDERER_BG2Y, RENDERER_BG2C);
+				&RENDERER_BG2X, &RENDERER_BG2Y, RENDERER_BG2C);
 	}
 
 	if(RENDERER_R_DISPCNT_Screen_Display_BG3) {
 		gfxDrawRotScreen<Layer_BG3, renderer_idx>(RENDERER_IO_REGISTERS[REG_BG3CNT], RENDERER_BG3X_L, RENDERER_BG3X_H, RENDERER_BG3Y_L, RENDERER_BG3Y_H,
 				RENDERER_IO_REGISTERS[REG_BG3PA], RENDERER_IO_REGISTERS[REG_BG3PB], RENDERER_IO_REGISTERS[REG_BG3PC], RENDERER_IO_REGISTERS[REG_BG3PD],
-				RENDERER_BG3X, RENDERER_BG3Y, RENDERER_BG3C);
+				&RENDERER_BG3X, &RENDERER_BG3Y, RENDERER_BG3C);
 	}
 
 	for(int x = 0; x < 240; ++x) {
@@ -10203,7 +10241,7 @@ static void mode2RenderLineNoWindow (void)
 					break;
 			}
 		} else {
-			// semi-transparent OBJ
+			/* semi-transparent OBJ */
 			uint32_t back = backdrop;
 			uint8_t top2 = SpecialEffectTarget_BD;
 
@@ -10264,13 +10302,13 @@ static void mode2RenderLineAll (void)
 	if(RENDERER_R_DISPCNT_Screen_Display_BG2) {
 		gfxDrawRotScreen<Layer_BG2, renderer_idx>(RENDERER_IO_REGISTERS[REG_BG2CNT], RENDERER_BG2X_L, RENDERER_BG2X_H, RENDERER_BG2Y_L, RENDERER_BG2Y_H,
 				RENDERER_IO_REGISTERS[REG_BG2PA], RENDERER_IO_REGISTERS[REG_BG2PB], RENDERER_IO_REGISTERS[REG_BG2PC], RENDERER_IO_REGISTERS[REG_BG2PD],
-				RENDERER_BG2X, RENDERER_BG2Y, RENDERER_BG2C);
+				&RENDERER_BG2X, &RENDERER_BG2Y, RENDERER_BG2C);
 	}
 
 	if(RENDERER_R_DISPCNT_Screen_Display_BG3) {
 		gfxDrawRotScreen<Layer_BG3, renderer_idx>(RENDERER_IO_REGISTERS[REG_BG3CNT], RENDERER_BG3X_L, RENDERER_BG3X_H, RENDERER_BG3Y_L, RENDERER_BG3Y_H,
 				RENDERER_IO_REGISTERS[REG_BG3PA], RENDERER_IO_REGISTERS[REG_BG3PB], RENDERER_IO_REGISTERS[REG_BG3PC], RENDERER_IO_REGISTERS[REG_BG3PD],
-				RENDERER_BG3X, RENDERER_BG3Y, RENDERER_BG3C);
+				&RENDERER_BG3X, &RENDERER_BG3Y, RENDERER_BG3C);
 	}
 
 	uint8_t inWin0Mask = RENDERER_R_WIN_Window0_Mask;
@@ -10305,7 +10343,7 @@ static void mode2RenderLineAll (void)
 		}
 
 		if(color & 0x00010000) {
-			// semi-transparent OBJ
+			/* semi-transparent OBJ */
 			uint32_t back = backdrop;
 			uint8_t top2 = SpecialEffectTarget_BD;
 
@@ -10321,7 +10359,7 @@ static void mode2RenderLineAll (void)
 
 			alpha_blend_brightness_switch();
 		} else if(mask & LayerMask_SFX) {
-			// special FX on the window
+			/* special FX on the window */
 			switch(RENDERER_R_BLDCNT_Color_Special_Effect)
 			{
 				case SpecialEffect_None:
@@ -10393,7 +10431,7 @@ static void mode3RenderLine (void)
 	uint32_t background = RENDERER_BACKDROP;
 
 	if(RENDERER_R_DISPCNT_Screen_Display_BG2) {
-		gfxDrawRotScreen16Bit<renderer_idx>(RENDERER_BG2X, RENDERER_BG2Y, RENDERER_BG2C);
+		gfxDrawRotScreen16Bit<renderer_idx>(&RENDERER_BG2X, &RENDERER_BG2Y, RENDERER_BG2C);
 	}
 
 	for(int x = 0; x < 240; ++x) {
@@ -10410,7 +10448,7 @@ static void mode3RenderLine (void)
 			top = SpecialEffectTarget_OBJ;
 
 			if(color & 0x00010000) {
-				// semi-transparent OBJ
+				/* semi-transparent OBJ */
 				uint32_t back = background;
 				uint8_t top2 = SpecialEffectTarget_BD;
 
@@ -10444,7 +10482,7 @@ INIT_RENDERER_CONTEXT(renderer_idx);
 	uint32_t background = RENDERER_BACKDROP;
 
 	if(RENDERER_R_DISPCNT_Screen_Display_BG2) {
-		gfxDrawRotScreen16Bit<renderer_idx>(RENDERER_BG2X, RENDERER_BG2Y, RENDERER_BG2C);
+		gfxDrawRotScreen16Bit<renderer_idx>(&RENDERER_BG2X, &RENDERER_BG2Y, RENDERER_BG2C);
 	}
 
 	for(int x = 0; x < 240; ++x) {
@@ -10499,7 +10537,7 @@ INIT_RENDERER_CONTEXT(renderer_idx);
 					break;
 			}
 		} else {
-			// semi-transparent OBJ
+			/* semi-transparent OBJ */
 			uint32_t back = background;
 			uint8_t top2 = SpecialEffectTarget_BD;
 
@@ -10548,7 +10586,7 @@ static void mode3RenderLineAll (void)
 	}
 
 	if(RENDERER_R_DISPCNT_Screen_Display_BG2) {
-		gfxDrawRotScreen16Bit<renderer_idx>(RENDERER_BG2X, RENDERER_BG2Y, RENDERER_BG2C);
+		gfxDrawRotScreen16Bit<renderer_idx>(&RENDERER_BG2X, &RENDERER_BG2Y, RENDERER_BG2C);
 	}
 
 	uint8_t inWin0Mask = RENDERER_R_WIN_Window0_Mask;
@@ -10578,7 +10616,7 @@ static void mode3RenderLineAll (void)
 		}
 
 		if(color & 0x00010000) {
-			// semi-transparent OBJ
+			/* semi-transparent OBJ */
 			uint32_t back = background;
 			uint8_t top2 = SpecialEffectTarget_BD;
 
@@ -10654,7 +10692,7 @@ static void mode4RenderLine (void)
 	uint32_t backdrop = RENDERER_BACKDROP;
 
 	if(RENDERER_R_DISPCNT_Screen_Display_BG2) {
-		gfxDrawRotScreen256<renderer_idx>(RENDERER_BG2X, RENDERER_BG2Y, RENDERER_BG2C);
+		gfxDrawRotScreen256<renderer_idx>(&RENDERER_BG2X, &RENDERER_BG2Y, RENDERER_BG2C);
 	}
 
 	for(int x = 0; x < 240; ++x)
@@ -10672,7 +10710,7 @@ static void mode4RenderLine (void)
 			top = SpecialEffectTarget_OBJ;
 
 			if(color & 0x00010000) {
-				// semi-transparent OBJ
+				/* semi-transparent OBJ */
 				uint32_t back = backdrop;
 				uint8_t top2 = SpecialEffectTarget_BD;
 
@@ -10705,7 +10743,7 @@ static void mode4RenderLineNoWindow (void)
 	uint32_t backdrop = RENDERER_BACKDROP;
 
 	if(RENDERER_R_DISPCNT_Screen_Display_BG2) {
-		gfxDrawRotScreen256<renderer_idx>(RENDERER_BG2X, RENDERER_BG2Y, RENDERER_BG2C);
+		gfxDrawRotScreen256<renderer_idx>(&RENDERER_BG2X, &RENDERER_BG2Y, RENDERER_BG2C);
 	}
 
 	for(int x = 0; x < 240; ++x)
@@ -10760,7 +10798,7 @@ static void mode4RenderLineNoWindow (void)
 					break;
 			}
 		} else {
-			// semi-transparent OBJ
+			/* semi-transparent OBJ */
 			uint32_t back = backdrop;
 			uint8_t top2 = SpecialEffectTarget_BD;
 
@@ -10809,7 +10847,7 @@ static void mode4RenderLineAll (void)
 	}
 
 	if(RENDERER_R_DISPCNT_Screen_Display_BG2) {
-		gfxDrawRotScreen256<renderer_idx>(RENDERER_BG2X, RENDERER_BG2Y, RENDERER_BG2C);
+		gfxDrawRotScreen256<renderer_idx>(&RENDERER_BG2X, &RENDERER_BG2Y, RENDERER_BG2C);
 	}
 
 	uint8_t inWin0Mask = RENDERER_R_WIN_Window0_Mask;
@@ -10840,7 +10878,7 @@ static void mode4RenderLineAll (void)
 		}
 
 		if(color & 0x00010000) {
-			// semi-transparent OBJ
+			/* semi-transparent OBJ */
 			uint32_t back = backdrop;
 			uint8_t top2 = SpecialEffectTarget_BD;
 
@@ -10917,7 +10955,7 @@ static void mode5RenderLine (void)
 	uint32_t background = RENDERER_BACKDROP;
 
 	if(RENDERER_R_DISPCNT_Screen_Display_BG2) {
-		gfxDrawRotScreen16Bit160<renderer_idx>(RENDERER_BG2X, RENDERER_BG2Y, RENDERER_BG2C);
+		gfxDrawRotScreen16Bit160<renderer_idx>(&RENDERER_BG2X, &RENDERER_BG2Y, RENDERER_BG2C);
 	}
 
 	for(int x = 0; x < 240; ++x) {
@@ -10934,7 +10972,7 @@ static void mode5RenderLine (void)
 			top = SpecialEffectTarget_OBJ;
 
 			if(color & 0x00010000) {
-				// semi-transparent OBJ
+				/* semi-transparent OBJ */
 				uint32_t back = background;
 				uint8_t top2 = SpecialEffectTarget_BD;
 
@@ -10967,7 +11005,7 @@ static void mode5RenderLineNoWindow (void)
 	uint32_t background = RENDERER_BACKDROP;
 
 	if(RENDERER_R_DISPCNT_Screen_Display_BG2) {
-		gfxDrawRotScreen16Bit160<renderer_idx>(RENDERER_BG2X, RENDERER_BG2Y, RENDERER_BG2C);
+		gfxDrawRotScreen16Bit160<renderer_idx>(&RENDERER_BG2X, &RENDERER_BG2Y, RENDERER_BG2C);
 	}
 
 	for(int x = 0; x < 240; ++x) {
@@ -11022,7 +11060,7 @@ static void mode5RenderLineNoWindow (void)
 					break;
 			}
 		} else {
-			// semi-transparent OBJ
+			/* semi-transparent OBJ */
 			uint32_t back = background;
 			uint8_t top2 = SpecialEffectTarget_BD;
 
@@ -11054,7 +11092,7 @@ static void mode5RenderLineAll (void)
 	uint32_t background = RENDERER_BACKDROP;
 
 	if(RENDERER_R_DISPCNT_Screen_Display_BG2) {
-		gfxDrawRotScreen16Bit160<renderer_idx>(RENDERER_BG2X, RENDERER_BG2Y, RENDERER_BG2C);
+		gfxDrawRotScreen16Bit160<renderer_idx>(&RENDERER_BG2X, &RENDERER_BG2Y, RENDERER_BG2C);
 	}
 
 	bool inWindow0 = false;
@@ -11101,7 +11139,7 @@ static void mode5RenderLineAll (void)
 		}
 
 		if(color & 0x00010000) {
-			// semi-transparent OBJ
+			/* semi-transparent OBJ */
 			uint32_t back = background;
 			uint8_t top2 = SpecialEffectTarget_BD;
 
@@ -11203,11 +11241,11 @@ static void threaded_renderer_loop0(void* p) {
 		threaded_renderer_loop_impl();
 	}
 
-	renderer_ctx.renderer_control = 0; //loop is terminated.
+	renderer_ctx.renderer_control = 0; /*loop is terminated. */
 }
 
 static void threaded_renderer_loop(void* p) {
-	int renderer_idx = reinterpret_cast<intptr_t>(p);
+	int renderer_idx = (intptr_t)(p);
 	INIT_RENDERER_CONTEXT(renderer_idx);
 
 	renderfunc_t drawSprites = NULL;
@@ -11237,35 +11275,35 @@ static void threaded_renderer_loop(void* p) {
 	while(renderer_ctx.renderer_control == 1)
 		threaded_renderer_loop_impl();
 
-	renderer_ctx.renderer_control = 0; //loop is terminated.
+	renderer_ctx.renderer_control = 0; /*loop is terminated. */
 }
 
 static void fetchBackgroundOffset(int video_mode) {
-	//update gfxBG2X, gfxBG2Y, gfxBG3X, gfxBG3Y
+	/*update gfxBG2X, gfxBG2Y, gfxBG3X, gfxBG3Y */
 	switch(video_mode) {
 	case 0:
 		break;
 	case 1:
 		fetchDrawRotScreen(io_registers[REG_BG2CNT], BG2X_L, BG2X_H, BG2Y_L, BG2Y_H,
 			io_registers[REG_BG2PA], io_registers[REG_BG2PB], io_registers[REG_BG2PC], io_registers[REG_BG2PD],
-			gfxBG2X, gfxBG2Y, gfxBG2Changed);
+			&gfxBG2X, &gfxBG2Y, gfxBG2Changed);
 		break;
 	case 2:
 		fetchDrawRotScreen(io_registers[REG_BG2CNT], BG2X_L, BG2X_H, BG2Y_L, BG2Y_H,
 			io_registers[REG_BG2PA], io_registers[REG_BG2PB], io_registers[REG_BG2PC], io_registers[REG_BG2PD],
-			gfxBG2X, gfxBG2Y, gfxBG2Changed);
+			&gfxBG2X, &gfxBG2Y, gfxBG2Changed);
 		fetchDrawRotScreen(io_registers[REG_BG3CNT], BG3X_L, BG3X_H, BG3Y_L, BG3Y_H,
 			io_registers[REG_BG3PA], io_registers[REG_BG3PB], io_registers[REG_BG3PC], io_registers[REG_BG3PD],
-			gfxBG3X, gfxBG3Y, gfxBG3Changed);
+			&gfxBG3X, &gfxBG3Y, gfxBG3Changed);
 		break;
 	case 3:
-		fetchDrawRotScreen16Bit(gfxBG2X, gfxBG2Y, gfxBG2Changed);
+		fetchDrawRotScreen16Bit(&gfxBG2X, &gfxBG2Y, gfxBG2Changed);
 		break;
 	case 4:
-		fetchDrawRotScreen256(gfxBG2X, gfxBG2Y, gfxBG2Changed);
+		fetchDrawRotScreen256(&gfxBG2X, &gfxBG2Y, gfxBG2Changed);
 		break;
 	case 5:
-		fetchDrawRotScreen16Bit160(gfxBG2X, gfxBG2Y, gfxBG2Changed);
+		fetchDrawRotScreen16Bit160(&gfxBG2X, &gfxBG2Y, gfxBG2Changed);
 		break;
 	default:
 		return;
@@ -11404,10 +11442,10 @@ static void postRender() {
 	oam_native_sync(renderer_ctx.oam_native);
 #endif
 
-	//buffer is ready.
+	/*buffer is ready. */
 	renderer_ctx.renderer_state = 1;
 
-	//notify screen is done.
+	/*notify screen is done. */
 	if(renderer_ctx.vcount == 159) threaded_renderer_ready = 1;
 
 	threaded_renderer_idx = (threaded_renderer_idx + 1) % THREADED_RENDERER_COUNT;
@@ -11473,7 +11511,7 @@ bool CPUReadState(const uint8_t* data, unsigned size)
 	if (memcmp(&rom[0xa0], romname, 16) != 0)
 		return false;
 
-	// Don't care about use bios ...
+	/* Don't care about use bios ... */
 	BOUNDS_CHECK(sizeof(int));
 	utilReadIntMem(data);
 
@@ -11516,8 +11554,8 @@ bool CPUReadState(const uint8_t* data, unsigned size)
 
 	#undef BOUNDS_CHECK
 
-	//// Copypasta stuff ...
-	// set pointers!
+	/*// Copypasta stuff ... */
+	/* set pointers! */
 	graphics.layerEnable = io_registers[REG_DISPCNT];
 
 	CPUUpdateRender();
@@ -11683,8 +11721,10 @@ static void CPUSwitchMode(int mode, bool saveState, bool breakLoop)
 
 
 
-void doDMA(uint32_t &s, uint32_t &d, uint32_t si, uint32_t di, uint32_t c, int transfer32)
+void doDMA(uint32_t *p_s, uint32_t *p_d, uint32_t si, uint32_t di, uint32_t c, int transfer32)
 {
+	uint32_t s = *p_s;
+	uint32_t d = *p_d;
 	int sm = s >> 24;
 	int dm = d >> 24;
 	int sw = 0;
@@ -11695,14 +11735,14 @@ void doDMA(uint32_t &s, uint32_t &d, uint32_t si, uint32_t di, uint32_t c, int t
 	cpuDmaPC = bus.reg[15].I;
 	cpuDmaCount = c;
 
-	// This is done to get the correct waitstates.
+	/* This is done to get the correct waitstates. */
 	int32_t sm_gt_15_mask = ((sm>15) | -(sm>15)) >> 31;
 	int32_t dm_gt_15_mask = ((dm>15) | -(dm>15)) >> 31;
 	sm = ((((15) & sm_gt_15_mask) | ((((sm) & ~(sm_gt_15_mask))))));
 	dm = ((((15) & dm_gt_15_mask) | ((((dm) & ~(dm_gt_15_mask))))));
 
-	//if ((sm>=0x05) && (sm<=0x07) || (dm>=0x05) && (dm <=0x07))
-	//    blank = (((io_registers[REG_DISPSTAT] | ((io_registers[REG_DISPSTAT] >> 1)&1))==1) ?  true : false);
+	/*if ((sm>=0x05) && (sm<=0x07) || (dm>=0x05) && (dm <=0x07)) */
+	/*    blank = (((io_registers[REG_DISPSTAT] | ((io_registers[REG_DISPSTAT] >> 1)&1))==1) ?  true : false); */
 
 	if(transfer32)
 	{
@@ -11772,13 +11812,15 @@ void doDMA(uint32_t &s, uint32_t &d, uint32_t si, uint32_t di, uint32_t c, int t
 		dw = 1+memoryWaitSeq[dm & 15];
 		cpuDmaTicksToUpdate += (sw+dw)*(sc-1) + 6 + memoryWait[sm & 15] + memoryWaitSeq[dm & 15];
 	}
+	*p_s = s;
+	*p_d = d;
 }
 
 
 void CPUCheckDMA(int reason, int dmamask)
 {
 	uint32_t arrayval[] = {4, (uint32_t)-4, 0, 4};
-	// DMA 0
+	/* DMA 0 */
 	if((DM0CNT_H & 0x8000) && (dmamask & 1))
 	{
 		if(((DM0CNT_H >> 12) & 3) == reason)
@@ -11788,7 +11830,7 @@ void CPUCheckDMA(int reason, int dmamask)
 			uint32_t condition2 = ((DM0CNT_H >> 5) & 3);
 			sourceIncrement = arrayval[condition1];
 			destIncrement = arrayval[condition2];
-			doDMA(dma0Source, dma0Dest, sourceIncrement, destIncrement,
+			doDMA(&dma0Source, &dma0Dest, sourceIncrement, destIncrement,
 					DM0CNT_L ? DM0CNT_L : 0x4000,
 					DM0CNT_H & 0x0400);
 
@@ -11808,7 +11850,7 @@ void CPUCheckDMA(int reason, int dmamask)
 		}
 	}
 
-	// DMA 1
+	/* DMA 1 */
 	if((DM1CNT_H & 0x8000) && (dmamask & 2)) {
 		if(((DM1CNT_H >> 12) & 3) == reason) {
 			uint32_t sourceIncrement, destIncrement;
@@ -11829,7 +11871,7 @@ void CPUCheckDMA(int reason, int dmamask)
 				c_value = DM1CNT_L ? DM1CNT_L : 0x4000;
 				transfer_value = DM1CNT_H & 0x0400;
 			}
-			doDMA(dma1Source, dma1Dest, sourceIncrement, di_value, c_value, transfer_value);
+			doDMA(&dma1Source, &dma1Dest, sourceIncrement, di_value, c_value, transfer_value);
 
 			if(DM1CNT_H & 0x4000) {
 				{ uint16_t _v = (io_registers[REG_IF]) | (0x0200); io_registers[REG_IF] = _v; UPDATE_REG(0x202, _v); }
@@ -11846,7 +11888,7 @@ void CPUCheckDMA(int reason, int dmamask)
 		}
 	}
 
-	// DMA 2
+	/* DMA 2 */
 	if((DM2CNT_H & 0x8000) && (dmamask & 4)) {
 		if(((DM2CNT_H >> 12) & 3) == reason) {
 			uint32_t sourceIncrement, destIncrement;
@@ -11867,7 +11909,7 @@ void CPUCheckDMA(int reason, int dmamask)
 				c_value = DM2CNT_L ? DM2CNT_L : 0x4000;
 				transfer_value = DM2CNT_H & 0x0400;
 			}
-			doDMA(dma2Source, dma2Dest, sourceIncrement, di_value, c_value, transfer_value);
+			doDMA(&dma2Source, &dma2Dest, sourceIncrement, di_value, c_value, transfer_value);
 
 			if(DM2CNT_H & 0x4000) {
 				{ uint16_t _v = (io_registers[REG_IF]) | (0x0400); io_registers[REG_IF] = _v; UPDATE_REG(0x202, _v); }
@@ -11884,7 +11926,7 @@ void CPUCheckDMA(int reason, int dmamask)
 		}
 	}
 
-	// DMA 3
+	/* DMA 3 */
 	if((DM3CNT_H & 0x8000) && (dmamask & 8))
 	{
 		if(((DM3CNT_H >> 12) & 3) == reason)
@@ -11894,7 +11936,7 @@ void CPUCheckDMA(int reason, int dmamask)
 			uint32_t condition2 = ((DM3CNT_H >> 5) & 3);
 			sourceIncrement = arrayval[condition1];
 			destIncrement = arrayval[condition2];
-			doDMA(dma3Source, dma3Dest, sourceIncrement, destIncrement,
+			doDMA(&dma3Source, &dma3Dest, sourceIncrement, destIncrement,
 					DM3CNT_L ? DM3CNT_L : 0x10000,
 					DM3CNT_H & 0x0400);
 			if(DM3CNT_H & 0x4000) {
@@ -11929,7 +11971,7 @@ void CPUUpdateRegister(uint32_t address, uint16_t value)
 
 				bool change = (0 != ((io_registers[REG_DISPCNT] ^ value) & 0x80));
 				bool changeBG = (0 != ((io_registers[REG_DISPCNT] ^ value) & 0x0F00));
-				uint16_t changeBGon = ((~io_registers[REG_DISPCNT]) & value) & 0x0F00; // these layers are being activated
+				uint16_t changeBGon = ((~io_registers[REG_DISPCNT]) & value) & 0x0F00; /* these layers are being activated */
 
 				{ uint16_t _v = (value & 0xFFF7); io_registers[REG_DISPCNT] = _v; UPDATE_REG(0x00, _v); }
 
@@ -11954,7 +11996,7 @@ void CPUUpdateRegister(uint32_t address, uint16_t value)
 
 				CPUUpdateRender();
 
-				// we only care about changes in BG0-BG3
+				/* we only care about changes in BG0-BG3 */
 				if(changeBG)
 				{
 #if THREADED_RENDERER
@@ -11976,7 +12018,7 @@ void CPUUpdateRegister(uint32_t address, uint16_t value)
 			{ uint16_t _v = (value & 0xFF38) | (io_registers[REG_DISPSTAT] & 7); io_registers[REG_DISPSTAT] = _v; UPDATE_REG(0x04, _v); }
 			break;
 		case 0x06:
-			// not writable
+			/* not writable */
 			break;
 		case 0x08: /* BG0CNT */
 		case 0x0A: /* BG1CNT */
@@ -12383,7 +12425,7 @@ void CPUInit(const char *biosFileName, bool useBiosFile)
 	if(useBiosFile)
 	{
 		int size = 0x4000;
-		if(utilLoad(biosFileName, CPUIsGBABios, bios, size))
+		if(utilLoad(biosFileName, CPUIsGBABios, bios, &size))
 		{
 			if(size == 0x4000)
 				useBios = true;
@@ -12449,8 +12491,8 @@ void CPUInit(const char *biosFileName, bool useBiosFile)
 		ioReadable[i] = false;
 
 	if(romSize < 0x1fe2000) {
-		WRITE16LE(&rom[0x1fe209c], 0xdffa); // SWI 0xFA
-		WRITE16LE(&rom[0x1fe209e], 0x4770); // BX LR
+		WRITE16LE(&rom[0x1fe209c], 0xdffa); /* SWI 0xFA */
+		WRITE16LE(&rom[0x1fe209e], 0x4770); /* BX LR */
 	}
 
 	graphics.layerEnable = 0xff00;
@@ -12484,12 +12526,12 @@ void CPUReset (void)
 #if USE_MOTION_SENSOR
 	hardware_reset();
 #endif
-	memset(&bus.reg[0], 0, sizeof(bus.reg));	// clean registers
-	memset(oam, 0, 0x400);				// clean OAM
-	memset(paletteRAM, 0, 0x400);		// clean palette
-	memset(pix, 0, 2 * PIX_BUFFER_SCREEN_WIDTH * 160);	// clean picture (match alloc size)
-	memset(vram, 0, 0x20000);			// clean vram
-	memset(ioMem, 0, 0x400);			// clean io memory
+	memset(&bus.reg[0], 0, sizeof(bus.reg));	/* clean registers */
+	memset(oam, 0, 0x400);				/* clean OAM */
+	memset(paletteRAM, 0, 0x400);		/* clean palette */
+	memset(pix, 0, 2 * PIX_BUFFER_SCREEN_WIDTH * 160);	/* clean picture (match alloc size) */
+	memset(vram, 0, 0x20000);			/* clean vram */
+	memset(ioMem, 0, 0x400);			/* clean io memory */
 
 	io_registers[REG_DISPCNT]  = 0x0080;
 	io_registers[REG_DISPSTAT] = 0x0000;
@@ -12611,7 +12653,7 @@ void CPUReset (void)
 	UPDATE_REG(0x130, io_registers[REG_P1]);
 	UPDATE_REG(0x88, 0x200);
 
-	// disable FIQ
+	/* disable FIQ */
 	bus.reg[16].I |= 0x40;
 
 	CPU_UPDATE_CPSR();
@@ -12619,7 +12661,7 @@ void CPUReset (void)
 	bus.armNextPC = bus.reg[15].I;
 	bus.reg[15].I += 4;
 
-	// reset internal state
+	/* reset internal state */
 	holdState = false;
 
 	biosProtected[0] = 0x00;
@@ -12703,52 +12745,52 @@ void CPUReset (void)
 	CPUUpdateWindow0();
 	CPUUpdateWindow1();
 
-	// make sure registers are correctly initialized if not using BIOS
+	/* make sure registers are correctly initialized if not using BIOS */
 	if(cpuIsMultiBoot)
 		BIOS_RegisterRamReset(0xfe);
 	else if(!useBios && !cpuIsMultiBoot)
 		BIOS_RegisterRamReset(0xff);
 
 	switch(cpuSaveType) {
-		case 0: // automatic
+		case 0: /* automatic */
 			cpuSramEnabled = true;
 			cpuFlashEnabled = true;
 			cpuEEPROMEnabled = true;
 			saveType = gbaSaveType = 0;
 			break;
-		case 1: // EEPROM
+		case 1: /* EEPROM */
 			cpuSramEnabled = false;
 			cpuFlashEnabled = false;
 			cpuEEPROMEnabled = true;
 			saveType = gbaSaveType = 3;
-			// EEPROM usage is automatically detected
+			/* EEPROM usage is automatically detected */
 			break;
-		case 2: // SRAM
+		case 2: /* SRAM */
 			cpuSramEnabled = true;
 			cpuFlashEnabled = false;
 			cpuEEPROMEnabled = false;
-			cpuSaveGameFunc = sramDelayedWrite; // to insure we detect the write
+			cpuSaveGameFunc = sramDelayedWrite; /* to insure we detect the write */
 			saveType = gbaSaveType = 1;
 			break;
-		case 3: // FLASH
+		case 3: /* FLASH */
 			cpuSramEnabled = false;
 			cpuFlashEnabled = true;
 			cpuEEPROMEnabled = false;
-			cpuSaveGameFunc = flashDelayedWrite; // to insure we detect the write
+			cpuSaveGameFunc = flashDelayedWrite; /* to insure we detect the write */
 			saveType = gbaSaveType = 2;
 			break;
-		case 4: // EEPROM+Sensor
+		case 4: /* EEPROM+Sensor */
 			cpuSramEnabled = false;
 			cpuFlashEnabled = false;
 			cpuEEPROMEnabled = true;
-			// EEPROM usage is automatically detected
+			/* EEPROM usage is automatically detected */
 			saveType = gbaSaveType = 3;
 			break;
-		case 5: // NONE
+		case 5: /* NONE */
 			cpuSramEnabled = false;
 			cpuFlashEnabled = false;
 			cpuEEPROMEnabled = false;
-			// no save at all
+			/* no save at all */
 			saveType = gbaSaveType = 5;
 			break;
 	}
@@ -12782,7 +12824,7 @@ static void CPUInterrupt(void)
 	bus.reg[15].I += 4;
 	ARM_PREFETCH;
 
-	//  if(!holdState)
+	/*  if(!holdState) */
 	biosProtected[0] = 0x02;
 	biosProtected[1] = 0xc0;
 	biosProtected[2] = 0x5e;
@@ -12804,9 +12846,9 @@ void UpdateJoypad(void)
    UPDATE_REG(0x130, joypad);
    io_registers[REG_P1CNT] = READ16LE(((uint16_t *)&ioMem[0x132]));
 
-   // this seems wrong, but there are cases where the game
-   // can enter the stop state without requesting an IRQ from
-   // the joypad.
+   /* this seems wrong, but there are cases where the game */
+   /* can enter the stop state without requesting an IRQ from */
+   /* the joypad. */
    if((io_registers[REG_P1CNT] & 0x4000) || stopState) {
       uint16_t p1 = (0x3FF ^ io_registers[REG_P1CNT]) & 0x3FF;
       if(io_registers[REG_P1CNT] & 0x8000) {
@@ -12828,7 +12870,7 @@ void CPULoop (void)
 	int ticks = 300000;
 
 	bus.busPrefetchCount = 0;
-	// variable used by the CPU core
+	/* variable used by the CPU core */
 	cpuTotalTicks = 0;
 
 	cpuNextEvent = CPUUpdateTicks();
@@ -12885,8 +12927,8 @@ updateLoop:
 			if(graphics.lcdTicks <= 0)
 			{
 				if(io_registers[REG_DISPSTAT] & 1)
-				{ // V-BLANK
-					// if in V-Blank mode, keep computing...
+				{ /* V-BLANK */
+					/* if in V-Blank mode, keep computing... */
 					if(io_registers[REG_DISPSTAT] & 2)
 					{
 						graphics.lcdTicks += 1008;
@@ -12906,7 +12948,7 @@ updateLoop:
 
 					if(R_VCOUNT >= 228)
 					{
-						//Reaching last line
+						/*Reaching last line */
 						{ uint16_t _v = (io_registers[REG_DISPSTAT]) & (0xFFFC); io_registers[REG_DISPSTAT] = _v; UPDATE_REG(0x04, _v); }
 						{ uint16_t _v = 0; R_VCOUNT = _v; UPDATE_REG(0x06, _v); }
 						CPUCompareVCOUNT();
@@ -12914,7 +12956,7 @@ updateLoop:
 				}
 				else if(io_registers[REG_DISPSTAT] & 2)
 				{
-					// if in H-Blank, leave it and move to drawing mode
+					/* if in H-Blank, leave it and move to drawing mode */
 					{ uint16_t _v = (R_VCOUNT) + (1); R_VCOUNT = _v; UPDATE_REG(0x06, _v); }
 
 					graphics.lcdTicks += 1008;
@@ -12923,7 +12965,7 @@ updateLoop:
 					if(R_VCOUNT == 160)
 		        	{
 		            	uint32_t ext = (joy >> 10);
-		            	// If no (m) code is enabled, apply the cheats at each LCDline
+		            	/* If no (m) code is enabled, apply the cheats at each LCDline */
 #if USE_CHEATS
 		            	if(mastercode == 0)
 		                	remainingTicks += cheatsCheckKeys(io_registers[REG_P1] ^ 0x3FF, ext);
@@ -12979,11 +13021,11 @@ updateLoop:
 						oam_native_sync(oam_native);
 #endif
 
-						memset(RENDERER_LINE[Layer_OBJ], -1, 240 * sizeof(u32));	// erase all sprites
+						memset(RENDERER_LINE[Layer_OBJ], -1, 240 * sizeof(u32));	/* erase all sprites */
 						if(draw_sprites) gfxDrawSprites<0>();
 
 						if(renderfunc_type == 2) {
-							memset(RENDERER_LINE[Layer_WIN_OBJ], -1, 240 * sizeof(u32));	// erase all OBJ Win
+							memset(RENDERER_LINE[Layer_WIN_OBJ], -1, 240 * sizeof(u32));	/* erase all OBJ Win */
 							if(draw_objwin) gfxDrawOBJWin<0>();
 						}
 
@@ -12993,7 +13035,7 @@ updateLoop:
 					}
 #endif
 
-					// entering H-Blank
+					/* entering H-Blank */
 					{ uint16_t _v = (io_registers[REG_DISPSTAT]) | (2); io_registers[REG_DISPSTAT] = _v; UPDATE_REG(0x04, _v); }
 					graphics.lcdTicks += 224;
 					CPUCheckDMA(2, 0x0f);
@@ -13004,9 +13046,9 @@ updateLoop:
 				}
 			}
 
-			// we shouldn't be doing sound in stop state, but we lose synchronization
-			// if sound is disabled, so in stop state, soundTick will just produce
-			// mute sound
+			/* we shouldn't be doing sound in stop state, but we lose synchronization */
+			/* if sound is disabled, so in stop state, soundTick will just produce */
+			/* mute sound */
 			soundTicks -= clockTicks;
 			if(!soundTicks)
 			{
@@ -13168,8 +13210,8 @@ updateLoop:
 					}
 
 #ifdef USE_SWITICKS
-					// Stops the SWI Ticks emulation if an IRQ is executed
-					//(to avoid problems with nested IRQ/SWI)
+					/* Stops the SWI Ticks emulation if an IRQ is executed */
+					/*(to avoid problems with nested IRQ/SWI) */
 					if (SWITicks)
 						SWITicks = 0;
 #endif
@@ -13189,7 +13231,7 @@ updateLoop:
 
 			if (timerOnOffDelay)
 			{
-				// Apply Timer
+				/* Apply Timer */
 				if (timerOnOffDelay & 1)
 				{
 					timer0ClockReload = TIMER_TICKS[timer0Value & 3];
@@ -13246,7 +13288,7 @@ updateLoop:
 				}
 				cpuNextEvent = CPUUpdateTicks();
 				timerOnOffDelay = 0;
-				// End of Apply Timer
+				/* End of Apply Timer */
 			}
 
 			if(cpuNextEvent > ticks)
@@ -13460,7 +13502,7 @@ u32 seeds_v3[4];
 
 u32 seed_gen(u8 upper, u8 seed, u8 *deadtable1, u8 *deadtable2);
 
-//seed tables for AR v1
+/*seed tables for AR v1 */
 u8 v1_deadtable1[256] = {
 	0x31, 0x1C, 0x23, 0xE5, 0x89, 0x8E, 0xA1, 0x37, 0x74, 0x6D, 0x67, 0xFC, 0x1F, 0xC0, 0xB1, 0x94,
 	0x3B, 0x05, 0x56, 0x86, 0x00, 0x24, 0xF0, 0x17, 0x72, 0xA2, 0x3D, 0x1B, 0xE3, 0x17, 0xC5, 0x0B,
@@ -13498,7 +13540,7 @@ u8 v1_deadtable2[256] = {
 	0x5C, 0x1B, 0x19, 0xDB, 0x0F, 0xF3, 0xF8, 0x49, 0xEB, 0x36, 0xF6, 0x40, 0x6F, 0xAD, 0xC1, 0x8C
 };
 
-//seed tables for AR v3
+/*seed tables for AR v3 */
 u8 v3_deadtable1[256] = {
     0xD0, 0xFF, 0xBA, 0xE5, 0xC1, 0xC7, 0xDB, 0x5B, 0x16, 0xE3, 0x6E, 0x26, 0x62, 0x31, 0x2E, 0x2A,
     0xD1, 0xBB, 0x4A, 0xE6, 0xAE, 0x2F, 0x0A, 0x90, 0x29, 0x90, 0xB6, 0x67, 0x58, 0x2A, 0xB4, 0x45,
@@ -13565,9 +13607,9 @@ u8 v3_deadtable2[256] = {
 
 static bool isMultilineWithData(int i)
 {
-  // we consider it a multiline code if it has more than one line of data
-  // otherwise, it can still be considered a single code
-  // (Only CBA codes can be true multilines !!!)
+  /* we consider it a multiline code if it has more than one line of data */
+  /* otherwise, it can still be considered a single code */
+  /* (Only CBA codes can be true multilines !!!) */
   if(i < cheatsNumber && i >= 0)
     switch(cheatsList[i].size) {
     case INT_8_BIT_WRITE:
@@ -13684,7 +13726,7 @@ static bool isMultilineWithData(int i)
     case CHEATS_16_BIT_WRITE:
     case CHEATS_32_BIT_WRITE:
       return false;
-      // the codes below have two lines of data
+      /* the codes below have two lines of data */
     case CBA_SLIDE_CODE:
     case CBA_SUPER:
       return true;
@@ -13697,7 +13739,7 @@ static int getCodeLength(int num)
   if(num >= cheatsNumber || num < 0)
     return 1;
 
-  // this is for all the codes that are true multiline
+  /* this is for all the codes that are true multiline */
   switch(cheatsList[num].size) {
   case INT_8_BIT_WRITE:
   case INT_16_BIT_WRITE:
@@ -13836,7 +13878,7 @@ int cheatsCheckKeys(u32 keys, u32 extended)
 
   for (i = 0; i < cheatsNumber; i++) {
     if(!cheatsList[i].enabled) {
-      // make sure we skip other lines in this code
+      /* make sure we skip other lines in this code */
       i += getCodeLength(i)-1;
       continue;
     }
@@ -13845,7 +13887,7 @@ int cheatsCheckKeys(u32 keys, u32 extended)
       onoff = true;
       break;
     case GSA_SLOWDOWN:
-      // check if button was pressed and released, if so toggle our state
+      /* check if button was pressed and released, if so toggle our state */
       if((cheatsList[i].status & 4) && !(extended & 4))
         cheatsList[i].status ^= 1;
       if(extended & 4)
@@ -14586,8 +14628,8 @@ void cheatsAdd(const char *codeStr,
     cheatsList[x].enabled = true;
     cheatsList[x].status = 0;
 
-    // we only store the old value for this simple codes. ROM patching
-    // is taken care when it actually patches the ROM
+    /* we only store the old value for this simple codes. ROM patching */
+    /* is taken care when it actually patches the ROM */
     switch(cheatsList[x].size) {
     case INT_8_BIT_WRITE:
       cheatsList[x].oldValue = CPUReadByte(address);
@@ -14725,14 +14767,14 @@ bool cheatsVerifyCheatCode(const char *code, const char *desc)
   size_t i;
   for(i = 0; i < 8; i++) {
     if(!CHEAT_IS_HEX(code[i])) {
-      // wrong cheat
+      /* wrong cheat */
       systemMessage("Invalid cheat code '%s': first part is not hex", code);
       return false;
     }
   }
   for(i = 9; i < len; i++) {
     if(!CHEAT_IS_HEX(code[i])) {
-      // wrong cheat
+      /* wrong cheat */
       systemMessage("Invalid cheat code '%s' second part is not hex", code);
       return false;
     }
@@ -14838,7 +14880,7 @@ void cheatsDecryptGSACode(u32& address, u32& value, bool v3)
 void cheatsAddGSACode(const char *code, const char *desc, bool v3)
 {
   if(strlen(code) != 16) {
-    // wrong cheat
+    /* wrong cheat */
     systemMessage("Invalid GSA code. Format is XXXXXXXXYYYYYYYY");
     return;
   }
@@ -14846,7 +14888,7 @@ void cheatsAddGSACode(const char *code, const char *desc, bool v3)
   int i;
   for(i = 0; i < 16; i++) {
     if(!CHEAT_IS_HEX(code[i])) {
-      // wrong cheat
+      /* wrong cheat */
       systemMessage("Invalid GSA code. Format is XXXXXXXXYYYYYYYY");
       return;
     }
@@ -15219,7 +15261,7 @@ void cheatsAddGSACode(const char *code, const char *desc, bool v3)
 	    cheatsAdd(code, desc, address, address & 0x0FFFFFFF, value, 256, GSA_32_BIT_SUB2);
 	    break;
       default:
-        // unsupported code
+        /* unsupported code */
         cheatsAdd(code, desc, address, address, value, 256,
                   UNKNOWN_CODE);
         break;
@@ -15233,7 +15275,7 @@ void cheatsAddGSACode(const char *code, const char *desc, bool v3)
                   GSA_16_BIT_ROM_PATCH);
         break;
       }
-      // unsupported code
+      /* unsupported code */
       cheatsAdd(code, desc, address, address, value, 256,
                 UNKNOWN_CODE);
       break;
@@ -15248,7 +15290,7 @@ void cheatsAddGSACode(const char *code, const char *desc, bool v3)
                   GSA_16_BIT_GS_WRITE);
         break;
       case 4:
-		// This code is buggy : the value is always set to 0 !
+		/* This code is buggy : the value is always set to 0 ! */
         cheatsAdd(code, desc, address, address & 0x0F0FFFFF, 0, 256,
                   GSA_32_BIT_GS_WRITE);
         break;
@@ -15256,7 +15298,7 @@ void cheatsAddGSACode(const char *code, const char *desc, bool v3)
         cheatsAdd(code, desc, address, 0, value & 0xFFFF, 256, GSA_SLOWDOWN);
         break;
       default:
-        // unsupported code
+        /* unsupported code */
         cheatsAdd(code, desc, address, address, value, 256,
                   UNKNOWN_CODE);
         break;
@@ -15282,7 +15324,7 @@ void cheatsAddGSACode(const char *code, const char *desc, bool v3)
                   GSA_16_BIT_IF_HIGHER_OR_EQ_U);
           break;
         default:
-        // unsupported code
+        /* unsupported code */
         cheatsAdd(code, desc, address, address, value, 256,
                   UNKNOWN_CODE);
           break;
@@ -15310,7 +15352,7 @@ void cheatsAddGSACode(const char *code, const char *desc, bool v3)
                 GSA_16_BIT_MIF_HIGHER_OR_EQ_U);
         break;
       default:
-        // unsupported code
+        /* unsupported code */
         cheatsAdd(code, desc, address, address, value, 256,
                   UNKNOWN_CODE);
         break;
@@ -15321,7 +15363,7 @@ void cheatsAddGSACode(const char *code, const char *desc, bool v3)
         mastercode = (address & 0xFFFFFFF);
         break;
       default:
-      // unsupported code
+      /* unsupported code */
       cheatsAdd(code, desc, address, address, value, 256,
                 UNKNOWN_CODE);
       break;
@@ -15473,7 +15515,7 @@ u32 cheatsCBACalcIndex(u32 x, u32 y)
       x += y >> 1;
     return x;
   }
-  // should not happen in the current code
+  /* should not happen in the current code */
   return 0;
 }
 
@@ -15553,7 +15595,7 @@ u16 cheatsCBACalcCRC(u8 *rom, int count)
   u32 crc = 0xffffffff;
 
   if (count & 3) {
-    // 0x08000EAE
+    /* 0x08000EAE */
   } else {
     count = (count >> 2) - 1;
     if(count != -1) {
@@ -15631,7 +15673,7 @@ bool cheatsCBAShouldDecrypt(void)
 void cheatsAddCBACode(const char *code, const char *desc)
 {
   if(strlen(code) != 13) {
-    // wrong cheat
+    /* wrong cheat */
     systemMessage("Invalid CBA code. Format is XXXXXXXX YYYY.");
     return;
   }
@@ -15639,7 +15681,7 @@ void cheatsAddCBACode(const char *code, const char *desc)
   int i;
   for(i = 0; i < 8; i++) {
     if(!CHEAT_IS_HEX(code[i])) {
-      // wrong cheat
+      /* wrong cheat */
       systemMessage("Invalid CBA code. Format is XXXXXXXX YYYY.");
       return;
     }
@@ -15652,7 +15694,7 @@ void cheatsAddCBACode(const char *code, const char *desc)
 
   for(i = 9; i < 13; i++) {
     if(!CHEAT_IS_HEX(code[i])) {
-      // wrong cheat
+      /* wrong cheat */
       systemMessage("Invalid CBA code. Format is XXXXXXXX YYYY.");
       return;
     }
@@ -15774,7 +15816,7 @@ void cheatsAddCBACode(const char *code, const char *desc)
                 GSA_16_BIT_IF_AND);
       break;
     default:
-      // unsupported code
+      /* unsupported code */
       cheatsAdd(code, desc, address, address & 0xFFFFFFFF, value, 512,
                 UNKNOWN_CODE);
       break;

@@ -326,7 +326,7 @@ typedef struct
 static gba_pcm_fifo_t   pcm [2];
 
 
-static Blip_Synth pcm_synth; // 32 kHz, 16 kHz, 8 kHz
+static Blip_Synth pcm_synth; /* 32 kHz, 16 kHz, 8 kHz */
 
 static Blip_Buffer bufs_buffer [BUFS_SIZE];
 static int mixer_samples_read;
@@ -402,11 +402,11 @@ static void gba_pcm_apply_control( int pcm_idx, int idx )
 struct gb_apu_t
 {
 	bool		reduce_clicks_;
-	uint8_t		regs[REGS_SIZE]; // last values written to registers
-	int32_t		last_time;	// time sound emulator has been run to
-	int32_t		frame_time;	// time of next frame sequencer action
-	int32_t		frame_period;       // clocks between each frame sequencer step
-	int32_t         frame_phase;    // phase of next frame sequencer step
+	uint8_t		regs[REGS_SIZE]; /* last values written to registers */
+	int32_t		last_time;	/* time sound emulator has been run to */
+	int32_t		frame_time;	/* time of next frame sequencer action */
+	int32_t		frame_period;       /* clocks between each frame sequencer step */
+	int32_t         frame_phase;    /* phase of next frame sequencer step */
 	float		volume_;
 	Gb_Osc*		oscs [OSC_COUNT];
 	Gb_Sweep_Square square1;
@@ -417,19 +417,19 @@ struct gb_apu_t
 	Blip_Synth	med_synth;
 } gb_apu;
 
-// Format of save state. Should be stable across versions of the library,
-// with earlier versions properly opening later save states. Includes some
-// room for expansion so the state size shouldn't increase.
+/* Format of save state. Should be stable across versions of the library, */
+/* with earlier versions properly opening later save states. Includes some */
+/* room for expansion so the state size shouldn't increase. */
 struct gb_apu_state_t
 {
-	// Values stored as plain int so your code can read/write them easily.
-	// Structure can NOT be written to disk, since format is not portable.
+	/* Values stored as plain int so your code can read/write them easily. */
+	/* Structure can NOT be written to disk, since format is not portable. */
 	typedef int val_t;
 
 	enum { format0 = 0x50414247 };
 
-	val_t format;   // format of all following data
-	val_t version;  // later versions just add fields to end
+	val_t format;   /* format of all following data */
+	val_t version;  /* later versions just add fields to end */
 
 	unsigned char regs [0x40];
 	val_t frame_time;
@@ -451,7 +451,7 @@ struct gb_apu_state_t
 	val_t env_volume  [3];
 	val_t env_enabled [3];
 
-	val_t unused  [13]; // for future expansion
+	val_t unused  [13]; /* for future expansion */
 };
 
 #define VOL_REG 0xFF24
@@ -559,7 +559,7 @@ static void gb_apu_run_until_( int32_t end_time )
 INLINE void Gb_Sweep_Square::write_register( int frame_phase, int reg, int old_data, int data )
 {
         if ( reg == 0 && sweep_enabled && sweep_neg && !(data & 0x08) )
-                enabled = false; // sweep negate disabled after used
+                enabled = false; /* sweep negate disabled after used */
 
         if ( Gb_Square::write_register( frame_phase, reg, old_data, data ) )
         {
@@ -1000,7 +1000,7 @@ int Gb_Wave::access( unsigned addr ) const
 	return addr & 0x0F;
 }
 
-// write_register
+/* write_register */
 
 int Gb_Osc::write_trig( int frame_phase, int max_len, int old_data )
 {
@@ -1033,7 +1033,7 @@ INLINE void Gb_Env::zombie_volume( int old, int data )
 {
 	int v = volume;
 
-	// CGB-05 behavior, very close to AGB behavior as well
+	/* CGB-05 behavior, very close to AGB behavior as well */
 	if ( (old ^ data) & 8 )
 	{
 		if ( !(old & 8) )
@@ -1069,7 +1069,7 @@ bool Gb_Env::write_register( int frame_phase, int reg, int old, int data )
 			if ( (data & 7) && env_delay == 8 )
 			{
 				env_delay = 1;
-				clock_envelope(); // TODO: really happens at next length clock
+				clock_envelope(); /* TODO: really happens at next length clock */
 			}
 			break;
 
@@ -1704,7 +1704,7 @@ static void pcm_fifo_write_control( int data, int data2)
 
 	if ( data & 0x0800 )
 	{
-		// Reset
+		/* Reset */
 		pcm[0].writeIndex = 0;
 		pcm[0].readIndex  = 0;
 		pcm[0].count      = 0;
@@ -1733,7 +1733,7 @@ static void pcm_fifo_write_control( int data, int data2)
 
 	if ( data2 & 0x0800 )
 	{
-		// Reset
+		/* Reset */
 		pcm[1].writeIndex = 0;
 		pcm[1].readIndex  = 0;
 		pcm[1].count      = 0;
@@ -1765,12 +1765,12 @@ static void soundEvent_u16_parallel(uint32_t address[])
 		switch ( address[i] )
 		{
 			case SGCNT0_H:
-				//Begin of Write SGCNT0_H
+				/*Begin of Write SGCNT0_H */
 				WRITE16LE( &ioMem [SGCNT0_H], 0 & 0x770F );
 				pcm_fifo_write_control(0, 0);
 
 				gb_apu_volume( apu_vols [ioMem [SGCNT0_H] & 3] );
-				//End of SGCNT0_H
+				/*End of SGCNT0_H */
 				break;
 
 			case FIFOA_L:
@@ -1797,7 +1797,7 @@ static void soundEvent_u16_parallel(uint32_t address[])
 
 			default:
 				{
-					int gb_addr[2]	= {static_cast<int>(address[i] & ~1), static_cast<int>(address[i] | 1)};
+					int gb_addr[2]	= {(int)(address[i] & ~1), (int)(address[i] | 1)};
 					uint32_t address_array[2] = {address[i] & ~ 1, address[i] | 1};
 					uint8_t data_array[2] = {0};
 					gba_to_gb_sound_parallel(&gb_addr[0], &gb_addr[1]);
@@ -1812,20 +1812,20 @@ static void gba_pcm_fifo_timer_overflowed( unsigned pcm_idx )
 {
 	if ( pcm[pcm_idx].count <= 16 )
 	{
-		// Need to fill FIFO
+		/* Need to fill FIFO */
 		CPUCheckDMA( 3, pcm[pcm_idx].which ? 4 : 2 );
 
 		if ( pcm[pcm_idx].count <= 16 )
 		{
-			// Not filled by DMA, so fill with 16 bytes of silence
+			/* Not filled by DMA, so fill with 16 bytes of silence */
 			int reg = pcm[pcm_idx].which ? FIFOB_L : FIFOA_L;
 
-			uint32_t address_array[8] = {static_cast<uint32_t>(reg), static_cast<uint32_t>(reg+2), static_cast<uint32_t>(reg), static_cast<uint32_t>(reg+2), static_cast<uint32_t>(reg), static_cast<uint32_t>(reg+2), static_cast<uint32_t>(reg), static_cast<uint32_t>(reg+2)};
+			uint32_t address_array[8] = {(uint32_t)(reg), (uint32_t)(reg+2), (uint32_t)(reg), (uint32_t)(reg+2), (uint32_t)(reg), (uint32_t)(reg+2), (uint32_t)(reg), (uint32_t)(reg+2)};
 			soundEvent_u16_parallel(address_array);
 		}
 	}
 
-	// Read next sample from FIFO
+	/* Read next sample from FIFO */
 	pcm[pcm_idx].count--;
 	pcm[pcm_idx].dac = pcm[pcm_idx].fifo [pcm[pcm_idx].readIndex];
 	pcm[pcm_idx].readIndex = (pcm[pcm_idx].readIndex + 1) & 31;
@@ -1857,7 +1857,7 @@ void soundEvent_u8_parallel(int gb_addr[], uint32_t address[], uint8_t data[])
 			gba_pcm_apply_control(0, 0 );
 			gba_pcm_apply_control(1, 1 );
 		}
-		// TODO: what about byte writes to SGCNT0_H etc.?
+		/* TODO: what about byte writes to SGCNT0_H etc.? */
 	}
 }
 
@@ -1871,7 +1871,7 @@ void soundEvent_u8(int gb_addr, uint32_t address, uint8_t data)
 		gba_pcm_apply_control(0, 0 );
 		gba_pcm_apply_control(1, 1 );
 	}
-	// TODO: what about byte writes to SGCNT0_H etc.?
+	/* TODO: what about byte writes to SGCNT0_H etc.? */
 }
 
 
@@ -1880,12 +1880,12 @@ void soundEvent_u16(uint32_t address, uint16_t data)
 	switch ( address )
 	{
 		case SGCNT0_H:
-			//Begin of Write SGCNT0_H
+			/*Begin of Write SGCNT0_H */
 			WRITE16LE( &ioMem [SGCNT0_H], data & 0x770F );
 			pcm_fifo_write_control( data, data >> 4);
 
 			gb_apu_volume( apu_vols [ioMem [SGCNT0_H] & 3] );
-			//End of SGCNT0_H
+			/*End of SGCNT0_H */
 			break;
 
 		case FIFOA_L:
@@ -1913,8 +1913,8 @@ void soundEvent_u16(uint32_t address, uint16_t data)
 
 		default:
 			{
-				int gb_addr[2]	= {static_cast<int>(address & ~1), (int)(address | 1)};
-				uint32_t address_array[2] = {address & ~ 1, static_cast<uint32_t>(address | 1)};
+				int gb_addr[2]	= {(int)(address & ~1), (int)(address | 1)};
+				uint32_t address_array[2] = {address & ~ 1, (uint32_t)(address | 1)};
 				uint8_t data_array[2] = {(uint8_t)data, (uint8_t)(data >> 8)};
 				gba_to_gb_sound_parallel(&gb_addr[0], &gb_addr[1]);
 				soundEvent_u8_parallel(gb_addr, address_array, data_array);
@@ -1933,7 +1933,7 @@ void soundTimerOverflow(int timer)
 
 void process_sound_tick_fn (void)
 {
-	// Run sound hardware to present
+	/* Run sound hardware to present */
 	pcm[0].pcm.last_time -= SOUND_CLOCK_TICKS;
 	if ( pcm[0].pcm.last_time < -2048 )
 		pcm[0].pcm.last_time = -2048;
@@ -1956,8 +1956,8 @@ void process_sound_tick_fn (void)
 	bufs_buffer[0].offset_ += SOUND_CLOCK_TICKS * bufs_buffer[0].factor_;
 
 
-	// dump all the samples available
-	// VBA will only ever store 1 frame worth of samples
+	/* dump all the samples available */
+	/* VBA will only ever store 1 frame worth of samples */
 	long avail = stereo_buffer_samples_avail();
 	const long max_samples = (long)(sizeof(soundFinalWave) / sizeof(soundFinalWave[0]));
 	if (avail > max_samples)
@@ -1968,11 +1968,11 @@ void process_sound_tick_fn (void)
 
 static void apply_muting (void)
 {
-	// PCM
+	/* PCM */
 	gba_pcm_apply_control(1, 0 );
 	gba_pcm_apply_control(1, 1 );
 
-	// APU
+	/* APU */
 	gb_apu_set_output( &bufs_buffer[2], &bufs_buffer[0], &bufs_buffer[1], 0 );
 	gb_apu_set_output( &bufs_buffer[2], &bufs_buffer[0], &bufs_buffer[1], 1 );
 	gb_apu_set_output( &bufs_buffer[2], &bufs_buffer[0], &bufs_buffer[1], 2 );
@@ -1985,20 +1985,20 @@ static void remake_stereo_buffer (void)
 	if ( !ioMem )
 		return;
 
-	// Clears pointers kept to old stereo_buffer
+	/* Clears pointers kept to old stereo_buffer */
 	gba_pcm_init();
 
-	// Stereo_Buffer
+	/* Stereo_Buffer */
 
         mixer_samples_read = 0;
 	stereo_buffer_set_sample_rate( soundSampleRate, BLIP_DEFAULT_LENGTH );
 	stereo_buffer_clock_rate( CLOCK_RATE );
 
-	// PCM
+	/* PCM */
 	pcm [0].which = 0;
 	pcm [1].which = 1;
 
-	// APU
+	/* APU */
 	gb_apu_new();
 	gb_apu_reset( MODE_AGB, true );
 
@@ -2016,18 +2016,18 @@ static void remake_stereo_buffer (void)
 void soundReset (void)
 {
 	remake_stereo_buffer();
-	//Begin of Reset APU
+	/*Begin of Reset APU */
 	gb_apu_reset( MODE_AGB, true );
 
 	stereo_buffer_clear();
 
 	soundTicks = SOUND_CLOCK_TICKS;
-	//End of Reset APU
+	/*End of Reset APU */
 
 	SOUND_CLOCK_TICKS = SOUND_CLOCK_TICKS_;
 	soundTicks        = SOUND_CLOCK_TICKS_;
 
-	// Sound Event (NR52)
+	/* Sound Event (NR52) */
 	int gb_addr = table[NR52 - 0x60];
 	if ( gb_addr )
 	{
@@ -2038,8 +2038,8 @@ void soundReset (void)
 		gba_pcm_apply_control(1, 1 );
 	}
 
-	// TODO: what about byte writes to SGCNT0_H etc.?
-	// End of Sound Event (NR52)
+	/* TODO: what about byte writes to SGCNT0_H etc.? */
+	/* End of Sound Event (NR52) */
 }
 
 void soundSetSampleRate(long sampleRate)
@@ -2060,15 +2060,15 @@ static int dummy_state [16];
 static struct {
 	gb_apu_state_t apu;
 
-	// old state
+	/* old state */
 	int soundDSBValue;
 	uint8_t soundDSAValue;
 } state;
 
-// New state format
+/* New state format */
 static variable_desc gba_state [] =
 {
-	// PCM
+	/* PCM */
 	LOAD( int, pcm [0].readIndex ),
 	LOAD( int, pcm [0].count ),
 	LOAD( int, pcm [0].writeIndex ),
@@ -2085,30 +2085,30 @@ static variable_desc gba_state [] =
 
 	SKIP( int [4], room_for_expansion ),
 
-	// APU
-	LOAD( uint8_t [0x40], state.apu.regs ),      // last values written to registers and wave RAM (both banks)
-	LOAD( int, state.apu.frame_time ),      // clocks until next frame sequencer action
-	LOAD( int, state.apu.frame_phase ),     // next step frame sequencer will run
+	/* APU */
+	LOAD( uint8_t [0x40], state.apu.regs ),      /* last values written to registers and wave RAM (both banks) */
+	LOAD( int, state.apu.frame_time ),      /* clocks until next frame sequencer action */
+	LOAD( int, state.apu.frame_phase ),     /* next step frame sequencer will run */
 
-	LOAD( int, state.apu.sweep_freq ),      // sweep's internal frequency register
-	LOAD( int, state.apu.sweep_delay ),     // clocks until next sweep action
+	LOAD( int, state.apu.sweep_freq ),      /* sweep's internal frequency register */
+	LOAD( int, state.apu.sweep_delay ),     /* clocks until next sweep action */
 	LOAD( int, state.apu.sweep_enabled ),
-	LOAD( int, state.apu.sweep_neg ),       // obscure internal flag
+	LOAD( int, state.apu.sweep_neg ),       /* obscure internal flag */
 	LOAD( int, state.apu.noise_divider ),
-	LOAD( int, state.apu.wave_buf ),        // last read byte of wave RAM
+	LOAD( int, state.apu.wave_buf ),        /* last read byte of wave RAM */
 
-	LOAD( int [4], state.apu.delay ),       // clocks until next channel action
+	LOAD( int [4], state.apu.delay ),       /* clocks until next channel action */
 	LOAD( int [4], state.apu.length_ctr ),
-	LOAD( int [4], state.apu.phase ),       // square/wave phase, noise LFSR
-	LOAD( int [4], state.apu.enabled ),     // internal enabled flag
+	LOAD( int [4], state.apu.phase ),       /* square/wave phase, noise LFSR */
+	LOAD( int [4], state.apu.enabled ),     /* internal enabled flag */
 
-	LOAD( int [3], state.apu.env_delay ),   // clocks until next envelope action
+	LOAD( int [3], state.apu.env_delay ),   /* clocks until next envelope action */
 	LOAD( int [3], state.apu.env_volume ),
 	LOAD( int [3], state.apu.env_enabled ),
 
 	SKIP( int [13], room_for_expansion ),
 
-	// Emulator
+	/* Emulator */
 	LOAD( int, soundEnableFlag ),
 	LOAD( int, soundTicks ),
 
@@ -2126,27 +2126,27 @@ void soundSaveGameMem(uint8_t *& data)
 
 void soundReadGameMem(const uint8_t *& in_data, int)
 {
-	// Prepare APU and default state
+	/* Prepare APU and default state */
 
-	//Begin of Reset APU
+	/*Begin of Reset APU */
 	gb_apu_reset( MODE_AGB, true );
 
 	stereo_buffer_clear();
 
 	soundTicks = SOUND_CLOCK_TICKS;
-	//End of Reset APU
+	/*End of Reset APU */
 
 	gb_apu_save_state( &state.apu );
 
 	utilReadDataMem( in_data, gba_state );
 
 	gb_apu_load_state( state.apu );
-	//Begin of Write SGCNT0_H
+	/*Begin of Write SGCNT0_H */
 	int data = (READ16LE( &ioMem [SGCNT0_H] ) & 0x770F);
 	WRITE16LE( &ioMem [SGCNT0_H], data & 0x770F );
 	pcm_fifo_write_control( data, data >> 4 );
 
 	gb_apu_volume(apu_vols [ioMem [SGCNT0_H] & 3] );
-	//End of SGCNT0_H
+	/*End of SGCNT0_H */
 }
 

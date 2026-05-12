@@ -127,4 +127,4 @@
  #define FORCE_INLINE
 #endif
 
-#endif // PORT_H
+#endif /* PORT_H */

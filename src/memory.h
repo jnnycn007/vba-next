@@ -71,4 +71,4 @@ int utilReadIntMem(const uint8_t *& data);
 void utilReadMem(void *buf, const uint8_t *& data, unsigned size);
 void utilReadDataMem(const uint8_t *& data, variable_desc *);
 
-#endif // GBA_MEMORY_H
+#endif /* GBA_MEMORY_H */

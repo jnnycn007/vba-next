@@ -24,4 +24,4 @@ void cheatsEnable(int number);
 void cheatsDisable(int number);
 int cheatsCheckKeys(uint32_t keys, uint32_t extended);
 
-#endif // CHEATS_H
+#endif /* CHEATS_H */

@@ -15,6 +15,6 @@ extern int  systemGetGyroZ (void);
 extern void systemSetSensorState(bool);
 #endif
 
-// sound functions
+/* sound functions */
 extern void systemOnWriteDataToSoundBuffer(int16_t * finalWave, int length);
-#endif // SYSTEM_H
+#endif /* SYSTEM_H */

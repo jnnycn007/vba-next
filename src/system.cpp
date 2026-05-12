@@ -6,7 +6,7 @@
 
 #include <psp2/motion.h>
 
-//-lSceMotion_stub is required.
+/*-lSceMotion_stub is required. */
 
 static SceMotionSensorState state;
 static bool sensor_state = false;
