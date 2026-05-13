@@ -707,6 +707,12 @@ static void gb_apu_write_register( int32_t time, unsigned addr, int data )
 static void gb_apu_reset( uint32_t mode, bool agb_wave )
 {
 	int i;
+	/* Initial wave RAM contents.  C89 forbids declarations mid-block, so
+	 * keep this at the top of the function rather than just before its use. */
+	static unsigned char const initial_wave [2] [16] = {
+		{0x84,0x40,0x43,0xAA,0x2D,0x78,0x92,0x3C,0x60,0x59,0x59,0xB0,0x34,0xB8,0x2E,0xDA},
+		{0x00,0xFF,0x00,0xFF,0x00,0xFF,0x00,0xFF,0x00,0xFF,0x00,0xFF,0x00,0xFF,0x00,0xFF},
+	};
 	/* Hardware mode*/
 	mode = MODE_AGB; /* using AGB wave features implies AGB hardware*/
 	gb_apu.wave.agb_mask = 0xFF;
@@ -736,11 +742,7 @@ static void gb_apu_reset( uint32_t mode, bool agb_wave )
 	gb_apu.wave   .length_ctr = 256;
 	gb_apu.noise  .length_ctr = 64;
 
-	/* Load initial wave RAM*/
-	static unsigned char const initial_wave [2] [16] = {
-		{0x84,0x40,0x43,0xAA,0x2D,0x78,0x92,0x3C,0x60,0x59,0x59,0xB0,0x34,0xB8,0x2E,0xDA},
-		{0x00,0xFF,0x00,0xFF,0x00,0xFF,0x00,0xFF,0x00,0xFF,0x00,0xFF,0x00,0xFF,0x00,0xFF},
-	};
+	/* Load initial wave RAM (initial_wave is declared at the top of the function) */
 	{
 		int b;
 		for ( b = 2; --b >= 0; )
@@ -748,9 +750,9 @@ static void gb_apu_reset( uint32_t mode, bool agb_wave )
 		/* Init both banks (does nothing if not in AGB mode)*/
 		gb_apu_write_register( 0, 0xFF1A, b * 0x40 );
 		{
-			unsigned int i;
-			for ( i = 0; i < sizeof initial_wave [0]; i++ )
-			gb_apu_write_register( 0, i + WAVE_RAM, initial_wave [1] [i] );
+			unsigned int i_inner;
+			for ( i_inner = 0; i_inner < sizeof initial_wave [0]; i_inner++ )
+			gb_apu_write_register( 0, i_inner + WAVE_RAM, initial_wave [1] [i_inner] );
 		}
 	}
 	}
@@ -1639,6 +1641,8 @@ static INLINE void stereo_buffer_mixer_read_pairs( int16_t* out, int count )
 	buf = &bufs_buffer [2];
 	{
 		int offset;
+		BLIP_READER_DECL( side );
+		BLIP_READER_DECL( center );
 		--buf;
 		--outtemp;
 
@@ -1664,6 +1668,8 @@ static INLINE void stereo_buffer_mixer_read_pairs( int16_t* out, int count )
 	}
 	{
 		int offset;
+		BLIP_READER_DECL( side );
+		BLIP_READER_DECL( center );
 		--buf;
 		--outtemp;
 
@@ -1986,6 +1992,7 @@ void process_sound_tick_fn (void)
 {
 	long avail;
 	int numSamples;
+	const long max_samples = (long)(sizeof(soundFinalWave) / sizeof(soundFinalWave[0]));
 	/* Run sound hardware to present */
 	pcm[0].pcm.last_time -= SOUND_CLOCK_TICKS;
 	if ( pcm[0].pcm.last_time < -2048 )
@@ -2012,7 +2019,6 @@ void process_sound_tick_fn (void)
 	/* dump all the samples available */
 	/* VBA will only ever store 1 frame worth of samples */
 	avail = stereo_buffer_samples_avail();
-	const long max_samples = (long)(sizeof(soundFinalWave) / sizeof(soundFinalWave[0]));
 	if (avail > max_samples)
 		avail = max_samples;
 	numSamples = stereo_buffer_read_samples( (int16_t*) soundFinalWave, avail);
@@ -2178,9 +2184,10 @@ void soundSaveGameMem(uint8_t **data)
 	utilWriteDataMem(data, gba_state);
 }
 
-void soundReadGameMem(const uint8_t **in_data, int)
+void soundReadGameMem(const uint8_t **in_data, int version)
 {
 	int data;
+	(void)version;
 	/* Prepare APU and default state */
 
 	/*Begin of Reset APU */

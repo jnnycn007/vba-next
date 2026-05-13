@@ -193,6 +193,9 @@ void retro_init(void)
 {
    enum retro_pixel_format rgb565;
    struct retro_log_callback log;
+#if HAVE_HLE_BIOS
+   const char* dir = NULL;
+#endif
    memset(libretro_save_buf, 0xff, sizeof(libretro_save_buf));
    adjust_save_ram();
    environ_cb(RETRO_ENVIRONMENT_GET_CAN_DUPE, &can_dupe);
@@ -208,7 +211,6 @@ void retro_init(void)
    serialize_size = 700000;
 
 #if HAVE_HLE_BIOS
-   const char* dir = NULL;
    if (environ_cb(RETRO_ENVIRONMENT_GET_SYSTEM_DIRECTORY, &dir) && dir) {
       strcpy(filename_bios, dir);
       strcat(filename_bios, "/gba_bios.bin");
@@ -781,8 +783,6 @@ static void set_memory_maps(void)
 
 bool retro_load_game(const struct retro_game_info *game)
 {
-   update_variables();
-
    struct retro_input_descriptor desc[] = {
       { 0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_LEFT,  "D-Pad Left" },
       { 0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_UP,    "D-Pad Up" },
@@ -798,6 +798,8 @@ bool retro_load_game(const struct retro_game_info *game)
       { 0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_X,     "Turbo A" },
       { 0 },
    };
+
+   update_variables();
 
    environ_cb(RETRO_ENVIRONMENT_SET_INPUT_DESCRIPTORS, desc);
 

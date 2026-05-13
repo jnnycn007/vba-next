@@ -7046,13 +7046,14 @@ static INLINE const TileLine gfxReadTile(const uint16_t *screenSource, const int
    int tileY;
    TileLine tileLine;
    TileEntry tile;
+   const uint8_t *tileBase;
    tile.val = READ16LE(screenSource);
 
    tileY = yyy & 7;
    if (tile.vFlip) tileY = 7 - tileY;
    tileLine = tileLine;
 
-   const uint8_t *tileBase = &charBase[tile.tileNum * 64 + tileY * 8];
+   tileBase = &charBase[tile.tileNum * 64 + tileY * 8];
 
    if (!tile.hFlip)
    {
@@ -7085,6 +7086,7 @@ static INLINE const TileLine gfxReadTilePal(const uint16_t *screenSource, const 
    int tileY;
    TileLine tileLine;
    TileEntry tile;
+   const u8h *tileBase;
    tile.val = READ16LE(screenSource);
 
    tileY = yyy & 7;
@@ -7092,7 +7094,7 @@ static INLINE const TileLine gfxReadTilePal(const uint16_t *screenSource, const 
    palette += tile.palette * 16;
    tileLine = tileLine;
 
-   const u8h *tileBase = (u8h*) &charBase[tile.tileNum * 32 + tileY * 4];
+   tileBase = (u8h*) &charBase[tile.tileNum * 32 + tileY * 4];
 
    if (!tile.hFlip)
    {
@@ -7156,6 +7158,7 @@ static void gfxDrawTextScreenImpl(TileReader readTile, int layer, int renderer_i
 	int yshift;
 	uint16_t * screenSource;
 	int x;
+	int firstTileX;
 	INIT_RENDERER_CONTEXT(renderer_idx);
 
    palette = PAL_U16;
@@ -7211,7 +7214,7 @@ static void gfxDrawTextScreenImpl(TileReader readTile, int layer, int renderer_i
 
    screenSource = screenBase + 0x400 * (xxx>>8) + ((xxx & 255)>>3) + yshift;
    x = 0;
-   const int firstTileX = xxx & 7;
+   firstTileX = xxx & 7;
 
    /* First tile, if clipped */
    if (firstTileX)
@@ -8040,9 +8043,8 @@ static void gfxDrawSprites (int renderer_idx)
 	uint16_t * spritePalette;
 	int mosaicY;
 	int mosaicX;
-	INIT_RENDERER_CONTEXT(renderer_idx);
-
 	unsigned lineOBJpix, m;
+	INIT_RENDERER_CONTEXT(renderer_idx);
 
 	lineOBJpix = (RENDERER_IO_REGISTERS[REG_DISPCNT] & 0x20) ? 954 : 1226;
 	m = 0;
@@ -11930,6 +11932,11 @@ static void postRender() {
 	int video_mode = R_DISPCNT_Video_Mode;
 	bool draw_objwin = (graphics.layerEnable & 0x9000) == 0x9000;
 	bool draw_sprites = R_DISPCNT_Screen_Display_OBJ;
+	/* INIT_RENDERER_CONTEXT expands to a declaration in threaded mode and to a
+	 * no-op expression in non-threaded mode; in C89 it must come BEFORE any
+	 * statement (the spin-wait below) so the decl-after-statement rule is
+	 * satisfied for the threaded build. */
+	INIT_RENDERER_CONTEXT(threaded_renderer_idx);
 
 #if DEBUG_RENDERER_NOSYNC
 	if (threaded_renderer_contexts[threaded_renderer_idx].renderer_state) return;
@@ -11937,8 +11944,6 @@ static void postRender() {
 	while(threaded_renderer_contexts[threaded_renderer_idx].renderer_state)
 		SPIN_HINT();
 #endif
-
-	INIT_RENDERER_CONTEXT(threaded_renderer_idx);
 
 	renderer_ctx.renderfunc_mode = renderfunc_mode;
 	renderer_ctx.renderfunc_type = renderfunc_type;
@@ -12104,6 +12109,8 @@ renderfunc_t GetRenderFunc(int renderer_idx, int mode, int type) {
 
 bool CPUReadState(const uint8_t* data, unsigned size)
 {
+	int version;
+	char romname[16];
 	/* Track the end of the input buffer so each read can be bounds-checked.
 	 * Frontends should pass the same `size` they got from retro_serialize_size,
 	 * but a misbehaving or malicious caller could pass a smaller buffer. */
@@ -12113,14 +12120,13 @@ bool CPUReadState(const uint8_t* data, unsigned size)
 	} while (0)
 
 	BOUNDS_CHECK(sizeof(int));
-	int version = utilReadIntMem(&data);
+	version = utilReadIntMem(&data);
 	/* Accept the current version and the immediately previous one
 	 * (v10 -> v11 changed pix removal and EEPROM layout). */
 	if (version != SAVE_GAME_VERSION && version != SAVE_GAME_VERSION_10)
 		return false;
 
 	BOUNDS_CHECK(16);
-	char romname[16];
 	utilReadMem(romname, &data, 16);
 	if (memcmp(&rom[0xa0], romname, 16) != 0)
 		return false;
@@ -12226,6 +12232,8 @@ a ^= b;
 
 static void CPUSwitchMode(int mode, bool saveState, bool breakLoop)
 {
+	uint32_t CPSR;
+	uint32_t SPSR;
 	CPU_UPDATE_CPSR();
 
 	switch(armMode) {
@@ -12267,8 +12275,8 @@ static void CPUSwitchMode(int mode, bool saveState, bool breakLoop)
 			break;
 	}
 
-	uint32_t CPSR = bus.reg[16].I;
-	uint32_t SPSR = bus.reg[17].I;
+	CPSR = bus.reg[16].I;
+	SPSR = bus.reg[17].I;
 
 	switch(mode) {
 		case 0x10:
@@ -12344,14 +12352,16 @@ void doDMA(uint32_t *p_s, uint32_t *p_d, uint32_t si, uint32_t di, uint32_t c, i
 	int sw = 0;
 	int dw = 0;
 	int sc = c;
+	int32_t sm_gt_15_mask;
+	int32_t dm_gt_15_mask;
 
 	cpuDmaRunning = true;
 	cpuDmaPC = bus.reg[15].I;
 	cpuDmaCount = c;
 
 	/* This is done to get the correct waitstates. */
-	int32_t sm_gt_15_mask = ((sm>15) | -(sm>15)) >> 31;
-	int32_t dm_gt_15_mask = ((dm>15) | -(dm>15)) >> 31;
+	sm_gt_15_mask = ((sm>15) | -(sm>15)) >> 31;
+	dm_gt_15_mask = ((dm>15) | -(dm>15)) >> 31;
 	sm = ((((15) & sm_gt_15_mask) | ((((sm) & ~(sm_gt_15_mask))))));
 	dm = ((((15) & dm_gt_15_mask) | ((((dm) & ~(dm_gt_15_mask))))));
 
@@ -12468,11 +12478,11 @@ void CPUCheckDMA(int reason, int dmamask)
 	if((DM1CNT_H & 0x8000) && (dmamask & 2)) {
 		if(((DM1CNT_H >> 12) & 3) == reason) {
 			uint32_t sourceIncrement, destIncrement;
+			uint32_t di_value, c_value, transfer_value;
 			uint32_t condition1 = ((DM1CNT_H >> 7) & 3);
 			uint32_t condition2 = ((DM1CNT_H >> 5) & 3);
 			sourceIncrement = arrayval[condition1];
 			destIncrement = arrayval[condition2];
-			uint32_t di_value, c_value, transfer_value;
 			if(reason == 3)
 			{
 				di_value = 0;
@@ -12506,11 +12516,11 @@ void CPUCheckDMA(int reason, int dmamask)
 	if((DM2CNT_H & 0x8000) && (dmamask & 4)) {
 		if(((DM2CNT_H >> 12) & 3) == reason) {
 			uint32_t sourceIncrement, destIncrement;
+			uint32_t di_value, c_value, transfer_value;
 			uint32_t condition1 = ((DM2CNT_H >> 7) & 3);
 			uint32_t condition2 = ((DM2CNT_H >> 5) & 3);
 			sourceIncrement = arrayval[condition1];
 			destIncrement = arrayval[condition2];
-			uint32_t di_value, c_value, transfer_value;
 			if(reason == 3)
 			{
 				di_value = 0;
@@ -12580,12 +12590,15 @@ void CPUUpdateRegister(uint32_t address, uint16_t value)
 	{
 		case 0x00: /* DISPCNT */
 			{
+				bool change;
+				bool changeBG;
+				uint16_t changeBGon;
 				if((value & 7) > 5) /* display modes 6,7 are prohibited - keep prior mode */
 					value = (value & ~7) | (io_registers[REG_DISPCNT] & 7);
 
-				bool change = (0 != ((io_registers[REG_DISPCNT] ^ value) & 0x80));
-				bool changeBG = (0 != ((io_registers[REG_DISPCNT] ^ value) & 0x0F00));
-				uint16_t changeBGon = ((~io_registers[REG_DISPCNT]) & value) & 0x0F00; /* these layers are being activated */
+				change = (0 != ((io_registers[REG_DISPCNT] ^ value) & 0x80));
+				changeBG = (0 != ((io_registers[REG_DISPCNT] ^ value) & 0x0F00));
+				changeBGon = ((~io_registers[REG_DISPCNT]) & value) & 0x0F00; /* these layers are being activated */
 
 				{ uint16_t _v = (value & 0xFFF7); io_registers[REG_DISPCNT] = _v; UPDATE_REG(0x00, _v); }
 
@@ -15372,6 +15385,11 @@ void cheatsDisable(int i)
 bool cheatsVerifyCheatCode(const char *code, const char *desc)
 {
   size_t len = strlen(code);
+  size_t i;
+  uint32_t address = 0;
+  uint32_t value = 0;
+  char buffer[10];
+  int type = 0;
   if(len != 11 && len != 13 && len != 17) {
     systemMessage("Invalid cheat code '%s': wrong length", code);
     return false;
@@ -15382,7 +15400,6 @@ bool cheatsVerifyCheatCode(const char *code, const char *desc)
     return false;
   }
 
-  size_t i;
   for(i = 0; i < 8; i++) {
     if(!CHEAT_IS_HEX(code[i])) {
       /* wrong cheat */
@@ -15398,10 +15415,6 @@ bool cheatsVerifyCheatCode(const char *code, const char *desc)
     }
   }
 
-  uint32_t address = 0;
-  uint32_t value = 0;
-
-  char buffer[10];
   strncpy(buffer, code, 8);
   buffer[8] = 0;
   sscanf(buffer, "%x", &address);
@@ -15428,7 +15441,6 @@ bool cheatsVerifyCheatCode(const char *code, const char *desc)
 
   strncpy(buffer, &code[9], 8);
   sscanf(buffer, "%x", &value);
-  int type = 0;
   if(len == 13)
     type = 114;
   if(len == 17)
@@ -15498,13 +15510,16 @@ void cheatsDecryptGSACode(uint32_t *address, uint32_t *value, bool v3)
 
 void cheatsAddGSACode(const char *code, const char *desc, bool v3)
 {
+  int i;
+  char buffer[10];
+  uint32_t address;
+  uint32_t value;
   if(strlen(code) != 16) {
     /* wrong cheat */
     systemMessage("Invalid GSA code. Format is XXXXXXXXYYYYYYYY");
     return;
   }
 
-  int i;
   for(i = 0; i < 16; i++) {
     if(!CHEAT_IS_HEX(code[i])) {
       /* wrong cheat */
@@ -15513,14 +15528,11 @@ void cheatsAddGSACode(const char *code, const char *desc, bool v3)
     }
   }
 
-  char buffer[10];
   strncpy(buffer, code, 8);
   buffer[8] = 0;
-  uint32_t address;
   sscanf(buffer, "%x", &address);
   strncpy(buffer, &code[8], 8);
   buffer[8] = 0;
-  uint32_t value;
   sscanf(buffer, "%x", &value);
   cheatsGSAChangeEncryption(cheatsGSAGetDeadface (v3), v3);
   cheatsDecryptGSACode(&address, &value, v3);
@@ -15529,6 +15541,8 @@ void cheatsAddGSACode(const char *code, const char *desc, bool v3)
     uint32_t gamecode = READ32LE(((uint32_t *)&rom[0xac]));
     if(gamecode != address) {
       char buffer[5];
+      char buffer2[5];
+      uint32_t gid;
       /* address is a host-byte-order uint32_t of 4 ASCII chars; write byte-by-byte
        * to avoid unaligned uint32_t stores (UB on strict-alignment BE: PPC/Wii/X360)
        * and to keep the ASCII order consistent on both endians. */
@@ -15537,8 +15551,7 @@ void cheatsAddGSACode(const char *code, const char *desc, bool v3)
       buffer[2] = (char)((address >> 16) & 0xff);
       buffer[3] = (char)((address >> 24) & 0xff);
       buffer[4] = 0;
-      char buffer2[5];
-      uint32_t gid = READ32LE(((uint32_t *)&rom[0xac]));
+      gid = READ32LE(((uint32_t *)&rom[0xac]));
       buffer2[0] = (char)(gid & 0xff);
       buffer2[1] = (char)((gid >> 8) & 0xff);
       buffer2[2] = (char)((gid >> 16) & 0xff);
@@ -16006,12 +16019,13 @@ void chatsCBAScramble(uint8_t *array, int count, uint8_t b)
   uint8_t *y = array + (b >> 3);
   uint32_t z = *x & (1 << (count & 7));
   uint32_t x0 = (*x & (~(1 << (count & 7))));
+  uint32_t temp;
   if (z != 0)
     z = 1;
   if ((*y & (1 << (b & 7))) != 0)
     x0 |= (1 << (count & 7));
   *x = x0;
-  uint32_t temp = *y & (~(1 << (b & 7)));
+  temp = *y & (~(1 << (b & 7)));
   if (z != 0)
     temp |= (1 << (b & 7));
   *y = temp;
@@ -16065,6 +16079,9 @@ uint32_t cheatsCBAEncWorker(void)
 
 uint32_t cheatsCBACalcIndex(uint32_t x, uint32_t y)
 {
+  uint32_t x0;
+  uint32_t z;
+  uint32_t temp;
   if(y != 0)
   {
     if(y == 1)
@@ -16075,7 +16092,7 @@ uint32_t cheatsCBACalcIndex(uint32_t x, uint32_t y)
       return x;
     else if(x < y)
       return x;
-    uint32_t x0 = 1;
+    x0 = 1;
 
     while(y < 0x10000000) {
       if(y < x) {
@@ -16092,7 +16109,10 @@ uint32_t cheatsCBACalcIndex(uint32_t x, uint32_t y)
     }
 
   loop:
-    uint32_t z = 0;
+    /* C89: a label must be followed by a statement, not a declaration.
+     * The `z = 0;` assignment serves as that statement; the decls are
+     * hoisted to the top of the function. */
+    z = 0;
     if(x >= y)
       x -= y;
     if(x >= (y >> 1)) {
@@ -16108,7 +16128,7 @@ uint32_t cheatsCBACalcIndex(uint32_t x, uint32_t y)
       z |= ROR(x0, 3);
     }
 
-    uint32_t temp = x0;
+    temp = x0;
 
     if(x != 0) {
       x0 = x0 >> 4;
@@ -16181,10 +16201,11 @@ void cheatsCBAChangeEncryption(uint32_t *seed)
 uint16_t cheatsCBAGenValue(uint32_t x, uint32_t y, uint32_t z)
 {
   int i;
+  uint32_t x0;
   y <<= 0x10;
   z <<= 0x10;
   x <<= 0x18;
-  uint32_t x0 = (int)y >> 0x10;
+  x0 = (int)y >> 0x10;
   z = (int)z >> 0x10;
   x = (int)x >> 0x10;
   for(i = 0; i < 8; i++) {
@@ -16241,6 +16262,7 @@ void cheatsCBADecrypt(uint8_t *decrypt)
   int count, i, j;
   uint8_t buffer[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
   uint8_t *array = &buffer[1];
+  uint32_t cs;
 
   cheatsCBAReverseArray(decrypt, array);
 
@@ -16254,7 +16276,7 @@ void cheatsCBADecrypt(uint8_t *decrypt)
 
   cheatsCBAReverseArray(decrypt, array);
 
-  uint32_t cs = cheatsCBAGetValue(cheatsCBACurrentSeed);
+  cs = cheatsCBAGetValue(cheatsCBACurrentSeed);
   for(i = 0; i <= 4; i++)
     array[i] = ((cs >> 8) ^ array[i+1]) ^ array[i] ;
 
@@ -16296,13 +16318,17 @@ bool cheatsCBAShouldDecrypt(void)
 
 void cheatsAddCBACode(const char *code, const char *desc)
 {
+  int i;
+  char buffer[10];
+  uint32_t address;
+  uint32_t value;
+  uint8_t array[8];
   if(strlen(code) != 13) {
     /* wrong cheat */
     systemMessage("Invalid CBA code. Format is XXXXXXXX YYYY.");
     return;
   }
 
-  int i;
   for(i = 0; i < 8; i++) {
     if(!CHEAT_IS_HEX(code[i])) {
       /* wrong cheat */
@@ -16324,26 +16350,21 @@ void cheatsAddCBACode(const char *code, const char *desc)
     }
   }
 
-  char buffer[10];
   strncpy(buffer, code, 8);
   buffer[8] = 0;
-  uint32_t address;
   sscanf(buffer, "%x", &address);
   strncpy(buffer, &code[9], 4);
   buffer[4] = 0;
-  uint32_t value;
   sscanf(buffer, "%x", &value);
 
-  uint8_t array[8] = {
-    (uint8_t)(address & 255),
-    (uint8_t)((address >> 8) & 255),
-    (uint8_t)((address >> 16) & 255),
-    (uint8_t)((address >> 24) & 255),
-    (uint8_t)(value & 255),
-    (uint8_t)((value >> 8) & 255),
-    0,
-    0
-  };
+  array[0] = (uint8_t)(address & 255);
+  array[1] = (uint8_t)((address >> 8) & 255);
+  array[2] = (uint8_t)((address >> 16) & 255);
+  array[3] = (uint8_t)((address >> 24) & 255);
+  array[4] = (uint8_t)(value & 255);
+  array[5] = (uint8_t)((value >> 8) & 255);
+  array[6] = 0;
+  array[7] = 0;
 
   if(cheatsCBAGetCount() == 0 &&
      (address >> 28) == 9) {
@@ -16352,13 +16373,14 @@ void cheatsAddCBACode(const char *code, const char *desc)
     cheatsCBAChangeEncryption(seed);
     cheatsAdd(code, desc, address, address & 0x0FFFFFFF, value, 512, UNKNOWN_CODE);
   } else {
+    int type;
     if(cheatsCBAShouldDecrypt())
       cheatsCBADecrypt(array);
 
     address = READ32LE(((uint32_t *)array));
     value = READ16LE(((uint16_t *)&array[4]));
 
-    int type = (address >> 28) & 15;
+    type = (address >> 28) & 15;
 
     if(isMultilineWithData(cheatsNumber-1) || (cba_super_count>0)) {
       cheatsAdd(code, desc, address, address, value, 512, UNKNOWN_CODE);
@@ -16370,9 +16392,10 @@ void cheatsAddCBACode(const char *code, const char *desc)
     switch(type) {
     case 0x00:
       {
+        uint32_t crc;
         if(!cheatsCBATableGenerated)
           cheatsCBAGenTable();
-        uint32_t crc = cheatsCBACalcCRC(rom, 0x10000);
+        crc = cheatsCBACalcCRC(rom, 0x10000);
         if(crc != address) {
           systemMessage("Warning: Codes seem to be for a different game.\nCodes may not work correctly.");
         }

@@ -58,10 +58,20 @@ struct blip_buffer_state_t
 typedef struct blip_buffer_state_t blip_buffer_state_t;
 
 
-/* Begins reading from buffer. Name should be unique to the current block.*/
-#define BLIP_READER_BEGIN( name, blip_buffer ) \
-        const int32_t * name##_reader_buf = (blip_buffer).buffer_;\
-        int32_t name##_reader_accum = (blip_buffer).reader_accum_
+/* Declares the reader's local working variables.  Must be placed at the
+ * top of the block (C89 forbids mixing declarations with statements);
+ * the read pointer is NOT const because BLIP_READER_ADJ_ rebinds it. */
+#define BLIP_READER_DECL( name ) \
+        const int32_t * name##_reader_buf; \
+        int32_t name##_reader_accum
+
+/* Begins reading from buffer.  Issued after BLIP_READER_DECL, after any
+ * statements that compute (blip_buffer).  Name should be unique to the
+ * current block. */
+#define BLIP_READER_BEGIN( name, blip_buffer ) do { \
+        name##_reader_buf = (blip_buffer).buffer_; \
+        name##_reader_accum = (blip_buffer).reader_accum_; \
+        } while (0)
 
 /* Advances to next sample*/
 #define BLIP_READER_NEXT( name, bass ) \

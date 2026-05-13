@@ -112,8 +112,9 @@ void flashSaveGameMem(uint8_t **data)
 	utilWriteDataMem(data, flashSaveData3);
 }
 
-void flashReadGameMem(const uint8_t **data, int)
+void flashReadGameMem(const uint8_t **data, int version)
 {
+	(void)version;
 	utilReadDataMem(data, flashSaveData3);
 }
 
@@ -403,9 +404,10 @@ int eepromRead (void)
 
 void eepromWrite(uint8_t value)
 {
+   int bit;
    if(cpuDmaCount == 0)
       return;
-   int bit = value & 1;
+   bit = value & 1;
    switch(eepromMode)
    {
       case EEPROM_IDLE:
@@ -637,9 +639,11 @@ uint16_t rtcRead(uint32_t address)
 
 static uint8_t toBCD(uint8_t value)
 {
+	int l;
+	int h;
 	value = value % 100;
-	int l = value % 10;
-	int h = value / 10;
+	l = value % 10;
+	h = value / 10;
 	return h * 16 + l;
 };
 
