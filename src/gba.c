@@ -22,18 +22,8 @@
 #include "memory.h"
 #include "sound.h"
 
-#ifdef ELF
-#include "elf.h"
-#endif
 
-#define DEBUG_RENDERER_MODE0 1
-#define DEBUG_RENDERER_MODE1 1
-#define DEBUG_RENDERER_MODE2 1
-#define DEBUG_RENDERER_MODE3 1
-#define DEBUG_RENDERER_MODE4 1
-#define DEBUG_RENDERER_MODE5 1
 
-#define DEBUG_RENDERER_NOSYNC 0
 
 #define CLOCKTICKS_UPDATE_TYPE16  codeTicksAccessSeq16(bus.armNextPC) + 1
 #define CLOCKTICKS_UPDATE_TYPE32  codeTicksAccessSeq32(bus.armNextPC) + 1
@@ -446,9 +436,6 @@ static const uint8_t AlphaClampLUT[64] =
 		} \
 	}
 
-#ifdef USE_SWITICKS
-extern int SWITicks;
-#endif
 static int cpuNextEvent = 0;
 static bool holdState = false;
 static uint32_t cpuPrefetch[2];
@@ -2601,50 +2588,12 @@ static void CPUSoftwareInterrupt(int comment)
 			break;
 		case 0x0B:
 			{
-#ifdef USE_SWITICKS
-				int len = (bus.reg[2].I & 0x1FFFFF) >>1;
-				if (!(((bus.reg[0].I & 0xe000000) == 0) ||
-							((bus.reg[0].I + len) & 0xe000000) == 0))
-				{
-					if ((bus.reg[2].I >> 24) & 1)
-					{
-						if ((bus.reg[2].I >> 26) & 1)
-							SWITicks = (7 + memoryWait32[(bus.reg[1].I>>24) & 0xF]) * (len>>1);
-						else
-							SWITicks = (8 + memoryWait[(bus.reg[1].I>>24) & 0xF]) * (len);
-					}
-					else
-					{
-						if ((bus.reg[2].I >> 26) & 1)
-							SWITicks = (10 + memoryWait32[(bus.reg[0].I>>24) & 0xF] +
-									memoryWait32[(bus.reg[1].I>>24) & 0xF]) * (len>>1);
-						else
-							SWITicks = (11 + memoryWait[(bus.reg[0].I>>24) & 0xF] +
-									memoryWait[(bus.reg[1].I>>24) & 0xF]) * len;
-					}
-				}
-#endif
 			}
 			if(!(((bus.reg[0].I & 0xe000000) == 0) || ((bus.reg[0].I + (((bus.reg[2].I << 11)>>9) & 0x1fffff)) & 0xe000000) == 0))
 				BIOS_CpuSet();
 			break;
 		case 0x0C:
 			{
-#ifdef USE_SWITICKS
-				int len = (bus.reg[2].I & 0x1FFFFF) >>5;
-				if (!(((bus.reg[0].I & 0xe000000) == 0) ||
-							((bus.reg[0].I + len) & 0xe000000) == 0))
-				{
-					if ((bus.reg[2].I >> 24) & 1)
-						SWITicks = (6 + memoryWait32[(bus.reg[1].I>>24) & 0xF] +
-								7 * (memoryWaitSeq32[(bus.reg[1].I>>24) & 0xF] + 1)) * len;
-					else
-						SWITicks = (9 + memoryWait32[(bus.reg[0].I>>24) & 0xF] +
-								memoryWait32[(bus.reg[1].I>>24) & 0xF] +
-								7 * (memoryWaitSeq32[(bus.reg[0].I>>24) & 0xF] +
-									memoryWaitSeq32[(bus.reg[1].I>>24) & 0xF] + 2)) * len;
-				}
-#endif
 			}
 			if(!(((bus.reg[0].I & 0xe000000) == 0) || ((bus.reg[0].I + (((bus.reg[2].I << 11)>>9) & 0x1fffff)) & 0xe000000) == 0))
 				BIOS_CpuFastSet();
@@ -2660,106 +2609,31 @@ static void CPUSoftwareInterrupt(int comment)
 			break;
 		case 0x10:
 			{
-#ifdef USE_SWITICKS
-				int len = CPUReadHalfWord(bus.reg[2].I);
-				if (!(((bus.reg[0].I & 0xe000000) == 0) ||
-							((bus.reg[0].I + len) & 0xe000000) == 0))
-					SWITicks = (32 + memoryWait[(bus.reg[0].I>>24) & 0xF]) * len;
-#endif
 			}
 			BIOS_BitUnPack();
 			break;
 		case 0x11:
-#ifdef USE_SWITICKS
-			{
-				uint32_t len = CPUReadMemory(bus.reg[0].I) >> 8;
-				if(!(((bus.reg[0].I & 0xe000000) == 0) ||
-							((bus.reg[0].I + (len & 0x1fffff)) & 0xe000000) == 0))
-					SWITicks = (9 + memoryWait[(bus.reg[1].I>>24) & 0xF]) * len;
-			}
-#endif
 			BIOS_LZ77UnCompWram();
 			break;
 		case 0x12:
-#ifdef USE_SWITICKS
-			{
-				uint32_t len = CPUReadMemory(bus.reg[0].I) >> 8;
-				if(!(((bus.reg[0].I & 0xe000000) == 0) ||
-							((bus.reg[0].I + (len & 0x1fffff)) & 0xe000000) == 0))
-					SWITicks = (19 + memoryWait[(bus.reg[1].I>>24) & 0xF]) * len;
-			}
-#endif
 			BIOS_LZ77UnCompVram();
 			break;
 		case 0x13:
-#ifdef USE_SWITICKS
-			{
-				uint32_t len = CPUReadMemory(bus.reg[0].I) >> 8;
-				if(!(((bus.reg[0].I & 0xe000000) == 0) ||
-							((bus.reg[0].I + (len & 0x1fffff)) & 0xe000000) == 0))
-					SWITicks = (29 + (memoryWait[(bus.reg[0].I>>24) & 0xF]<<1)) * len;
-			}
-#endif
 			BIOS_HuffUnComp();
 			break;
 		case 0x14:
-#ifdef USE_SWITICKS
-			{
-				uint32_t len = CPUReadMemory(bus.reg[0].I) >> 8;
-				if(!(((bus.reg[0].I & 0xe000000) == 0) ||
-							((bus.reg[0].I + (len & 0x1fffff)) & 0xe000000) == 0))
-					SWITicks = (11 + memoryWait[(bus.reg[0].I>>24) & 0xF] +
-							memoryWait[(bus.reg[1].I>>24) & 0xF]) * len;
-			}
-#endif
 			BIOS_RLUnCompWram();
 			break;
 		case 0x15:
-#ifdef USE_SWITICKS
-			{
-				uint32_t len = CPUReadMemory(bus.reg[0].I) >> 9;
-				if(!(((bus.reg[0].I & 0xe000000) == 0) ||
-							((bus.reg[0].I + (len & 0x1fffff)) & 0xe000000) == 0))
-					SWITicks = (34 + (memoryWait[(bus.reg[0].I>>24) & 0xF] << 1) +
-							memoryWait[(bus.reg[1].I>>24) & 0xF]) * len;
-			}
-#endif
 			BIOS_RLUnCompVram();
 			break;
 		case 0x16:
-#ifdef USE_SWITICKS
-			{
-				uint32_t len = CPUReadMemory(bus.reg[0].I) >> 8;
-				if(!(((bus.reg[0].I & 0xe000000) == 0) ||
-							((bus.reg[0].I + (len & 0x1fffff)) & 0xe000000) == 0))
-					SWITicks = (13 + memoryWait[(bus.reg[0].I>>24) & 0xF] +
-							memoryWait[(bus.reg[1].I>>24) & 0xF]) * len;
-			}
-#endif
 			BIOS_Diff8bitUnFilterWram();
 			break;
 		case 0x17:
-#ifdef USE_SWITICKS
-			{
-				uint32_t len = CPUReadMemory(bus.reg[0].I) >> 9;
-				if(!(((bus.reg[0].I & 0xe000000) == 0) ||
-							((bus.reg[0].I + (len & 0x1fffff)) & 0xe000000) == 0))
-					SWITicks = (39 + (memoryWait[(bus.reg[0].I>>24) & 0xF]<<1) +
-							memoryWait[(bus.reg[1].I>>24) & 0xF]) * len;
-			}
-#endif
 			BIOS_Diff8bitUnFilterVram();
 			break;
 		case 0x18:
-#ifdef USE_SWITICKS
-			{
-				uint32_t len = CPUReadMemory(bus.reg[0].I) >> 9;
-				if(!(((bus.reg[0].I & 0xe000000) == 0) ||
-							((bus.reg[0].I + (len & 0x1fffff)) & 0xe000000) == 0))
-					SWITicks = (13 + memoryWait[(bus.reg[0].I>>24) & 0xF] +
-							memoryWait[(bus.reg[1].I>>24) & 0xF]) * len;
-			}
-#endif
 			BIOS_Diff16bitUnFilter();
 			break;
 		case 0x19:
@@ -5267,9 +5141,6 @@ static int armExecute (void)
       cpuTotalTicks += clockTicks;
 
       test = cpuTotalTicks < cpuNextEvent && armState && !holdState;
-#ifdef USE_SWITICKS
-      test = test && !SWITicks;
-#endif
    }while (test);
 
 	return 1;
@@ -6973,9 +6844,6 @@ static int thumbExecute (void)
 
 
       test = cpuTotalTicks < cpuNextEvent && !armState && !holdState;
-#ifdef USE_SWITICKS
-      test = test && !SWITicks;
-#endif
    }while (test);
 
    return 1;
@@ -8927,9 +8795,6 @@ bool enableRtc = false;
 bool mirroringEnable = false;
 bool skipSaveGameBattery = false;
 
-#ifdef USE_SWITICKS
-int SWITicks = 0;
-#endif
 
 bool cpuSramEnabled = true;
 bool cpuFlashEnabled = true;
@@ -9252,13 +9117,6 @@ static INLINE int CPUUpdateTicks (void)
 	if(timer3On && !(io_registers[REG_TM3CNT] & 4) && (timer3Ticks < cpuLoopTicks))
 		cpuLoopTicks = timer3Ticks;
 
-#ifdef USE_SWITICKS
-	if (SWITicks)
-	{
-		if (SWITicks < cpuLoopTicks)
-			cpuLoopTicks = SWITicks;
-	}
-#endif
 
 	if (IRQTicks)
 	{
@@ -9369,25 +9227,6 @@ unsigned CPUWriteState(uint8_t* data, unsigned size)
 	return (ptrdiff_t)data - (ptrdiff_t)orig;
 }
 
-#ifdef ELF
-static bool CPUIsELF(const char *file)
-{
-	if(file == NULL)
-		return false;
-
-	if(strlen(file) > 4)
-	{
-		const char * p = strrchr(file,'.');
-
-		if(p != NULL)
-		{
-			if(strcasecmp(p, ".elf") == 0)
-				return true;
-		}
-	}
-	return false;
-}
-#endif
 
 void CPUCleanUp (void)
 {
@@ -9678,9 +9517,6 @@ static void mode0RenderLine (int renderer_idx)
 	uint32_t backdrop;
 	INIT_RENDERER_CONTEXT(renderer_idx);
 
-#if !DEBUG_RENDERER_MODE0
-	return;
-#endif
 	lineMix = GET_LINE_MIX;
 
 	backdrop = RENDERER_BACKDROP;
@@ -9792,9 +9628,6 @@ static void mode0RenderLineNoWindow (int renderer_idx)
    int x;
 	INIT_RENDERER_CONTEXT(renderer_idx);
 
-#if !DEBUG_RENDERER_MODE0
-	return;
-#endif
 	lineMix = GET_LINE_MIX;
 
 	backdrop = RENDERER_BACKDROP;
@@ -9948,9 +9781,6 @@ static void mode0RenderLineAll (int renderer_idx)
 	uint8_t outMask;
 	INIT_RENDERER_CONTEXT(renderer_idx);
 
-#if !DEBUG_RENDERER_MODE0
-	return;
-#endif
 	lineMix = GET_LINE_MIX;
 
 	backdrop = RENDERER_BACKDROP;
@@ -10140,9 +9970,6 @@ static void mode1RenderLine (int renderer_idx)
 	uint32_t backdrop;
 	INIT_RENDERER_CONTEXT(renderer_idx);
 
-#if !DEBUG_RENDERER_MODE1
-	return;
-#endif
 	lineMix = GET_LINE_MIX;
 
 	backdrop = RENDERER_BACKDROP;
@@ -10241,9 +10068,6 @@ static void mode1RenderLineNoWindow (int renderer_idx)
 	uint32_t backdrop;
 	INIT_RENDERER_CONTEXT(renderer_idx);
 
-#if !DEBUG_RENDERER_MODE1
-	return;
-#endif
 	lineMix = GET_LINE_MIX;
 
 	backdrop = RENDERER_BACKDROP;
@@ -10399,9 +10223,6 @@ static void mode1RenderLineAll (int renderer_idx)
 	uint8_t outMask;
 	INIT_RENDERER_CONTEXT(renderer_idx);
 
-#if !DEBUG_RENDERER_MODE1
-	return;
-#endif
 	lineMix = GET_LINE_MIX;
 
 	backdrop = RENDERER_BACKDROP;
@@ -10569,9 +10390,6 @@ static void mode2RenderLine (int renderer_idx)
 	uint32_t backdrop;
 	INIT_RENDERER_CONTEXT(renderer_idx);
 
-#if !DEBUG_RENDERER_MODE2
-	return;
-#endif
 	lineMix = GET_LINE_MIX;
 
 	backdrop = RENDERER_BACKDROP;
@@ -10656,9 +10474,6 @@ static void mode2RenderLineNoWindow (int renderer_idx)
 	uint32_t backdrop;
 	INIT_RENDERER_CONTEXT(renderer_idx);
 
-#if !DEBUG_RENDERER_MODE2
-	return;
-#endif
 	lineMix = GET_LINE_MIX;
 
 	backdrop = RENDERER_BACKDROP;
@@ -10788,9 +10603,6 @@ static void mode2RenderLineAll (int renderer_idx)
 	uint8_t outMask;
 	INIT_RENDERER_CONTEXT(renderer_idx);
 
-#if !DEBUG_RENDERER_MODE2
-	return;
-#endif
 	lineMix = GET_LINE_MIX;
 
 	backdrop = RENDERER_BACKDROP;
@@ -10940,9 +10752,6 @@ static void mode3RenderLine (int renderer_idx)
 	uint32_t background;
 	INIT_RENDERER_CONTEXT(renderer_idx);
 
-#if !DEBUG_RENDERER_MODE3
-	return;
-#endif
 	lineMix = GET_LINE_MIX;
 	background = RENDERER_BACKDROP;
 
@@ -10995,9 +10804,6 @@ uint16_t* lineMix;
 uint32_t background;
 INIT_RENDERER_CONTEXT(renderer_idx);
 
-#if !DEBUG_RENDERER_MODE3
-	return;
-#endif
 	lineMix = GET_LINE_MIX;
 	background = RENDERER_BACKDROP;
 
@@ -11091,9 +10897,6 @@ static void mode3RenderLineAll (int renderer_idx)
 	uint8_t outMask;
 	INIT_RENDERER_CONTEXT(renderer_idx);
 
-#if !DEBUG_RENDERER_MODE3
-	return;
-#endif
 	lineMix = GET_LINE_MIX;
 	background = RENDERER_BACKDROP;
 
@@ -11218,9 +11021,6 @@ static void mode4RenderLine (int renderer_idx)
 	uint32_t backdrop;
 	INIT_RENDERER_CONTEXT(renderer_idx);
 
-#if !DEBUG_RENDERER_MODE4
-	return;
-#endif
 	lineMix = GET_LINE_MIX;
 	backdrop = RENDERER_BACKDROP;
 
@@ -11273,9 +11073,6 @@ static void mode4RenderLineNoWindow (int renderer_idx)
 	uint32_t backdrop;
 	INIT_RENDERER_CONTEXT(renderer_idx);
 
-#if !DEBUG_RENDERER_MODE4
-	return;
-#endif
 	lineMix = GET_LINE_MIX;
 	backdrop = RENDERER_BACKDROP;
 
@@ -11369,9 +11166,6 @@ static void mode4RenderLineAll (int renderer_idx)
 	uint8_t outMask;
 	INIT_RENDERER_CONTEXT(renderer_idx);
 
-#if !DEBUG_RENDERER_MODE4
-	return;
-#endif
 	lineMix = GET_LINE_MIX;
 	backdrop = RENDERER_BACKDROP;
 
@@ -11498,9 +11292,6 @@ static void mode5RenderLine (int renderer_idx)
 	uint32_t background;
 	INIT_RENDERER_CONTEXT(renderer_idx);
 
-#if !DEBUG_RENDERER_MODE5
-	return;
-#endif
 	lineMix = GET_LINE_MIX;
 	background = RENDERER_BACKDROP;
 
@@ -11552,9 +11343,6 @@ static void mode5RenderLineNoWindow (int renderer_idx)
 	uint32_t background;
 	INIT_RENDERER_CONTEXT(renderer_idx);
 
-#if !DEBUG_RENDERER_MODE5
-	return;
-#endif
 	lineMix = GET_LINE_MIX;
 	background = RENDERER_BACKDROP;
 
@@ -11648,9 +11436,6 @@ static void mode5RenderLineAll (int renderer_idx)
 	uint8_t outMask;
 	INIT_RENDERER_CONTEXT(renderer_idx);
 
-#if !DEBUG_RENDERER_MODE5
-	return;
-#endif
 	lineMix = GET_LINE_MIX;
 	background = RENDERER_BACKDROP;
 
@@ -11888,12 +11673,8 @@ static void postRender() {
 	 * satisfied for the threaded build. */
 	INIT_RENDERER_CONTEXT(threaded_renderer_idx);
 
-#if DEBUG_RENDERER_NOSYNC
-	if (threaded_renderer_contexts[threaded_renderer_idx].renderer_state) return;
-#else
 	while(threaded_renderer_contexts[threaded_renderer_idx].renderer_state)
 		SPIN_HINT();
-#endif
 
 	renderer_ctx.renderfunc_mode = renderfunc_mode;
 	renderer_ctx.renderfunc_type = renderfunc_type;
@@ -13361,9 +13142,6 @@ void CPUReset (void)
 
 	ARM_PREFETCH;
 
-#ifdef USE_SWITICKS
-	SWITicks = 0;
-#endif
 
 	cpuDmaLast = 0;
 	cpuDmaRunning = false;
@@ -13467,13 +13245,6 @@ void CPULoop (void)
 		if(cpuTotalTicks >= cpuNextEvent) {
 			int remainingTicks = cpuTotalTicks - cpuNextEvent;
 
-#ifdef USE_SWITICKS
-			if (SWITicks) {
-				SWITicks-=clockTicks;
-				if (SWITicks<0)
-					SWITicks = 0;
-			}
-#endif
 
 			clockTicks = cpuNextEvent;
 			cpuTotalTicks = 0;
@@ -13773,12 +13544,6 @@ updateLoop:
 						}
 					}
 
-#ifdef USE_SWITICKS
-					/* Stops the SWI Ticks emulation if an IRQ is executed */
-					/*(to avoid problems with nested IRQ/SWI) */
-					if (SWITicks)
-						SWITicks = 0;
-#endif
 				}
 			}
 
