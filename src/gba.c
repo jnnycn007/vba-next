@@ -6356,27 +6356,21 @@ static  void thumbB0(uint32_t opcode)
 
 /* Push and pop /////////////////////////////////////////////////////////// */
 
-#define PUSH_REG(val, r)                                    \
-  if (opcode & (val)) {                                     \
-    int dataticks_value;                                    \
-    CPUWriteMemory(address, bus.reg[(r)].I);                    \
-    dataticks_value = count ? DATATICKS_ACCESS_32BIT_SEQ(address) : DATATICKS_ACCESS_32BIT(address); \
-    DATATICKS_ACCESS_BUS_PREFETCH(address, dataticks_value); \
-    clockTicks += 1 + dataticks_value;				\
-    count++;                                                \
-    address += 4;                                           \
-  }
+/* Thumb PUSH/POP iterate bits 0..7 of the 8-bit register list.  Same
+ * idea as the ARM LDM/STM ctz-loop rewrite (commit c7a870a): one
+ * predictable loop branch with N iterations beats 8 unconditional
+ * `if (opcode & (1<<i))` checks where typically half are not-taken.
+ * Reuses the LDM_LOAD_ONE / STM_STORE_ONE single-access bodies from
+ * the ARM section above. */
+#define PUSH_LOOP \
+    do { uint32_t _list = opcode & 0xFFu; \
+         while (_list) { STM_STORE_ONE(CTZ_U32(_list)); _list &= _list - 1u; } \
+    } while (0)
 
-#define POP_REG(val, r)                                     \
-  if (opcode & (val)) {                                     \
-    int dataticks_value;                                    \
-    bus.reg[(r)].I = CPUReadMemory(address);                    \
-    dataticks_value = count ? DATATICKS_ACCESS_32BIT_SEQ(address) : DATATICKS_ACCESS_32BIT(address); \
-    DATATICKS_ACCESS_BUS_PREFETCH(address, dataticks_value); \
-    clockTicks += 1 + dataticks_value; \
-    count++;                                                \
-    address += 4;                                           \
-  }
+#define POP_LOOP \
+    do { uint32_t _list = opcode & 0xFFu; \
+         while (_list) { LDM_LOAD_ONE(CTZ_U32(_list)); _list &= _list - 1u; } \
+    } while (0)
 
 /* PUSH {Rlist} */
 static  void thumbB4(uint32_t opcode)
@@ -6389,14 +6383,7 @@ static  void thumbB4(uint32_t opcode)
   count = 0;
   temp = bus.reg[13].I - 4 * cpuBitsSet[opcode & 0xff];
   address = temp & 0xFFFFFFFC;
-  PUSH_REG(1, 0);
-  PUSH_REG(2, 1);
-  PUSH_REG(4, 2);
-  PUSH_REG(8, 3);
-  PUSH_REG(16, 4);
-  PUSH_REG(32, 5);
-  PUSH_REG(64, 6);
-  PUSH_REG(128, 7);
+  PUSH_LOOP;
   clockTicks += 1 + codeTicksAccess(bus.armNextPC, BITS_16);
   bus.reg[13].I = temp;
 }
@@ -6412,15 +6399,11 @@ static  void thumbB5(uint32_t opcode)
   count = 0;
   temp = bus.reg[13].I - 4 - 4 * cpuBitsSet[opcode & 0xff];
   address = temp & 0xFFFFFFFC;
-  PUSH_REG(1, 0);
-  PUSH_REG(2, 1);
-  PUSH_REG(4, 2);
-  PUSH_REG(8, 3);
-  PUSH_REG(16, 4);
-  PUSH_REG(32, 5);
-  PUSH_REG(64, 6);
-  PUSH_REG(128, 7);
-  PUSH_REG(256, 14);
+  PUSH_LOOP;
+  if (opcode & 0x100) {
+    /* LR push (bit 8 of opcode -> r14); single-reg form of the loop body */
+    STM_STORE_ONE(14);
+  }
   clockTicks += 1 + codeTicksAccess(bus.armNextPC, BITS_16);
   bus.reg[13].I = temp;
 }
@@ -6436,14 +6419,7 @@ static  void thumbBC(uint32_t opcode)
   count = 0;
   address = bus.reg[13].I & 0xFFFFFFFC;
   temp = bus.reg[13].I + 4*cpuBitsSet[opcode & 0xFF];
-  POP_REG(1, 0);
-  POP_REG(2, 1);
-  POP_REG(4, 2);
-  POP_REG(8, 3);
-  POP_REG(16, 4);
-  POP_REG(32, 5);
-  POP_REG(64, 6);
-  POP_REG(128, 7);
+  POP_LOOP;
   bus.reg[13].I = temp;
   clockTicks += 2 + codeTicksAccess(bus.armNextPC, BITS_16);
 }
@@ -6460,14 +6436,10 @@ static  void thumbBD(uint32_t opcode)
   count = 0;
   address = bus.reg[13].I & 0xFFFFFFFC;
   temp = bus.reg[13].I + 4 + 4*cpuBitsSet[opcode & 0xFF];
-  POP_REG(1, 0);
-  POP_REG(2, 1);
-  POP_REG(4, 2);
-  POP_REG(8, 3);
-  POP_REG(16, 4);
-  POP_REG(32, 5);
-  POP_REG(64, 6);
-  POP_REG(128, 7);
+  POP_LOOP;
+  /* PC load (bit 8); kept inline because it has special semantics:
+   * 0xFFFFFFFE mask for Thumb alignment, pipeline flush via THUMB_PREFETCH,
+   * extra +3 clockTicks for the branch, and busPrefetchCount reset. */
   bus.reg[15].I = (CPUReadMemory(address) & 0xFFFFFFFE);
   dataticks_value = count ? DATATICKS_ACCESS_32BIT_SEQ(address) : DATATICKS_ACCESS_32BIT(address);
   DATATICKS_ACCESS_BUS_PREFETCH(address, dataticks_value);
@@ -6483,28 +6455,35 @@ static  void thumbBD(uint32_t opcode)
 
 /* Load/store multiple //////////////////////////////////////////////////// */
 
-#define THUMB_STM_REG(val,r,b)                              \
-  if(opcode & (val)) {                                      \
-    int dataticks_val;                                      \
-    CPUWriteMemory(address, bus.reg[(r)].I);                    \
-    bus.reg[(b)].I = temp;                                      \
-    dataticks_val = count ? DATATICKS_ACCESS_32BIT_SEQ(address) : DATATICKS_ACCESS_32BIT(address); \
-    DATATICKS_ACCESS_BUS_PREFETCH(address, dataticks_val); \
-    clockTicks += 1 + dataticks_val; \
-    count++;                                                \
-    address += 4;                                           \
-  }
+/* Thumb LDMIA/STMIA iterate bits 0..7 of the register list with base reg
+ * encoded in bits 8..10 of the opcode (resolved at handler entry).  STM
+ * does per-iter write-back of `temp` to bus.reg[regist].I -- matches the
+ * ARMv4 semantics where storing the base register after the first iter
+ * stores the written-back value.  LDM has no per-iter side effect; the
+ * post-loop conditional write-back in the handler handles the base reg
+ * when it's not in the list. */
 
-#define THUMB_LDM_REG(val,r)                                \
-  if(opcode & (val)) {                                      \
-    int dataticks_val;                                      \
-    bus.reg[(r)].I = CPUReadMemory(address);                    \
-    dataticks_val = count ? DATATICKS_ACCESS_32BIT_SEQ(address) : DATATICKS_ACCESS_32BIT(address); \
-    DATATICKS_ACCESS_BUS_PREFETCH(address, dataticks_val); \
-    clockTicks += 1 + dataticks_val; \
-    count++;                                                \
-    address += 4;                                           \
-  }
+#define THUMB_STM_LOOP(b) \
+    do { uint32_t _list = opcode & 0xFFu; \
+         while (_list) { \
+             int _r = CTZ_U32(_list); \
+             int dataticks_val; \
+             CPUWriteMemory(address, bus.reg[_r].I); \
+             bus.reg[(b)].I = temp; \
+             dataticks_val = count ? DATATICKS_ACCESS_32BIT_SEQ(address) \
+                                   : DATATICKS_ACCESS_32BIT(address); \
+             DATATICKS_ACCESS_BUS_PREFETCH(address, dataticks_val); \
+             clockTicks += 1 + dataticks_val; \
+             count++; \
+             address += 4; \
+             _list &= _list - 1u; \
+         } \
+    } while (0)
+
+/* THUMB_LDM_LOOP is structurally identical to POP_LOOP -- iterate bits
+ * 0..7 and load each into the matching low reg.  Kept as an alias for
+ * caller readability. */
+#define THUMB_LDM_LOOP POP_LOOP
 
 /* STM R0~7!, {Rlist} */
 static  void thumbC0(uint32_t opcode)
@@ -6519,14 +6498,7 @@ static  void thumbC0(uint32_t opcode)
   temp = bus.reg[regist].I + 4*cpuBitsSet[opcode & 0xff];
   count = 0;
   /* store */
-  THUMB_STM_REG(1, 0, regist);
-  THUMB_STM_REG(2, 1, regist);
-  THUMB_STM_REG(4, 2, regist);
-  THUMB_STM_REG(8, 3, regist);
-  THUMB_STM_REG(16, 4, regist);
-  THUMB_STM_REG(32, 5, regist);
-  THUMB_STM_REG(64, 6, regist);
-  THUMB_STM_REG(128, 7, regist);
+  THUMB_STM_LOOP(regist);
   clockTicks += 1 + codeTicksAccess(bus.armNextPC, BITS_16);
 }
 
@@ -6543,14 +6515,7 @@ static  void thumbC8(uint32_t opcode)
   temp = bus.reg[regist].I + 4*cpuBitsSet[opcode & 0xFF];
   count = 0;
   /* load */
-  THUMB_LDM_REG(1, 0);
-  THUMB_LDM_REG(2, 1);
-  THUMB_LDM_REG(4, 2);
-  THUMB_LDM_REG(8, 3);
-  THUMB_LDM_REG(16, 4);
-  THUMB_LDM_REG(32, 5);
-  THUMB_LDM_REG(64, 6);
-  THUMB_LDM_REG(128, 7);
+  THUMB_LDM_LOOP;
   clockTicks += 2 + codeTicksAccess(bus.armNextPC, BITS_16);
   if(!(opcode & (1<<regist)))
     bus.reg[regist].I = temp;
