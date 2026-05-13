@@ -4083,75 +4083,163 @@ static  void arm7F6(uint32_t opcode) { LDR_PREINC_WB(OFFSET_ROR, OP_LDRB, 16); }
 
 /* STM/LDM //////////////////////////////////////////////////////////////// */
 
-#define STM_REG(bit,num) \
-    if (opcode & (1U<<(bit))) {                         \
-        int dataticks_value;                            \
-        CPUWriteMemory(address, bus.reg[(num)].I);          \
-	dataticks_value = count ? DATATICKS_ACCESS_32BIT_SEQ(address) : DATATICKS_ACCESS_32BIT(address); \
-	DATATICKS_ACCESS_BUS_PREFETCH(address, dataticks_value); \
-	clockTicks += 1 + dataticks_value; \
-        count++;                                        \
-        address += 4;                                   \
-    }
-#define STMW_REG(bit,num) \
-    if (opcode & (1U<<(bit))) {                         \
-        int dataticks_value;                            \
-        CPUWriteMemory(address, bus.reg[(num)].I);          \
-	dataticks_value = count ? DATATICKS_ACCESS_32BIT_SEQ(address) : DATATICKS_ACCESS_32BIT(address); \
-	DATATICKS_ACCESS_BUS_PREFETCH(address, dataticks_value); \
-	clockTicks += 1 + dataticks_value; \
-        bus.reg[base].I = temp;                             \
-        count++;                                        \
-        address += 4;                                   \
-    }
-#define LDM_REG(bit,num) \
-    if (opcode & (1U<<(bit))) {                         \
-	int dataticks_value; \
-        bus.reg[(num)].I = CPUReadMemory(address); \
-	dataticks_value = count ? DATATICKS_ACCESS_32BIT_SEQ(address) : DATATICKS_ACCESS_32BIT(address); \
-	DATATICKS_ACCESS_BUS_PREFETCH(address, dataticks_value); \
-	clockTicks += 1 + dataticks_value; \
-        count++;                                        \
-        address += 4;                                   \
-    }
-#define STM_LOW(STORE_REG) \
-    STORE_REG(0, 0);                                    \
-    STORE_REG(1, 1);                                    \
-    STORE_REG(2, 2);                                    \
-    STORE_REG(3, 3);                                    \
-    STORE_REG(4, 4);                                    \
-    STORE_REG(5, 5);                                    \
-    STORE_REG(6, 6);                                    \
-    STORE_REG(7, 7);
-#define STM_HIGH(STORE_REG) \
-    STORE_REG(8, 8);                                    \
-    STORE_REG(9, 9);                                    \
-    STORE_REG(10, 10);                                  \
-    STORE_REG(11, 11);                                  \
-    STORE_REG(12, 12);                                  \
-    STORE_REG(13, 13);                                  \
-    STORE_REG(14, 14);
-#define STM_HIGH_2(STORE_REG) \
-    if (armMode == 0x11) {                              \
-        STORE_REG(8, R8_FIQ);                           \
-        STORE_REG(9, R9_FIQ);                           \
-        STORE_REG(10, R10_FIQ);                         \
-        STORE_REG(11, R11_FIQ);                         \
-        STORE_REG(12, R12_FIQ);                         \
-    } else {                                            \
-        STORE_REG(8, 8);                                \
-        STORE_REG(9, 9);                                \
-        STORE_REG(10, 10);                              \
-        STORE_REG(11, 11);                              \
-        STORE_REG(12, 12);                              \
-    }                                                   \
-    if (armMode != 0x10 && armMode != 0x1F) {           \
-        STORE_REG(13, R13_USR);                         \
-        STORE_REG(14, R14_USR);                         \
-    } else {                                            \
-        STORE_REG(13, 13);                              \
-        STORE_REG(14, 14);                              \
-    }
+/* Portable count-trailing-zeros for a uint32_t. Each LDM/STM iterates over
+ * the set bits of the register list (16-bit field in the opcode), pulling
+ * the lowest set bit each step.  list is never zero at the call site (the
+ * while-loop guards it), so the undefined-for-zero case can't arise. */
+#if defined(__GNUC__) || defined(__clang__)
+#define CTZ_U32(x) __builtin_ctz((unsigned int)(x))
+#elif defined(_MSC_VER)
+#include <intrin.h>
+#pragma intrinsic(_BitScanForward)
+static INLINE int _ctz_u32_msvc(uint32_t x)
+{
+    unsigned long idx;
+    _BitScanForward(&idx, x);
+    return (int)idx;
+}
+#define CTZ_U32(x) _ctz_u32_msvc((uint32_t)(x))
+#else
+static INLINE int _ctz_u32_fallback(uint32_t x)
+{
+    int n = 0;
+    while (!(x & 1u)) { x >>= 1; n++; }
+    return n;
+}
+#define CTZ_U32(x) _ctz_u32_fallback((uint32_t)(x))
+#endif
+
+/* Single-register bus access bodies, used inside the loops below.  The
+ * timing logic (`count ? SEQ : NSEQ`) preserves the first-N-then-S access
+ * pattern that the ARM7TDMI prefetcher would produce. */
+#define LDM_LOAD_ONE(reg_idx) do { \
+        int dataticks_value; \
+        bus.reg[(reg_idx)].I = CPUReadMemory(address); \
+        dataticks_value = count ? DATATICKS_ACCESS_32BIT_SEQ(address) \
+                                : DATATICKS_ACCESS_32BIT(address); \
+        DATATICKS_ACCESS_BUS_PREFETCH(address, dataticks_value); \
+        clockTicks += 1 + dataticks_value; \
+        count++; \
+        address += 4; \
+    } while (0)
+
+#define STM_STORE_ONE(reg_idx) do { \
+        int dataticks_value; \
+        CPUWriteMemory(address, bus.reg[(reg_idx)].I); \
+        dataticks_value = count ? DATATICKS_ACCESS_32BIT_SEQ(address) \
+                                : DATATICKS_ACCESS_32BIT(address); \
+        DATATICKS_ACCESS_BUS_PREFETCH(address, dataticks_value); \
+        clockTicks += 1 + dataticks_value; \
+        count++; \
+        address += 4; \
+    } while (0)
+
+#define STMW_STORE_ONE(reg_idx) do { \
+        int dataticks_value; \
+        CPUWriteMemory(address, bus.reg[(reg_idx)].I); \
+        dataticks_value = count ? DATATICKS_ACCESS_32BIT_SEQ(address) \
+                                : DATATICKS_ACCESS_32BIT(address); \
+        DATATICKS_ACCESS_BUS_PREFETCH(address, dataticks_value); \
+        clockTicks += 1 + dataticks_value; \
+        bus.reg[base].I = temp; \
+        count++; \
+        address += 4; \
+    } while (0)
+
+/* Iterate bits 0..7 of the register list -> regs 0..7 (no remap). */
+#define LDM_LOW \
+    do { uint32_t _list = opcode & 0xFFu; \
+         while (_list) { LDM_LOAD_ONE(CTZ_U32(_list)); _list &= _list - 1u; } \
+    } while (0)
+
+/* Iterate bits 8..14 of the register list -> regs 8..14 (no remap). */
+#define LDM_HIGH \
+    do { uint32_t _list = (opcode >> 8) & 0x7Fu; \
+         while (_list) { LDM_LOAD_ONE(CTZ_U32(_list) + 8); _list &= _list - 1u; } \
+    } while (0)
+
+/* Iterate bits 8..14 with S-bit semantics: r8-r12 come from FIQ-banked regs
+ * when in FIQ mode, r13/r14 come from USR-banked regs when not in USR/SYS.
+ * Build a 7-entry mapping once, then loop. */
+#define LDM_HIGH_2 \
+    do { uint8_t _map[7]; uint32_t _list = (opcode >> 8) & 0x7Fu; \
+        if (armMode == 0x11) { \
+            _map[0] = R8_FIQ;  _map[1] = R9_FIQ;  _map[2] = R10_FIQ; \
+            _map[3] = R11_FIQ; _map[4] = R12_FIQ; \
+        } else { \
+            _map[0] = 8;  _map[1] = 9;  _map[2] = 10; \
+            _map[3] = 11; _map[4] = 12; \
+        } \
+        if (armMode != 0x10 && armMode != 0x1F) { \
+            _map[5] = R13_USR; _map[6] = R14_USR; \
+        } else { \
+            _map[5] = 13; _map[6] = 14; \
+        } \
+        while (_list) { int _b = CTZ_U32(_list); \
+            LDM_LOAD_ONE(_map[_b]); _list &= _list - 1u; } \
+    } while (0)
+
+/* STM variants without write-back. */
+#define STM_LOW \
+    do { uint32_t _list = opcode & 0xFFu; \
+         while (_list) { STM_STORE_ONE(CTZ_U32(_list)); _list &= _list - 1u; } \
+    } while (0)
+
+#define STM_HIGH \
+    do { uint32_t _list = (opcode >> 8) & 0x7Fu; \
+         while (_list) { STM_STORE_ONE(CTZ_U32(_list) + 8); _list &= _list - 1u; } \
+    } while (0)
+
+#define STM_HIGH_2 \
+    do { uint8_t _map[7]; uint32_t _list = (opcode >> 8) & 0x7Fu; \
+        if (armMode == 0x11) { \
+            _map[0] = R8_FIQ;  _map[1] = R9_FIQ;  _map[2] = R10_FIQ; \
+            _map[3] = R11_FIQ; _map[4] = R12_FIQ; \
+        } else { \
+            _map[0] = 8;  _map[1] = 9;  _map[2] = 10; \
+            _map[3] = 11; _map[4] = 12; \
+        } \
+        if (armMode != 0x10 && armMode != 0x1F) { \
+            _map[5] = R13_USR; _map[6] = R14_USR; \
+        } else { \
+            _map[5] = 13; _map[6] = 14; \
+        } \
+        while (_list) { int _b = CTZ_U32(_list); \
+            STM_STORE_ONE(_map[_b]); _list &= _list - 1u; } \
+    } while (0)
+
+/* STM variants with per-iteration write-back of `temp` to base register.
+ * Mirrors STMW_REG: temp is idempotent across iters but the write makes
+ * "base in list and not lowest" store the written-back value, matching
+ * ARMv4 semantics. */
+#define STMW_LOW \
+    do { uint32_t _list = opcode & 0xFFu; \
+         while (_list) { STMW_STORE_ONE(CTZ_U32(_list)); _list &= _list - 1u; } \
+    } while (0)
+
+#define STMW_HIGH \
+    do { uint32_t _list = (opcode >> 8) & 0x7Fu; \
+         while (_list) { STMW_STORE_ONE(CTZ_U32(_list) + 8); _list &= _list - 1u; } \
+    } while (0)
+
+#define STMW_HIGH_2 \
+    do { uint8_t _map[7]; uint32_t _list = (opcode >> 8) & 0x7Fu; \
+        if (armMode == 0x11) { \
+            _map[0] = R8_FIQ;  _map[1] = R9_FIQ;  _map[2] = R10_FIQ; \
+            _map[3] = R11_FIQ; _map[4] = R12_FIQ; \
+        } else { \
+            _map[0] = 8;  _map[1] = 9;  _map[2] = 10; \
+            _map[3] = 11; _map[4] = 12; \
+        } \
+        if (armMode != 0x10 && armMode != 0x1F) { \
+            _map[5] = R13_USR; _map[6] = R14_USR; \
+        } else { \
+            _map[5] = 13; _map[6] = 14; \
+        } \
+        while (_list) { int _b = CTZ_U32(_list); \
+            STMW_STORE_ONE(_map[_b]); _list &= _list - 1u; } \
+    } while (0)
+
 #define STM_PC \
     if (opcode & (1U<<15)) {                            \
         int dataticks_value;                            \
@@ -4171,51 +4259,13 @@ static  void arm7F6(uint32_t opcode) { LDR_PREINC_WB(OFFSET_ROR, OP_LDRB, 16); }
         bus.reg[base].I = temp;                             \
         count++;                                        \
     }
-#define LDM_LOW \
-    LDM_REG(0, 0);                                      \
-    LDM_REG(1, 1);                                      \
-    LDM_REG(2, 2);                                      \
-    LDM_REG(3, 3);                                      \
-    LDM_REG(4, 4);                                      \
-    LDM_REG(5, 5);                                      \
-    LDM_REG(6, 6);                                      \
-    LDM_REG(7, 7);
-#define LDM_HIGH \
-    LDM_REG(8, 8);                                      \
-    LDM_REG(9, 9);                                      \
-    LDM_REG(10, 10);                                    \
-    LDM_REG(11, 11);                                    \
-    LDM_REG(12, 12);                                    \
-    LDM_REG(13, 13);                                    \
-    LDM_REG(14, 14);
-#define LDM_HIGH_2 \
-    if (armMode == 0x11) {                              \
-        LDM_REG(8, R8_FIQ);                             \
-        LDM_REG(9, R9_FIQ);                             \
-        LDM_REG(10, R10_FIQ);                           \
-        LDM_REG(11, R11_FIQ);                           \
-        LDM_REG(12, R12_FIQ);                           \
-    } else {                                            \
-        LDM_REG(8, 8);                                  \
-        LDM_REG(9, 9);                                  \
-        LDM_REG(10, 10);                                \
-        LDM_REG(11, 11);                                \
-        LDM_REG(12, 12);                                \
-    }                                                   \
-    if (armMode != 0x10 && armMode != 0x1F) {           \
-        LDM_REG(13, R13_USR);                           \
-        LDM_REG(14, R14_USR);                           \
-    } else {                                            \
-        LDM_REG(13, 13);                                \
-        LDM_REG(14, 14);                                \
-    }
 #define STM_ALL \
-    STM_LOW(STM_REG);                                   \
-    STM_HIGH(STM_REG);                                  \
+    STM_LOW;                                            \
+    STM_HIGH;                                           \
     STM_PC;
 #define STMW_ALL \
-    STM_LOW(STMW_REG);                                  \
-    STM_HIGH(STMW_REG);                                 \
+    STMW_LOW;                                           \
+    STMW_HIGH;                                          \
     STMW_PC;
 #define LDM_ALL \
     LDM_LOW;                                            \
@@ -4235,12 +4285,12 @@ static  void arm7F6(uint32_t opcode) { LDR_PREINC_WB(OFFSET_ROR, OP_LDRB, 16); }
         clockTicks += CLOCKTICKS_UPDATE_TYPE32;\
     }
 #define STM_ALL_2 \
-    STM_LOW(STM_REG);                                   \
-    STM_HIGH_2(STM_REG);                                \
+    STM_LOW;                                            \
+    STM_HIGH_2;                                         \
     STM_PC;
 #define STMW_ALL_2 \
-    STM_LOW(STMW_REG);                                  \
-    STM_HIGH_2(STMW_REG);                               \
+    STMW_LOW;                                           \
+    STMW_HIGH_2;                                        \
     STMW_PC;
 #define LDM_ALL_2 \
     LDM_LOW;                                            \
