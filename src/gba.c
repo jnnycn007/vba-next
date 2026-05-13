@@ -612,7 +612,7 @@ static uint16_t io_registers[0x200];
 /* Fast implementation of ternary operator. */
 /* Implemented as a function (as opposed to a macro) to avoid */
 /* evaluating the parameters more than once. */
-uint32_t FORCE_INLINE SELECT(bool condition, uint32_t ifTrue, uint32_t ifFalse)
+FORCE_INLINE uint32_t SELECT(bool condition, uint32_t ifTrue, uint32_t ifFalse)
 {
 	/* Will be 0 if condition==true or 0xFFFFFFFF */
 	/* if condition==false. */
@@ -846,78 +846,6 @@ static uint32_t cpuDmaPC = 0;
 static bool cpuDmaRunning = false;
 
 static const uint32_t  objTilesAddress [3] = {0x010000, 0x014000, 0x014000};
-
-#if 0
-static uint8_t* CPUDecodeAddress(uint32_t address)
-{
-	switch(address >> 24) {
-		case 0:
-			/* BIOS */
-			if(bus.reg[15].I >> 24) {
-				if(address < 0x4000)
-					return biosProtected;
-				else
-					goto unreadable;
-			} else
-				return bios + (address & 0x3FFC);
-		case 0x02:
-			/* external work RAM */
-			return workRAM + (address & 0x3FFFC);
-		case 0x03:
-			/* internal work RAM */
-			return internalRAM + (address & 0x7ffC);
-		case 0x04:
-			/* I/O registers */
-			if((address < 0x4000400) && ioReadable[address & 0x3fc]) {
-				if(ioReadable[(address & 0x3fc) + 2])
-					return ioMem + (address & 0x3fC);
-            return ioMem + (address & 0x3fc);
-			}
-			else
-				goto unreadable;
-			break;
-		case 0x05:
-			/* palette RAM */
-			return paletteRAM + (address & 0x3fC);
-		case 0x06:
-			/* VRAM */
-			address = (address & 0x1fffc);
-			if ((R_DISPCNT_Video_Mode >2) && ((address & 0x1C000) == 0x18000))
-				break;
-			if ((address & 0x18000) == 0x18000)
-				address &= 0x17fff;
-			return vram + address;
-		case 0x07:
-			/* OAM RAM */
-			return oam + (address & 0x3FC);
-		case 0x08:
-		case 0x09:
-		case 0x0A:
-		case 0x0B:
-		case 0x0C:
-			/* gamepak ROM */
-			return rom + (address & 0x1FFFFFC);
-		case 0x0D:
-        	/*value = eepromRead(); */
-			break;
-		case 14:
-      	case 15:
-			/*value = flashRead(address) * 0x01010101; */
-			break;
-		default:
-unreadable:
-			/*
-			if(armState)
-				value = CPUReadHalfWordQuick(bus.reg[15].I + (address & 2));
-			else
-				value = CPUReadHalfWordQuick(bus.reg[15].I);
-			*/
-			break;
-	}
-
-	return NULL;
-}
-#endif
 
 static INLINE uint32_t CPUReadMemory(uint32_t address)
 {
@@ -5009,7 +4937,7 @@ static insnfunc_t armInsnTable[4096] =
 };
 
 /* Emulates the Cheat System (m) code */
-static INLINE void cpuMasterCodeCheck()
+static INLINE void cpuMasterCodeCheck(void)
 {
    if((mastercode) && (mastercode == bus.armNextPC))
    {
@@ -5051,10 +4979,6 @@ static int armExecute (void)
       bus.busPrefetch = false;
       busprefetch_mask = ((bus.busPrefetchCount & 0xFFFFFE00) | -(bus.busPrefetchCount & 0xFFFFFE00)) >> 31;
       bus.busPrefetchCount = ((0x100 | (bus.busPrefetchCount & 0xFF)) & busprefetch_mask) | (bus.busPrefetchCount & ~busprefetch_mask);
-#if 0
-      if (bus.busPrefetchCount & 0xFFFFFE00)
-         bus.busPrefetchCount = 0x100 | (bus.busPrefetchCount & 0xFF);
-#endif
 
 
       oldArmNextPC = bus.armNextPC;
@@ -6809,19 +6733,11 @@ static int thumbExecute (void)
       cpuMasterCodeCheck();
 #endif
 
-#if 0
-      if ((bus.armNextPC & 0x0803FFFF) == 0x08020000)
-         bus.busPrefetchCount=0x100;
-#endif
 
       opcode = cpuPrefetch[0];
       cpuPrefetch[0] = cpuPrefetch[1];
 
       bus.busPrefetch = false;
-#if 0
-      if (bus.busPrefetchCount & 0xFFFFFF00)
-         bus.busPrefetchCount = 0x100 | (bus.busPrefetchCount & 0xFF);
-#endif
 
       oldArmNextPC = bus.armNextPC;
 
@@ -6918,24 +6834,26 @@ struct TileLine
 };
 typedef struct TileLine TileLine;
 
-typedef const TileLine (*TileReader) (const uint16_t *, const int, const uint8_t *, uint16_t *, const uint32_t);
+typedef TileLine (*TileReader) (const uint16_t *, const int, const uint8_t *, uint16_t *, const uint32_t);
 
 static INLINE void gfxDrawPixel(uint32_t *dest, const uint8_t color, const uint16_t *palette, const uint32_t prio)
 {
    *dest = color ? (palette[color] | prio): 0x80000000;
 }
 
-static INLINE const TileLine gfxReadTile(const uint16_t *screenSource, const int yyy, const uint8_t *charBase, uint16_t *palette, const uint32_t prio)
+static INLINE TileLine gfxReadTile(const uint16_t *screenSource, const int yyy, const uint8_t *charBase, uint16_t *palette, const uint32_t prio)
 {
    int tileY;
-   TileLine tileLine;
+   /* Zero-init suppresses a false-positive uninitialized warning: every
+    * field is written by the gfxDrawPixel calls below before any read,
+    * but the compiler can't see that through the pointer-to-field. */
+   TileLine tileLine = {{0}};
    TileEntry tile;
    const uint8_t *tileBase;
    tile.val = READ16LE(screenSource);
 
    tileY = yyy & 7;
    if (tile.vFlip) tileY = 7 - tileY;
-   tileLine = tileLine;
 
    tileBase = &charBase[tile.tileNum * 64 + tileY * 8];
 
@@ -6965,10 +6883,12 @@ static INLINE const TileLine gfxReadTile(const uint16_t *screenSource, const int
    return tileLine;
 }
 
-static INLINE const TileLine gfxReadTilePal(const uint16_t *screenSource, const int yyy, const uint8_t *charBase, uint16_t *palette, const uint32_t prio)
+static INLINE TileLine gfxReadTilePal(const uint16_t *screenSource, const int yyy, const uint8_t *charBase, uint16_t *palette, const uint32_t prio)
 {
    int tileY;
-   TileLine tileLine;
+   /* Zero-init suppresses a false-positive uninitialized warning; see
+    * the matching note in gfxReadTile above. */
+   TileLine tileLine = {{0}};
    TileEntry tile;
    const u8h *tileBase;
    tile.val = READ16LE(screenSource);
@@ -6976,7 +6896,6 @@ static INLINE const TileLine gfxReadTilePal(const uint16_t *screenSource, const 
    tileY = yyy & 7;
    if (tile.vFlip) tileY = 7 - tileY;
    palette += tile.palette * 16;
-   tileLine = tileLine;
 
    tileBase = (u8h*) &charBase[tile.tileNum * 32 + tileY * 4];
 

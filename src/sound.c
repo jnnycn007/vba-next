@@ -546,6 +546,7 @@ static void gb_apu_run_until_( int32_t end_time )
 			case 6:
 				/* 128 Hz*/
 				Gb_Sweep_Square_clock_sweep(&gb_apu.square1);
+				/* fallthrough -- 128 Hz steps also clock the 256 Hz length counters */
 			case 0:
 			case 4:
 				/* 256 Hz*/
