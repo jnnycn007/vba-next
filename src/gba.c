@@ -76,8 +76,11 @@ typedef void (*renderfunc_t)(int renderer_idx);
 
 renderfunc_t GetRenderFunc(int renderer_idx, int mode, int type);
 
-INLINE static long max(int p, int q) { return p > q ? p : q; }
-INLINE static long min(int p, int q) { return p < q ? p : q; }
+/* `INLINE static` is the wrong order for MSVC's `_inline` extension keyword
+ * (used in MSVC 2005 builds via `-DINLINE=_inline`); `static _inline` is the
+ * accepted form.  Every other site in the file uses `static INLINE` already. */
+static INLINE long max(int p, int q) { return p > q ? p : q; }
+static INLINE long min(int p, int q) { return p < q ? p : q; }
 
 uint8_t *rom = 0;
 uint8_t *bios = 0;
@@ -7276,12 +7279,24 @@ void gfxDrawTextScreen(int layer, int renderer_idx, uint16_t control, uint16_t h
 
 static INLINE void gfxDrawTextScreen(int layer, int renderer_idx, uint16_t control, uint16_t hofs, uint16_t vofs)
 {
-  uint16_t *palette = PAL_U16;
+  uint16_t *palette;
   uint8_t *charBase = &vram[((control >> 2) & 0x03) * 0x4000];
   uint16_t *screenBase = (uint16_t *)&vram[((control >> 8) & 0x1f) * 0x800];
   uint32_t prio = ((control & 3)<<25) + 0x1000000;
   int sizeX = 256;
   int sizeY = 256;
+  int maskX;
+  int maskY;
+  bool mosaicOn;
+  int xxx;
+  int yyy;
+  int mosaicX;
+  int mosaicY;
+  int yshift;
+  int x;
+  uint16_t *screenSource;
+  INIT_RENDERER_CONTEXT(renderer_idx);
+  palette = PAL_U16;
   switch((control >> 14) & 3) {
   case 0:
     break;
@@ -7297,15 +7312,15 @@ static INLINE void gfxDrawTextScreen(int layer, int renderer_idx, uint16_t contr
     break;
   }
 
-  int maskX = sizeX-1;
-  int maskY = sizeY-1;
+  maskX = sizeX-1;
+  maskY = sizeY-1;
 
-  bool mosaicOn = (control & 0x40) ? true : false;
+  mosaicOn = (control & 0x40) ? true : false;
 
-  int xxx = hofs & maskX;
-  int yyy = (vofs + RENDERER_R_VCOUNT) & maskY;
-  int mosaicX = (RENDERER_MOSAIC & 0x000F)+1;
-  int mosaicY = ((RENDERER_MOSAIC & 0x00F0)>>4)+1;
+  xxx = hofs & maskX;
+  yyy = (vofs + RENDERER_R_VCOUNT) & maskY;
+  mosaicX = (RENDERER_MOSAIC & 0x000F)+1;
+  mosaicY = ((RENDERER_MOSAIC & 0x00F0)>>4)+1;
 
   if(mosaicOn) {
     if((RENDERER_R_VCOUNT % mosaicY) != 0) {
@@ -7321,16 +7336,15 @@ static INLINE void gfxDrawTextScreen(int layer, int renderer_idx, uint16_t contr
       screenBase += 0x400;
   }
 
-  int yshift = ((yyy>>3)<<5);
+  yshift = ((yyy>>3)<<5);
   if((control) & 0x80) {
-    int x;
-    uint16_t *screenSource = screenBase + 0x400 * (xxx>>8) + ((xxx & 255)>>3) + yshift;
+    screenSource = screenBase + 0x400 * (xxx>>8) + ((xxx & 255)>>3) + yshift;
     for(x = 0; x < 240; x++) {
       uint16_t data = READ16LE(screenSource);
-
       int tile = data & 0x3FF;
       int tileX = (xxx & 7);
       int tileY = yyy & 7;
+      uint8_t color;
 
       if(tileX == 7)
         screenSource++;
@@ -7340,7 +7354,7 @@ static INLINE void gfxDrawTextScreen(int layer, int renderer_idx, uint16_t contr
       if(data & 0x0800)
         tileY = 7 - tileY;
 
-      uint8_t color = charBase[tile * 64 + tileY * 8 + tileX];
+      color = charBase[tile * 64 + tileY * 8 + tileX];
 
       RENDERER_LINE[layer][x] = color ? (palette[color] | prio): 0x80000000;
 
@@ -7358,14 +7372,15 @@ static INLINE void gfxDrawTextScreen(int layer, int renderer_idx, uint16_t contr
       }
     }
   } else {
-    uint16_t *screenSource = screenBase + 0x400*(xxx>>8)+((xxx&255)>>3) +
+    screenSource = screenBase + 0x400*(xxx>>8)+((xxx&255)>>3) +
       yshift;
     for(x = 0; x < 240; x++) {
       uint16_t data = READ16LE(screenSource);
-
       int tile = data & 0x3FF;
       int tileX = (xxx & 7);
       int tileY = yyy & 7;
+      uint8_t color;
+      int pal;
 
       if(tileX == 7)
         screenSource++;
@@ -7375,7 +7390,7 @@ static INLINE void gfxDrawTextScreen(int layer, int renderer_idx, uint16_t contr
       if(data & 0x0800)
         tileY = 7 - tileY;
 
-      uint8_t color = charBase[(tile<<5) + (tileY<<2) + (tileX>>1)];
+      color = charBase[(tile<<5) + (tileY<<2) + (tileX>>1)];
 
       if(tileX & 1) {
         color = (color >> 4);
@@ -7383,7 +7398,7 @@ static INLINE void gfxDrawTextScreen(int layer, int renderer_idx, uint16_t contr
         color &= 0x0F;
       }
 
-      int pal = (data>>8) & 0xF0;
+      pal = (data>>8) & 0xF0;
       RENDERER_LINE[layer][x] = color ? (palette[pal + color]|prio): 0x80000000;
 
       xxx++;
