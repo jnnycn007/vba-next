@@ -7149,7 +7149,7 @@ static void gfxDrawTextScreenImpl(TileReader readTile, int layer, int renderer_i
    }
 }
 
-void gfxDrawTextScreen(int layer, int renderer_idx, uint16_t control, uint16_t hofs, uint16_t vofs)
+static void gfxDrawTextScreen(int layer, int renderer_idx, uint16_t control, uint16_t hofs, uint16_t vofs)
 {
    if (control & 0x80) /* 1 pal / 256 col */
       gfxDrawTextScreenImpl(gfxReadTile, layer, renderer_idx, control, hofs, vofs);
@@ -12074,7 +12074,7 @@ static void CPUSwitchMode(int mode, bool saveState, bool breakLoop)
 
 
 
-void doDMA(uint32_t *p_s, uint32_t *p_d, uint32_t si, uint32_t di, uint32_t c, int transfer32)
+static void doDMA(uint32_t *p_s, uint32_t *p_d, uint32_t si, uint32_t di, uint32_t c, int transfer32)
 {
 	uint32_t s = *p_s;
 	uint32_t d = *p_d;
@@ -14739,7 +14739,15 @@ int cheatsCheckKeys(uint32_t keys, uint32_t extended)
       case GSA_32_BIT_WRITE_IOREGS:
         if (cheatsList[i].address<=0x3FF)
         {
-          if (((cheatsList[i].address & 0x3FC) != 0x6) && ((cheatsList[i].address & 0x3FC) != 0x130))
+          /* Exclude 32-bit writes that would clobber REG_VCOUNT (0x006) or
+           * REG_KEYINPUT (0x130).  The 4-byte block containing VCOUNT is
+           * aligned at 0x004 (it shares the word with DISPSTAT at 0x004).
+           * The original check compared `addr & 0x3FC` against 0x6, which
+           * is unreachable post-mask (bit 1 is always cleared) -- so the
+           * VCOUNT guard was always-true and never excluded anything.  The
+           * +2 second-half guard is fine: `(addr & 0x3FC) + 2` reaches 0x6
+           * legitimately when the source word lies at 0x4. */
+          if (((cheatsList[i].address & 0x3FC) != 0x4) && ((cheatsList[i].address & 0x3FC) != 0x130))
             ioMem[cheatsList[i].address & 0x3FC]= (cheatsList[i].value & 0xFFFF);
           if ((((cheatsList[i].address & 0x3FC)+2) != 0x6) && ((cheatsList[i].address & 0x3FC) +2) != 0x130)
             ioMem[(cheatsList[i].address & 0x3FC) + 2 ]= ((cheatsList[i].value>>16 ) & 0xFFFF);
@@ -15049,7 +15057,7 @@ void cheatsDeleteAll(bool restore)
   }
 }
 
-uint16_t cheatsGSAGetDeadface(bool v3)
+static uint16_t cheatsGSAGetDeadface(bool v3)
 {
   int i;
   for(i = cheatsNumber-1; i >= 0; i--)
@@ -15058,7 +15066,7 @@ uint16_t cheatsGSAGetDeadface(bool v3)
 	return 0;
 }
 
-void cheatsGSAChangeEncryption(uint16_t value, bool v3) {
+static void cheatsGSAChangeEncryption(uint16_t value, bool v3) {
 	int i;
 	uint8_t *deadtable1, *deadtable2;
 
@@ -15087,7 +15095,7 @@ uint32_t seed_gen(uint8_t upper, uint8_t seed, uint8_t *deadtable1, uint8_t *dea
 	return newseed;
 }
 
-void cheatsDecryptGSACode(uint32_t *address, uint32_t *value, bool v3)
+static void cheatsDecryptGSACode(uint32_t *address, uint32_t *value, bool v3)
 {
   uint32_t rollingseed = 0xC6EF3720;
   uint32_t *seeds = v3 ? seeds_v3 : seeds_v1;
@@ -15598,7 +15606,7 @@ void cheatsAddGSACode(const char *code, const char *desc, bool v3)
   }
 }
 
-void cheatsCBAReverseArray(uint8_t *array, uint8_t *dest)
+static void cheatsCBAReverseArray(uint8_t *array, uint8_t *dest)
 {
   dest[0] = array[3];
   dest[1] = array[2];
@@ -15608,7 +15616,7 @@ void cheatsCBAReverseArray(uint8_t *array, uint8_t *dest)
   dest[5] = array[4];
 }
 
-void chatsCBAScramble(uint8_t *array, int count, uint8_t b)
+static void chatsCBAScramble(uint8_t *array, int count, uint8_t b)
 {
   uint8_t *x = array + (count >> 3);
   uint8_t *y = array + (b >> 3);
@@ -15626,17 +15634,17 @@ void chatsCBAScramble(uint8_t *array, int count, uint8_t b)
   *y = temp;
 }
 
-uint32_t cheatsCBAGetValue(uint8_t *array)
+static uint32_t cheatsCBAGetValue(uint8_t *array)
 {
   return array[0] | array[1]<<8 | array[2] << 16 | array[3]<<24;
 }
 
-uint16_t cheatsCBAGetData(uint8_t *array)
+static uint16_t cheatsCBAGetData(uint8_t *array)
 {
   return array[4] | array[5]<<8;
 }
 
-void cheatsCBAArrayToValue(uint8_t *array, uint8_t *dest)
+static void cheatsCBAArrayToValue(uint8_t *array, uint8_t *dest)
 {
   dest[0] = array[3];
   dest[1] = array[2];
@@ -15646,7 +15654,7 @@ void cheatsCBAArrayToValue(uint8_t *array, uint8_t *dest)
   dest[5] = array[4];
 }
 
-void cheatsCBAParseSeedCode(uint32_t address, uint32_t value, uint32_t *array)
+static void cheatsCBAParseSeedCode(uint32_t address, uint32_t value, uint32_t *array)
 {
   array[0] = 1;
   array[1] = value & 0xFF;
@@ -15658,7 +15666,7 @@ void cheatsCBAParseSeedCode(uint32_t address, uint32_t value, uint32_t *array)
   array[7] = value;
 }
 
-uint32_t cheatsCBAEncWorker(void)
+static uint32_t cheatsCBAEncWorker(void)
 {
   uint32_t x = (cheatsCBATemporaryValue * 0x41c64e6d) + 0x3039;
   uint32_t y = (x * 0x41c64e6d) + 0x3039;
@@ -15672,7 +15680,7 @@ uint32_t cheatsCBAEncWorker(void)
 
 #define ROR(v, s) (((v) >> (s)) | (((v) & ((1 << (s))-1)) << (32 - (s))))
 
-uint32_t cheatsCBACalcIndex(uint32_t x, uint32_t y)
+static uint32_t cheatsCBACalcIndex(uint32_t x, uint32_t y)
 {
   uint32_t x0;
   uint32_t z;
@@ -15753,7 +15761,7 @@ uint32_t cheatsCBACalcIndex(uint32_t x, uint32_t y)
   return 0;
 }
 
-void cheatsCBAUpdateSeedBuffer(uint32_t a, uint8_t *buffer, int count)
+static void cheatsCBAUpdateSeedBuffer(uint32_t a, uint8_t *buffer, int count)
 {
   int i;
   for(i = 0; i < count; i++)
@@ -15767,7 +15775,7 @@ void cheatsCBAUpdateSeedBuffer(uint32_t a, uint8_t *buffer, int count)
   }
 }
 
-void cheatsCBAChangeEncryption(uint32_t *seed)
+static void cheatsCBAChangeEncryption(uint32_t *seed)
 {
   int i;
 
@@ -15793,7 +15801,7 @@ void cheatsCBAChangeEncryption(uint32_t *seed)
   *((uint32_t *)&cheatsCBACurrentSeed[8]) = 0;
 }
 
-uint16_t cheatsCBAGenValue(uint32_t x, uint32_t y, uint32_t z)
+static uint16_t cheatsCBAGenValue(uint32_t x, uint32_t y, uint32_t z)
 {
   int i;
   uint32_t x0;
@@ -15819,7 +15827,7 @@ uint16_t cheatsCBAGenValue(uint32_t x, uint32_t y, uint32_t z)
   return z & 0xffff;
 }
 
-void cheatsCBAGenTable(void)
+static void cheatsCBAGenTable(void)
 {
   int i;
   for(i = 0; i < 0x100; i++)
@@ -15827,7 +15835,7 @@ void cheatsCBAGenTable(void)
   cheatsCBATableGenerated = true;
 }
 
-uint16_t cheatsCBACalcCRC(uint8_t *rom, int count)
+static uint16_t cheatsCBACalcCRC(uint8_t *rom, int count)
 {
   uint32_t crc = 0xffffffff;
 
@@ -15852,7 +15860,7 @@ uint16_t cheatsCBACalcCRC(uint8_t *rom, int count)
   return crc & 0xffff;
 }
 
-void cheatsCBADecrypt(uint8_t *decrypt)
+static void cheatsCBADecrypt(uint8_t *decrypt)
 {
   int count, i, j;
   uint8_t buffer[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
@@ -15888,7 +15896,7 @@ void cheatsCBADecrypt(uint8_t *decrypt)
                            ^ cheatsCBASeed[3]) & 0xffff;
 }
 
-int cheatsCBAGetCount(void)
+static int cheatsCBAGetCount(void)
 {
   int i;
   int count = 0;
@@ -15900,7 +15908,7 @@ int cheatsCBAGetCount(void)
   return count;
 }
 
-bool cheatsCBAShouldDecrypt(void)
+static bool cheatsCBAShouldDecrypt(void)
 {
   int i;
   for(i = 0; i < cheatsNumber; i++)

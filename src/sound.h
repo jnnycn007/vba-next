@@ -49,14 +49,6 @@
 #define MIXED_TYPE	WAVE_TYPE | NOISE_TYPE
 #define TYPE_INDEX_MASK	0xFF
 
-struct blip_buffer_state_t
-{
-        uint32_t offset_;
-        int32_t reader_accum_;
-        int32_t buf [BLIP_BUFFER_EXTRA_];
-};
-typedef struct blip_buffer_state_t blip_buffer_state_t;
-
 
 /* Declares the reader's local working variables.  Must be placed at the
  * top of the block (C89 forbids mixing declarations with statements);

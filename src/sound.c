@@ -159,11 +159,9 @@ static void Gb_Noise_run(Gb_Noise *self, int32_t time, int32_t end_time);
 static int  Gb_Wave_access(const Gb_Wave *self, unsigned addr);
 static void Gb_Wave_run(Gb_Wave *self, int32_t time, int32_t end_time);
 
-static void Blip_Buffer_init(Blip_Buffer *self);
 static void Blip_Buffer_destroy(Blip_Buffer *self);
 static void Blip_Buffer_clear(Blip_Buffer *self);
 static const char * Blip_Buffer_set_sample_rate(Blip_Buffer *self, long new_rate, int msec);
-static void Blip_Synth_init(Blip_Synth *self);
 
 /*============================================================
 	RESET FREE FUNCTIONS (formerly in-class inline)
@@ -1132,21 +1130,6 @@ static bool Gb_Square_write_register(Gb_Square *self, int frame_phase, int reg, 
 }
 
 
-static void Gb_Wave_corrupt_wave(Gb_Wave *self)
-{
-        int pos = ((self->phase + 1) & BANK_SIZE_MIN_ONE) >> 1;
-        if ( pos < 4 )
-                self->wave_ram [0] = self->wave_ram [pos];
-        else
-	{
-                int i;
-                for ( i = 4; --i >= 0; )
-                        self->wave_ram [i] = self->wave_ram [(pos & ~3) + i];
-	}
-}
-
-/* Synthesis*/
-
 static void Gb_Square_run(Gb_Square *self, int32_t time, int32_t end_time)
 {
         int ph;
@@ -1519,18 +1502,6 @@ static void Blip_Buffer_clear(Blip_Buffer *self)
       memset( self->buffer_, 0, (self->buffer_size_ + BLIP_BUFFER_EXTRA_) * sizeof (int32_t) );
 }
 
-static void Blip_Buffer_init(Blip_Buffer *self)
-{
-   self->factor_       = INT_MAX;
-   self->buffer_       = 0;
-   self->buffer_size_  = 0;
-   self->sample_rate_  = 0;
-   self->clock_rate_   = 0;
-   self->length_       = 0;
-
-   Blip_Buffer_clear( self );
-}
-
 static void Blip_Buffer_destroy(Blip_Buffer *self)
 {
    if (self->buffer_)
@@ -1584,32 +1555,6 @@ static uint32_t Blip_Buffer_clock_rate_factor(const Blip_Buffer *self, long rate
    return (uint32_t) factor;
 }
 
-
-/*============================================================
-	BLIP SYNTH
-============================================================ */
-
-static void Blip_Synth_init(Blip_Synth *self)
-{
-        self->buf          = 0;
-        self->delta_factor = 0;
-}
-
-static void Blip_Buffer_save_state(const Blip_Buffer *self, blip_buffer_state_t* out)
-{
-        out->offset_       = self->offset_;
-        out->reader_accum_ = self->reader_accum_;
-        memcpy( out->buf, &self->buffer_ [self->offset_ >> BLIP_BUFFER_ACCURACY], sizeof out->buf );
-}
-
-static void Blip_Buffer_load_state(Blip_Buffer *self, blip_buffer_state_t const* in)
-{
-        Blip_Buffer_clear( self );
-
-        self->offset_       = in->offset_;
-        self->reader_accum_ = in->reader_accum_;
-        memcpy( self->buffer_, in->buf, sizeof(in->buf));
-}
 
 /*============================================================
 	STEREO BUFFER
