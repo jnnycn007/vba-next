@@ -41,8 +41,8 @@
 #define BANK_SIZE_MIN_ONE 31
 #define BANK_SIZE_DIV_TWO 16
 
-/* 11-bit frequency in NRx3 and NRx4*/
-#define GB_OSC_FREQUENCY() (((regs[4] & 7) << 8) + regs[3])
+/* 11-bit frequency in NRx3 and NRx4 (takes the struct pointer like the others above) */
+#define GB_OSC_FREQUENCY(self) ((((self)->regs[4] & 7) << 8) + (self)->regs[3])
 
 #define	WAVE_TYPE	0x100
 #define NOISE_TYPE	0x200
@@ -55,6 +55,7 @@ struct blip_buffer_state_t
         int32_t reader_accum_;
         int32_t buf [BLIP_BUFFER_EXTRA_];
 };
+typedef struct blip_buffer_state_t blip_buffer_state_t;
 
 
 /* Begins reading from buffer. Name should be unique to the current block.*/
@@ -90,16 +91,18 @@ struct blip_buffer_state_t
 
 /* Clamp sample to int16_t range */
 #define BLIP_CLAMP( sample, out ) { if ( BLIP_CLAMP_( (sample) ) ) (out) = ((sample) >> 24) ^ 0x7FFF; }
-#define GB_ENV_DAC_ENABLED() (regs[2] & 0xF8)	/* Non-zero if DAC is enabled*/
-#define GB_NOISE_PERIOD2_INDEX()	(regs[3] >> 4)
-#define GB_NOISE_PERIOD2(base)		(base << GB_NOISE_PERIOD2_INDEX())
-#define GB_NOISE_LFSR_MASK()		((regs[3] & 0x08) ? ~0x4040 : ~0x4000)
-#define GB_WAVE_DAC_ENABLED() (regs[0] & 0x80)	/* Non-zero if DAC is enabled*/
+/* Macros below took an implicit `this` in their original C++ form; the C
+ * port passes the struct pointer explicitly. */
+#define GB_ENV_DAC_ENABLED(self) ((self)->regs[2] & 0xF8)	/* Non-zero if DAC is enabled*/
+#define GB_NOISE_PERIOD2_INDEX(self)	((self)->regs[3] >> 4)
+#define GB_NOISE_PERIOD2(self, base)	((base) << GB_NOISE_PERIOD2_INDEX(self))
+#define GB_NOISE_LFSR_MASK(self)	(((self)->regs[3] & 0x08) ? ~0x4040 : ~0x4000)
+#define GB_WAVE_DAC_ENABLED(self) ((self)->regs[0] & 0x80)	/* Non-zero if DAC is enabled*/
 
-#define reload_sweep_timer() \
-        sweep_delay = (regs [0] & PERIOD_MASK) >> 4; \
-        if ( !sweep_delay ) \
-                sweep_delay = 8;
+#define reload_sweep_timer(self) \
+        (self)->sweep_delay = ((self)->regs [0] & PERIOD_MASK) >> 4; \
+        if ( !(self)->sweep_delay ) \
+                (self)->sweep_delay = 8;
 
 void soundSetVolume(float unused);
 

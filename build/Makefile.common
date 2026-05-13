@@ -45,9 +45,9 @@ ifeq ($(TILED_RENDERING), 1)
 COREDEFINES += -DTILED_RENDERING
 endif
 
-SOURCES_CXX := \
-	$(CORE_DIR)/src/sound.cpp
+SOURCES_CXX :=
 SOURCES_C   := \
+	$(CORE_DIR)/src/sound.c \
 	$(CORE_DIR)/src/memory.c \
 	$(CORE_DIR)/src/gba.c \
 	$(CORE_DIR)/src/system.c \
