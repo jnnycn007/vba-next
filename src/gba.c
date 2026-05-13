@@ -76,11 +76,9 @@ typedef void (*renderfunc_t)(int renderer_idx);
 
 renderfunc_t GetRenderFunc(int renderer_idx, int mode, int type);
 
-/* `INLINE static` is the wrong order for MSVC's `_inline` extension keyword
- * (used in MSVC 2005 builds via `-DINLINE=_inline`); `static _inline` is the
- * accepted form.  Every other site in the file uses `static INLINE` already. */
-static INLINE long max(int p, int q) { return p > q ? p : q; }
-static INLINE long min(int p, int q) { return p < q ? p : q; }
+/* (max/min helpers removed; their two call sites in gfxDrawRotScreen
+ * inline the ternary directly to avoid colliding with MSVC's
+ * <stdlib.h> max/min macros and to drop the unused helper symbols.) */
 
 uint8_t *rom = 0;
 uint8_t *bios = 0;
@@ -7690,8 +7688,12 @@ uint16_t pa,  uint16_t pb, uint16_t pc,  uint16_t pd, int *p_currentX, int *p_cu
 			tileY = yyy & 7;
 			tileYshift = (tileY<<3);
 
-			x0 = max(  0, (int32_t)(             + (-realX + dx - 1)) / dx);
-			x1 = min(240, (int32_t)((sizeX << 8) + (-realX + dx - 1)) / dx);
+			{
+				int32_t a = (int32_t)(             + (-realX + dx - 1)) / dx;
+				int32_t b = (int32_t)((sizeX << 8) + (-realX + dx - 1)) / dx;
+				x0 = a >   0 ? a :   0;
+				x1 = b < 240 ? b : 240;
+			}
 
 			realX += dx * x0;
 
