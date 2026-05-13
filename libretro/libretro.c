@@ -495,6 +495,7 @@ static void gba_init(void)
     * is ~570KB; 700KB gives ~25% headroom. retro_serialize then uses the
     * measured size for the actual user-visible save buffer. */
    #define SERIALIZE_DRYRUN_CAP 700000u
+   state_buf = (uint8_t *)malloc(SERIALIZE_DRYRUN_CAP);
    if (!state_buf) {
       /* Out of memory at boot - fall back to a conservative constant.
        * Frontends will still get a valid (oversized) buffer from retro_serialize. */
@@ -526,6 +527,7 @@ void retro_deinit(void)
 #endif
 
 	CPUCleanUp();
+	soundCleanUp();
 
    libretro_supports_bitmasks = false;
 }

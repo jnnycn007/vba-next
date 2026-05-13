@@ -131,6 +131,14 @@ void soundPause (void);
 void soundResume (void);
 void soundSetSampleRate(long sampleRate);
 void soundReset (void);
+/* Frees the heap-allocated blip-buffer storage owned by the audio
+ * pipeline (the 3 stereo_buffer entries each hold ~32 KB at 32 kHz /
+ * 250 ms = ~96 KB total).  Call from retro_deinit so the storage is
+ * returned to the allocator rather than relying on process exit -- the
+ * latter accumulates across core load/unload cycles on dynamic-load
+ * frontends (Android, RetroArch hot-swap).  Safe to call when buffers
+ * are already destroyed; bufs_buffer[] is zeroed after teardown. */
+void soundCleanUp (void);
 void soundEvent_u8( int gb_addr, uint32_t addr, uint8_t  data );
 void soundEvent_u8_parallel(int gb_addr[], uint32_t address[], uint8_t data[]);
 void soundEvent_u16( uint32_t addr, uint16_t data );

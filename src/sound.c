@@ -1531,7 +1531,11 @@ static void Blip_Buffer_init(Blip_Buffer *self)
 static void Blip_Buffer_destroy(Blip_Buffer *self)
 {
    if (self->buffer_)
+   {
       free(self->buffer_);
+      self->buffer_ = NULL;
+   }
+   self->buffer_size_ = 0;
 }
 
 static const char * Blip_Buffer_set_sample_rate(Blip_Buffer *self, long new_rate, int msec)
@@ -2086,6 +2090,18 @@ static void remake_stereo_buffer (void)
 	gb_apu_volume(apu_vols [ioMem [SGCNT0_H] & 3] );
 
 	Blip_Synth_volume(&pcm_synth,  0.66 / 256 * -1);
+}
+
+void soundCleanUp (void)
+{
+	/* Tear down the heap-allocated blip-buffer storage owned by the
+	 * 3 stereo_buffer entries.  Each holds (new_size + 18) * 4 bytes
+	 * (~32 KB at 32 kHz / 250 ms), so ~96 KB total returns to the
+	 * allocator.  Buffers are zeroed so a subsequent remake_stereo_buffer
+	 * (via soundReset) sees a clean slate. */
+	Blip_Buffer_destroy(&bufs_buffer[0]);
+	Blip_Buffer_destroy(&bufs_buffer[1]);
+	Blip_Buffer_destroy(&bufs_buffer[2]);
 }
 
 void soundReset (void)
