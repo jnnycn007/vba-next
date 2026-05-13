@@ -15,7 +15,6 @@
 extern int saveType;
 extern bool useBios;
 extern bool skipBios;
-extern bool cpuIsMultiBoot;
 extern int cpuSaveType;
 extern bool mirroringEnable;
 extern bool enableRtc;

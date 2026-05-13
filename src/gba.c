@@ -8922,7 +8922,6 @@ static void gfxDrawOBJWin (int renderer_idx)
 int saveType = 0;
 bool useBios = false;
 bool skipBios = false;
-bool cpuIsMultiBoot = false;
 int cpuSaveType = 0;
 bool enableRtc = false;
 bool mirroringEnable = false;
@@ -9577,7 +9576,7 @@ int CPULoadRomData(const char *data, int size)
 	if (!CPUSetupBuffers())
       return 0;
 
-	whereToLoad = cpuIsMultiBoot  ? workRAM : rom;
+	whereToLoad = rom;
 	romSize     = (size % 2 == 0) ? size    : size + 1;
 
 	memcpy(whereToLoad, data, size);
@@ -9589,11 +9588,9 @@ int CPULoadRomData(const char *data, int size)
 #else
 int CPULoadRom(const char * file)
 {
-	uint8_t *whereToLoad = NULL;
+	uint8_t *whereToLoad = rom;
 	if (!CPUSetupBuffers())
       return 0;
-
-	whereToLoad = cpuIsMultiBoot ? workRAM : rom;
 
 	if (file)
 	{
@@ -13193,33 +13190,22 @@ void CPUReset (void)
 
 	armMode = 0x1F;
 
-	if(cpuIsMultiBoot) {
+#ifdef HAVE_HLE_BIOS
+	if(useBios && !skipBios)
+	{
+		bus.reg[15].I = 0x00000000;
+		armMode = 0x13;
+		armIrqEnable = false;
+	}
+	else
+#endif
+	{
 		bus.reg[13].I = 0x03007F00;
-		bus.reg[15].I = 0x02000000;
+		bus.reg[15].I = 0x08000000;
 		bus.reg[16].I = 0x00000000;
 		bus.reg[R13_IRQ].I = 0x03007FA0;
 		bus.reg[R13_SVC].I = 0x03007FE0;
 		armIrqEnable = true;
-	} else {
-#ifdef HAVE_HLE_BIOS
-		if(useBios && !skipBios)
-		{
-			bus.reg[15].I = 0x00000000;
-			armMode = 0x13;
-			armIrqEnable = false;
-		}
-		else
-		{
-#endif
-			bus.reg[13].I = 0x03007F00;
-			bus.reg[15].I = 0x08000000;
-			bus.reg[16].I = 0x00000000;
-			bus.reg[R13_IRQ].I = 0x03007FA0;
-			bus.reg[R13_SVC].I = 0x03007FE0;
-			armIrqEnable = true;
-#ifdef HAVE_HLE_BIOS
-		}
-#endif
 	}
 
 	armState = true;
@@ -13326,9 +13312,7 @@ void CPUReset (void)
 	CPUUpdateWindow1();
 
 	/* make sure registers are correctly initialized if not using BIOS */
-	if(cpuIsMultiBoot)
-		BIOS_RegisterRamReset(0xfe);
-	else if(!useBios && !cpuIsMultiBoot)
+	if(!useBios)
 		BIOS_RegisterRamReset(0xff);
 
 	switch(cpuSaveType) {
