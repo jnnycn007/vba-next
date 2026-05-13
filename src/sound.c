@@ -271,7 +271,23 @@ static INLINE void Gb_Wave_write( Gb_Wave *self, unsigned addr, int data )
 		wave_bank[index] = data;
 }
 
-static int16_t   soundFinalWave [1600];
+/* Sized to hold one GBA frame's worth of interleaved stereo int16_t samples
+ * at the libretro-advertised 32 kHz sample rate.
+ *
+ *   GBA frame rate     = 16777216 / SOUND_CLOCK_TICKS_      = 59.7275 Hz
+ *   samples per frame  = soundSampleRate / 59.7275          = 535.79 stereo pairs
+ *   int16_t per frame  = 535.79 * 2  (stereo, interleaved)  = 1071.58
+ *   worst-case frame   = ceil(535.79) * 2                   = 1072
+ *
+ * The blip pipeline advances by exactly SOUND_CLOCK_TICKS * factor_ per
+ * call, so per-frame production alternates between 535 and 536 stereo
+ * pairs as the fractional accumulator carries over -- not bursty.  1088
+ * (= 544 stereo pairs) is the worst-case 1072 plus an 8-pair cushion for
+ * any timing-jitter rounding at the soundTicks==0 boundary.
+ * process_sound_tick_fn clamps avail to sizeof/sizeof of this array so a
+ * larger soundSampleRate cannot overrun, though samples beyond the
+ * buffer would simply defer to the next frame in that case. */
+static int16_t   soundFinalWave [1088];
 long  soundSampleRate    = 22050;
 int   SOUND_CLOCK_TICKS  = SOUND_CLOCK_TICKS_;
 int   soundTicks         = SOUND_CLOCK_TICKS_;
