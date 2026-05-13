@@ -1,3 +1,11 @@
+/* Expose POSIX 199309 (struct timespec, nanosleep) needed by the non-vita
+ * branch's thread_sleep_ms below.  Must be defined before any header is
+ * included -- glibc only honors feature-test macros that are set before its
+ * <features.h> first runs. */
+#ifndef _POSIX_C_SOURCE
+#define _POSIX_C_SOURCE 199309L
+#endif
+
 #include <stdint.h>
 #include <retro_miscellaneous.h>
 #include "thread.h"
@@ -56,6 +64,26 @@ void thread_set_priority(thread_t id, int priority) { sceKernelChangeThreadPrior
 #include <stdlib.h>
 #include <rthreads/rthreads.h>
 
+/* Local ms-resolution sleep. The vendored libretro-common subtree in this
+ * repo does not ship retro_timers.h, so retro_sleep() is unresolved at link
+ * time when USE_THREADED_RENDERER is set. Inline a small replacement here
+ * rather than vendoring an extra header just for one call site.  POSIX
+ * struct timespec is gated on _POSIX_C_SOURCE which we set at the top of
+ * this file. */
+#if defined(_WIN32)
+#include <windows.h>
+#define thread_sleep_ms(ms) Sleep((DWORD)(ms))
+#else
+#include <time.h>
+static INLINE void thread_sleep_ms(int ms)
+{
+   struct timespec tv;
+   tv.tv_sec  =  ms / 1000;
+   tv.tv_nsec = (ms % 1000) * 1000000L;
+   nanosleep(&tv, NULL);
+}
+#endif
+
 static void _thread_func(void* p)
 {
    void** argp       = (void**)(p);
@@ -87,7 +115,7 @@ thread_t thread_run(threadfunc_t func, void* p, int priority)
 }
 
 thread_t thread_get(void) { return 0; }
-void thread_sleep(int ms) { retro_sleep(ms); }
+void thread_sleep(int ms) { thread_sleep_ms(ms); }
 void thread_set_priority(thread_t id, int priority) { }
 
 #endif

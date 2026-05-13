@@ -9355,32 +9355,6 @@ unsigned CPUWriteState(uint8_t* data, unsigned size)
 	return (ptrdiff_t)data - (ptrdiff_t)orig;
 }
 
-#ifdef HAVE_HLE_BIOS
-static bool CPUIsGBABios(const char * file)
-{
-	if(strlen(file) > 4)
-	{
-		const char * p = strrchr(file,'.');
-
-		if(p != NULL)
-		{
-			if(strcasecmp(p, ".gba") == 0)
-				return true;
-			if(strcasecmp(p, ".agb") == 0)
-				return true;
-			if(strcasecmp(p, ".bin") == 0)
-				return true;
-			if(strcasecmp(p, ".bios") == 0)
-				return true;
-			if(strcasecmp(p, ".rom") == 0)
-				return true;
-		}
-	}
-
-	return false;
-}
-#endif
-
 #ifdef ELF
 static bool CPUIsELF(const char *file)
 {
@@ -9561,21 +9535,9 @@ static void CPULoadRomGeneric(uint8_t *whereToLoad)
 	}
 }
 
-static int utilGetSize(int size)
+static uint8_t *utilLoad(const char *file, uint8_t *data, int *size)
 {
-   int res = 1;
-
-   while(res < size)
-      res <<= 1;
-
-   return res;
-}
-
-static uint8_t *utilLoad(const char *file,
-      bool (*accept)(const char *), uint8_t *data, int *size)
-{
-   uint8_t *image  = NULL;
-   RFILE *fp       = filestream_open(file, RETRO_VFS_FILE_ACCESS_READ,
+   RFILE *fp = filestream_open(file, RETRO_VFS_FILE_ACCESS_READ,
          RETRO_VFS_FILE_ACCESS_HINT_NONE);
    if (!fp)
       return NULL;
@@ -9584,22 +9546,12 @@ static uint8_t *utilLoad(const char *file,
    *size = filestream_tell(fp); /* get position at end (length)*/
    filestream_rewind(fp);
 
-   image = data;
-
-   if(!image)
-   {
-      /*allocate buffer memory if none was passed to the function*/
-      if (!(image = (uint8_t *)malloc(utilGetSize(*size))))
-      {
-         systemMessage("Failed to allocate memory for data");
-         filestream_close(fp);
-         return NULL;
-      }
-   }
-
-   filestream_read(fp, image, *size); /* read into buffer*/
+   /* All call sites pass a non-NULL pre-allocated buffer; the malloc-on-NULL
+    * branch this function used to carry was dead code, so the contract is
+    * now explicit: data must be a writable buffer of at least *size bytes. */
+   filestream_read(fp, data, *size);
    filestream_close(fp);
-   return image;
+   return data;
 }
 
 
@@ -9620,34 +9572,6 @@ int CPULoadRomData(const char *data, int size)
    return romSize;
 }
 #else
-static bool utilIsGBAImage(const char * file)
-{
-	cpuIsMultiBoot = false;
-	if(strlen(file) > 4)
-	{
-		const char * p = strrchr(file,'.');
-
-		if(p != NULL)
-      {
-         if(
-               !strcasecmp(p, ".agb") ||
-               !strcasecmp(p, ".gba") ||
-               !strcasecmp(p, ".bin") ||
-               !strcasecmp(p, ".elf")
-           )
-            return true;
-
-         if(!strcasecmp(p, ".mb"))
-         {
-            cpuIsMultiBoot = true;
-            return true;
-         }
-      }
-	}
-
-	return false;
-}
-
 int CPULoadRom(const char * file)
 {
 	uint8_t *whereToLoad = NULL;
@@ -9658,10 +9582,7 @@ int CPULoadRom(const char * file)
 
 	if (file)
 	{
-		if(!utilLoad(file,
-					utilIsGBAImage,
-					whereToLoad,
-					&romSize))
+		if(!utilLoad(file, whereToLoad, &romSize))
       {
          CPUCleanUp();
          return 0;
@@ -13070,7 +12991,7 @@ void CPUInit(const char *biosFileName, bool useBiosFile)
 	if(useBiosFile)
 	{
 		int size = 0x4000;
-		if(utilLoad(biosFileName, CPUIsGBABios, bios, &size))
+		if(utilLoad(biosFileName, bios, &size))
 		{
 			if(size == 0x4000)
 				useBios = true;

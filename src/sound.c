@@ -46,7 +46,10 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA */
 #define NR51 0x81
 #define NR52 0x84
 
-/* 1/100th of a second */
+/* GBA CPU cycles per video frame.
+ * 16777216 Hz / 59.7275 fps = 280896 cycles per frame.
+ * (The prior "1/100th of a second" comment was wrong: 1/100 s of CPU
+ * clock would be 167772 cycles, not 280896.) */
 #define SOUND_CLOCK_TICKS_ 280896
 
 /*============================================================

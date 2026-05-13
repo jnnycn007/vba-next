@@ -586,7 +586,13 @@ else
 	LD = link.exe
 endif
 else
-	LD = $(CXX)
+	# All source files are now C (no more .cpp), so link with $(CC) and
+	# avoid the implicit libstdc++ dependency that $(CXX) would drag in.
+	# This also means libm is no longer pulled in transitively via the
+	# C++ runtime, so add it explicitly for the pow/sqrt/floor uses in
+	# the BIOS-HLE math impls and the blip-buffer factor calculation.
+	LD = $(CC)
+	LIBS += -lm
 endif
 
 $(TARGET): $(OBJECTS)
