@@ -42,7 +42,6 @@ extern void eepromWrite(uint8_t value);
 extern void eepromInit(void);
 extern void eepromReset(void);
 
-extern uint8_t sramRead(uint32_t address);
 extern void sramWrite(uint32_t address, uint8_t byte);
 extern void sramDelayedWrite(uint32_t address, uint8_t byte);
 extern void flashSaveGameMem(uint8_t **data);
@@ -59,7 +58,6 @@ extern void flashInit(void);
 extern uint16_t rtcRead(uint32_t address);
 extern bool rtcWrite(uint32_t address, uint16_t value);
 extern void rtcEnable(bool);
-extern bool rtcIsEnabled (void);
 extern void rtcReset (void);
 extern void rtcReadGameMem(const uint8_t **data);
 extern void rtcSaveGameMem(uint8_t **data);

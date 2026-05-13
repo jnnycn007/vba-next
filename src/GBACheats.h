@@ -24,13 +24,10 @@ struct CheatsData {
 typedef struct CheatsData CheatsData;
 
 void cheatsAdd(const char *codeStr, const char *desc, uint32_t rawaddress, uint32_t address, uint32_t value, int code, int size);
-void cheatsAddCheatCode(const char *code, const char *desc);
 void cheatsAddGSACode(const char *code, const char *desc, bool v3);
 void cheatsAddCBACode(const char *code, const char *desc);
 void cheatsDelete(int number, bool restore);
 void cheatsDeleteAll(bool restore);
-void cheatsEnable(int number);
-void cheatsDisable(int number);
 int cheatsCheckKeys(uint32_t keys, uint32_t extended);
 
 #ifdef __cplusplus

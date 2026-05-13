@@ -496,11 +496,6 @@ void eepromWrite(uint8_t value)
 	SRAM
 ============================================================ */
 
-uint8_t sramRead(uint32_t address)
-{
-	return flashSaveMemory[address & 0xFFFF];
-}
-
 void sramDelayedWrite(uint32_t address, uint8_t byte)
 {
 	saveType = 1;
@@ -612,11 +607,6 @@ static bool rtcEnabled = false;
 void rtcEnable(bool e)
 {
 	rtcEnabled = e;
-}
-
-bool rtcIsEnabled (void)
-{
-	return rtcEnabled;
 }
 
 uint16_t rtcRead(uint32_t address)
