@@ -62,12 +62,16 @@ a Game Boy Advance emulator. */
 #define STEREO 2
 
 #define	CLK_MUL	GB_APU_OVERCLOCK
-#define CLK_MUL_MUL_2 8
-#define CLK_MUL_MUL_4 16
-#define CLK_MUL_MUL_6 24
-#define CLK_MUL_MUL_8 32
-#define CLK_MUL_MUL_15 60
-#define CLK_MUL_MUL_32 128
+/* Derived from CLK_MUL rather than hardcoded: the literals 8/16/24/32/60/128
+ * were correct only while GB_APU_OVERCLOCK == 4.  Expressing them as products
+ * keeps them in lockstep if the overclock factor is ever changed, and the
+ * results are still compile-time constants so codegen is byte-identical. */
+#define CLK_MUL_MUL_2 (CLK_MUL * 2)
+#define CLK_MUL_MUL_4 (CLK_MUL * 4)
+#define CLK_MUL_MUL_6 (CLK_MUL * 6)
+#define CLK_MUL_MUL_8 (CLK_MUL * 8)
+#define CLK_MUL_MUL_15 (CLK_MUL * 15)
+#define CLK_MUL_MUL_32 (CLK_MUL * 32)
 #define DAC_BIAS 7
 
 #define PERIOD_MASK 0x70
@@ -351,10 +355,10 @@ static INLINE void Blip_Synth_offset( const Blip_Synth *self, int32_t t, int del
         Blip_Synth_offset_resampled( self, t * buf->factor_ + buf->offset_, delta, buf );
 }
 
-static INLINE void Blip_Synth_offset_inline( const Blip_Synth *self, int32_t t, int delta, Blip_Buffer* buf )
-{
-	Blip_Synth_offset_resampled( self, t * buf->factor_ + buf->offset_, delta, buf );
-}
+/* Was a second, byte-identical copy of Blip_Synth_offset.  Both were already
+ * INLINE so the duplicate never produced distinct codegen -- aliased to the
+ * canonical name so the hot callers (Gb_*_run) keep one obvious entry point. */
+#define Blip_Synth_offset_inline Blip_Synth_offset
 
 static INLINE void Blip_Synth_volume( Blip_Synth *self, float v )
 {
@@ -1258,6 +1262,12 @@ static void Gb_Square_run(Gb_Square *self, int32_t time, int32_t end_time)
         Blip_Buffer* out;
         int32_t duty_offset, duty;
         int duty_code;
+        /* regs[] is uint8_t*, so a char-typed lvalue: every store the compiler
+         * cannot prove disjoint (the int32_t* blip-buffer writes inside the
+         * Gb_Osc_update_amp call below) forces it to reload regs[3]/regs[4].
+         * Nothing in this function writes regs, so read the 11-bit frequency
+         * once into a plain int and let it stay in a register. */
+        int const freq = GB_OSC_FREQUENCY( self );
         /* Calc duty and phase*/
         static unsigned char const duty_offsets [4] = { 1, 1, 3, 7 };
         static unsigned char const duties       [4] = { 1, 2, 4, 6 };
@@ -1283,7 +1293,7 @@ static void Gb_Square_run(Gb_Square *self, int32_t time, int32_t end_time)
 			amp = -(vol >> 1);
 
                         /* Play inaudible frequencies as constant amplitude*/
-                        if ( GB_OSC_FREQUENCY( self ) >= 0x7FA && self->delay < CLK_MUL_MUL_32 )
+                        if ( freq >= 0x7FA && self->delay < CLK_MUL_MUL_32 )
                         {
                                 amp += (vol * duty) >> 3;
                                 vol = 0;
@@ -1302,7 +1312,7 @@ static void Gb_Square_run(Gb_Square *self, int32_t time, int32_t end_time)
         time += self->delay;
         if ( time < end_time )
         {
-                int const per = (2048 - GB_OSC_FREQUENCY( self )) * (CLK_MUL_MUL_4);
+                int const per = (2048 - freq) * (CLK_MUL_MUL_4);
                 if ( !vol )
                 {
                         /* Maintain phase when not playing*/
@@ -1512,6 +1522,9 @@ static void Gb_Wave_run(Gb_Wave *self, int32_t time, int32_t end_time)
         /* Determine what will be generated*/
         int playing = false;
         Blip_Buffer* out;
+        /* Same aliasing reason as Gb_Square_run: hoist the regs[3]/regs[4]
+         * read so the Gb_Osc_update_amp store cannot force a reload. */
+        int const freq = GB_OSC_FREQUENCY( self );
 
         out = self->output;
         if ( out )
@@ -1523,7 +1536,7 @@ static void Gb_Wave_run(Gb_Wave *self, int32_t time, int32_t end_time)
                         amp = 128; /* really depends on average of all samples in wave*/
 
                         /* if delay is larger, constant amplitude won't start yet*/
-                        if ( GB_OSC_FREQUENCY( self ) <= 0x7FB || self->delay > CLK_MUL_MUL_15 )
+                        if ( freq <= 0x7FB || self->delay > CLK_MUL_MUL_15 )
                         {
                                 if ( volume_mul )
                                         playing = (int) self->enabled;
@@ -1557,7 +1570,7 @@ static void Gb_Wave_run(Gb_Wave *self, int32_t time, int32_t end_time)
                 ph = self->phase ^ swap_banks;
                 ph = (ph + 1) & wave_mask; /* pre-advance*/
 
-                per = (2048 - GB_OSC_FREQUENCY( self )) * (CLK_MUL_MUL_2);
+                per = (2048 - freq) * (CLK_MUL_MUL_2);
                 if ( !playing )
                 {
                         /* Maintain phase when not playing*/
