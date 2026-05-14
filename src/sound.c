@@ -384,34 +384,37 @@ static INLINE void Gb_Wave_reset(Gb_Wave *self)
 	INLINE FREE FUNCS
 ============================================================ */
 
-static INLINE void Blip_Synth_offset_resampled( const Blip_Synth *self, uint32_t time, int delta, Blip_Buffer* blip_buf )
+static INLINE void Blip_Synth_offset( const Blip_Synth *self, int32_t t, int delta, Blip_Buffer* buf )
 {
+	/* Was split across Blip_Synth_offset (this thin wrapper) and
+	 * Blip_Synth_offset_resampled (the worker); folded into one since
+	 * every caller goes through this entry point. */
+	uint32_t time = (uint32_t)t * buf->factor_ + buf->offset_;
 	int32_t left, right, phase;
-	int32_t *buf;
+	int32_t *p;
 
 	delta *= self->delta_factor;
-	buf = blip_buf->buffer_ + (time >> BLIP_BUFFER_ACCURACY);
+	p = buf->buffer_ + (time >> BLIP_BUFFER_ACCURACY);
 	phase = (int) (time >> (BLIP_BUFFER_ACCURACY - BLIP_PHASE_BITS) & BLIP_RES_MIN_ONE);
 
-	left = buf [0] + delta;
+	left = p [0] + delta;
 
 	right = (delta >> BLIP_PHASE_BITS) * phase;
 
 	left  -= right;
-	right += buf [1];
+	right += p [1];
 
-	buf [0] = left;
-	buf [1] = right;
-}
-
-static INLINE void Blip_Synth_offset( const Blip_Synth *self, int32_t t, int delta, Blip_Buffer* buf )
-{
-        Blip_Synth_offset_resampled( self, t * buf->factor_ + buf->offset_, delta, buf );
+	p [0] = left;
+	p [1] = right;
 }
 
 static INLINE void Blip_Synth_volume( Blip_Synth *self, float v )
 {
-	self->delta_factor = (int)((v * 1.0) * (1L << BLIP_SAMPLE_BITS) + 0.5);
+	/* (double)v is deliberate: it keeps the scale multiply in double
+	 * precision.  The old form spelled this `(v * 1.0)`, which looks
+	 * like a no-op but is what promoted the expression to double --
+	 * dropping it would compute delta_factor in float instead. */
+	self->delta_factor = (int)((double)v * (1L << BLIP_SAMPLE_BITS) + 0.5);
 }
 
 static INLINE int Gb_Wave_read( const Gb_Wave *self, unsigned addr )
@@ -1024,7 +1027,12 @@ static void gb_apu_apply_stereo (void)
  * in C++ this was loose enough to parse, in C the conditional
  * operator has lower precedence than assignment so the unparenthesized
  * form mis-parses. */
-#define REFLECT( x, y ) (save ?       ((io->y) = (x)) :         ((x) = (io->y))          )
+/* save ? store : load.  Kept as a macro rather than folded into its 17
+ * call sites: it is type-generic (the fields it copies are variously
+ * int, bool and arrays) and expanding it everywhere would bury
+ * gb_apu_save_load under 17 hand-written ternaries.  The original
+ * definition was the same logic wrapped in erratic whitespace. */
+#define REFLECT( x, y )  ( save ? ((io->y) = (x)) : ((x) = (io->y)) )
 
 static INLINE const char* gb_apu_save_load( gb_apu_state_t* io, bool save )
 {
@@ -1081,12 +1089,6 @@ static INLINE void gb_apu_save_load2( gb_apu_state_t* io, bool save )
 			REFLECT( env->env_enabled, env_enabled [j] );
 		}
 	}
-}
-
-static void gb_apu_save_state( gb_apu_state_t* out )
-{
-	(void) gb_apu_save_load( out, true );
-	gb_apu_save_load2( out, true );
 }
 
 static const char * gb_apu_load_state( gb_apu_state_t const* in )
@@ -1163,10 +1165,11 @@ static void Gb_Env_clock_envelope(Gb_Env *self)
 
 static void Gb_Sweep_Square_calc_sweep(Gb_Sweep_Square *self, bool update)
 {
-	int shift, delta, freq;
-
-        shift = self->regs [0] & SHIFT_MASK;
-        delta = self->sweep_freq >> shift;
+        int const shift = self->regs [0] & SHIFT_MASK;
+        int const delta = self->sweep_freq >> shift;
+        int freq;
+        /* hoisted above freq's initializer, which reads sweep_neg;
+         * nothing between here and there depends on the ordering. */
         self->sweep_neg = (self->regs [0] & 0x08) != 0;
         freq = self->sweep_freq + (self->sweep_neg ? -delta : delta);
 
@@ -2354,7 +2357,10 @@ static variable_desc gba_state [] =
 
 void soundSaveGameMem(uint8_t **data)
 {
-	gb_apu_save_state(&state.apu);
+	/* gb_apu_save_state folded in: run both halves of the save/load
+	 * reflection in save mode. */
+	(void) gb_apu_save_load( &state.apu, true );
+	gb_apu_save_load2( &state.apu, true );
 	memset(dummy_state, 0, sizeof dummy_state);
 	utilWriteDataMem(data, gba_state);
 }
@@ -2373,7 +2379,11 @@ void soundReadGameMem(const uint8_t **in_data, int version)
 	soundTicks = SOUND_CLOCK_TICKS;
 	/*End of Reset APU */
 
-	gb_apu_save_state( &state.apu );
+	/* gb_apu_save_state folded in (see soundSaveGameMem): seeds
+	 * state.apu with the current APU state before it is overwritten
+	 * by the data read from the save below. */
+	(void) gb_apu_save_load( &state.apu, true );
+	gb_apu_save_load2( &state.apu, true );
 
 	utilReadDataMem( in_data, gba_state );
 
