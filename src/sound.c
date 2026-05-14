@@ -28,15 +28,6 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA */
 a Game Boy Advance emulator. */
 #define GB_APU_OVERCLOCK 4
 
-/* CONST_CAST was a const-stripping cast wrapper whose two #if arms were
- * identical (`(T)(expr)` vs `((T)(expr))` -- only redundant parens).
- * Folded into the two call sites as plain casts.
- *
- * RETURN_ERR was a control-flow helper: evaluate expr, and if it yields
- * a non-NULL error string, return it from the calling function.  Used
- * in only two places, both folded inline so the early return is
- * visible rather than hidden in a macro. */
-
 #define SGCNT0_H 0x82
 #define FIFOA_L 0xa0
 #define FIFOA_H 0xa2
@@ -139,9 +130,6 @@ a Game Boy Advance emulator. */
 /*============================================================
 	STRUCT DECLS
 ============================================================ */
-
-struct Blip_Buffer;
-struct Blip_Synth;
 
 /* C-style "inheritance": each derived struct repeats its parent's field
  * list verbatim at the top, so the parent's fields occupy the same
