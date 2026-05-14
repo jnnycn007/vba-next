@@ -139,8 +139,11 @@ static INLINE void palette_native_sync(uint16_t *dst) { (void)dst; /* no-op on L
 static INLINE void oam_native_sync(uint16_t *dst)     { (void)dst; /* no-op on LE */ }
 #endif
 
-int renderfunc_mode = 0;
-int renderfunc_type = 0;
+/* Used only within gba.c (the renderer_ctx struct has its own
+ * same-named members; these file-scope ones were non-static by
+ * oversight). */
+static int renderfunc_mode = 0;
+static int renderfunc_type = 0;
 
 #if USE_MOTION_SENSOR
 hardware_t hardware;
@@ -678,7 +681,10 @@ void (*cpuSaveGameFunc)(uint32_t,uint8_t) = flashSaveDecide;
 static bool fxOn = false;
 static bool windowOn = false;
 
-uint32_t mastercode = 0;
+/* Used only within gba.c. Was non-static; the redundant
+ * `extern uint32_t mastercode;` forward declaration further down
+ * (the definition here already precedes every use) is removed too. */
+static uint32_t mastercode = 0;
 static int cpuDmaTicksToUpdate = 0;
 
 static const uint32_t TIMER_TICKS[4] = {0, 6, 8, 10};
@@ -13741,7 +13747,6 @@ static uint16_t cheatsCBATable[256];
 /* Was `uint16_t super = 0;` with external linkage - one-letter identifier
  * collides with reserved words / macros in some platform SDKs. */
 static uint16_t cba_super_count = 0;
-extern uint32_t mastercode;
 
 #if (0)
 extern GameStorage xStorage;
