@@ -450,7 +450,9 @@ static uint8_t memoryWait32[16] =
 static uint8_t memoryWaitSeq32[16] =
   { 0, 0, 5, 0, 0, 1, 1, 0, 5, 5, 9, 9, 17, 17, 4, 0 };
 
-const int table [0x40] =
+/* GB sound-register address lookup; used only within this file.
+ * Was non-static (accidental external linkage). */
+static const int table [0x40] =
 {
 		0xFF10,     0,0xFF11,0xFF12,0xFF13,0xFF14,     0,     0,
 		0xFF16,0xFF17,     0,     0,0xFF18,0xFF19,     0,     0,
