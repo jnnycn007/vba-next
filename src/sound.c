@@ -2279,9 +2279,14 @@ void soundSetSampleRate(long sampleRate)
 
 static int dummy_state [16];
 
-#define SKIP( type, name ) { dummy_state, sizeof (type) }
-
-#define LOAD( type, name ) { &name, sizeof (type) }
+/* gba_state describes the save-state layout as an array of
+ * variable_desc { void *address; int size; }.  The LOAD/SKIP macros
+ * that used to build these entries have been folded into plain
+ * initializers: a real field is { &field, sizeof(type) }; a reserved
+ * (skipped) slot is { dummy_state, sizeof(type) }, where dummy_state
+ * is scratch storage so a read or write to the slot goes nowhere.
+ * The "skipped: ..." comments preserve what each reserved block is
+ * held in reserve for. */
 
 static struct {
 	gb_apu_state_t apu;
@@ -2295,50 +2300,50 @@ static struct {
 static variable_desc gba_state [] =
 {
 	/* PCM */
-	LOAD( int, pcm [0].readIndex ),
-	LOAD( int, pcm [0].count ),
-	LOAD( int, pcm [0].writeIndex ),
-	LOAD(uint8_t[32],pcm[0].fifo ),
-	LOAD( int, pcm [0].dac ),
+	{ &pcm [0].readIndex,  sizeof(int) },
+	{ &pcm [0].count,      sizeof(int) },
+	{ &pcm [0].writeIndex, sizeof(int) },
+	{ &pcm [0].fifo,       sizeof(uint8_t[32]) },
+	{ &pcm [0].dac,        sizeof(int) },
 
-	SKIP( int [4], room_for_expansion ),
+	{ dummy_state,         sizeof(int [4]) },   /* skipped: room_for_expansion */
 
-	LOAD( int, pcm [1].readIndex ),
-	LOAD( int, pcm [1].count ),
-	LOAD( int, pcm [1].writeIndex ),
-	LOAD(uint8_t[32],pcm[1].fifo ),
-	LOAD( int, pcm [1].dac ),
+	{ &pcm [1].readIndex,  sizeof(int) },
+	{ &pcm [1].count,      sizeof(int) },
+	{ &pcm [1].writeIndex, sizeof(int) },
+	{ &pcm [1].fifo,       sizeof(uint8_t[32]) },
+	{ &pcm [1].dac,        sizeof(int) },
 
-	SKIP( int [4], room_for_expansion ),
+	{ dummy_state,         sizeof(int [4]) },   /* skipped: room_for_expansion */
 
 	/* APU */
-	LOAD( uint8_t [0x40], state.apu.regs ),      /* last values written to registers and wave RAM (both banks) */
-	LOAD( int, state.apu.frame_time ),      /* clocks until next frame sequencer action */
-	LOAD( int, state.apu.frame_phase ),     /* next step frame sequencer will run */
+	{ &state.apu.regs,          sizeof(uint8_t [0x40]) },   /* last values written to registers and wave RAM (both banks) */
+	{ &state.apu.frame_time,    sizeof(int) },              /* clocks until next frame sequencer action */
+	{ &state.apu.frame_phase,   sizeof(int) },              /* next step frame sequencer will run */
 
-	LOAD( int, state.apu.sweep_freq ),      /* sweep's internal frequency register */
-	LOAD( int, state.apu.sweep_delay ),     /* clocks until next sweep action */
-	LOAD( int, state.apu.sweep_enabled ),
-	LOAD( int, state.apu.sweep_neg ),       /* obscure internal flag */
-	LOAD( int, state.apu.noise_divider ),
-	LOAD( int, state.apu.wave_buf ),        /* last read byte of wave RAM */
+	{ &state.apu.sweep_freq,    sizeof(int) },              /* sweep's internal frequency register */
+	{ &state.apu.sweep_delay,   sizeof(int) },              /* clocks until next sweep action */
+	{ &state.apu.sweep_enabled, sizeof(int) },
+	{ &state.apu.sweep_neg,     sizeof(int) },              /* obscure internal flag */
+	{ &state.apu.noise_divider, sizeof(int) },
+	{ &state.apu.wave_buf,      sizeof(int) },              /* last read byte of wave RAM */
 
-	LOAD( int [4], state.apu.delay ),       /* clocks until next channel action */
-	LOAD( int [4], state.apu.length_ctr ),
-	LOAD( int [4], state.apu.phase ),       /* square/wave phase, noise LFSR */
-	LOAD( int [4], state.apu.enabled ),     /* internal enabled flag */
+	{ &state.apu.delay,         sizeof(int [4]) },          /* clocks until next channel action */
+	{ &state.apu.length_ctr,    sizeof(int [4]) },
+	{ &state.apu.phase,         sizeof(int [4]) },          /* square/wave phase, noise LFSR */
+	{ &state.apu.enabled,       sizeof(int [4]) },          /* internal enabled flag */
 
-	LOAD( int [3], state.apu.env_delay ),   /* clocks until next envelope action */
-	LOAD( int [3], state.apu.env_volume ),
-	LOAD( int [3], state.apu.env_enabled ),
+	{ &state.apu.env_delay,     sizeof(int [3]) },          /* clocks until next envelope action */
+	{ &state.apu.env_volume,    sizeof(int [3]) },
+	{ &state.apu.env_enabled,   sizeof(int [3]) },
 
-	SKIP( int [13], room_for_expansion ),
+	{ dummy_state,              sizeof(int [13]) },         /* skipped: room_for_expansion */
 
 	/* Emulator */
-	LOAD( int, soundEnableFlag ),
-	LOAD( int, soundTicks ),
+	{ &soundEnableFlag,         sizeof(int) },
+	{ &soundTicks,              sizeof(int) },
 
-	SKIP( int [14], room_for_expansion ),
+	{ dummy_state,              sizeof(int [14]) },         /* skipped: room_for_expansion */
 
 	{ NULL, 0 }
 };
