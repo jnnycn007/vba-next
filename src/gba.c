@@ -148,7 +148,8 @@ static int renderfunc_type = 0;
 #if USE_MOTION_SENSOR
 hardware_t hardware;
 
-static void hardware_reset() {
+static void hardware_reset(void)
+{
 	hardware.tilt_x = 0;
 	hardware.tilt_y = 0;
 	hardware.direction = 0;
