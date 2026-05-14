@@ -55,7 +55,6 @@ a Game Boy Advance emulator. */
 #define BLIP_RES 256
 #define BLIP_RES_MIN_ONE 255
 #define BLIP_SAMPLE_BITS 30
-#define BLIP_READER_DEFAULT_BASS 9
 #define BLIP_DEFAULT_LENGTH 250		/* 1/4th of a second */
 
 #define BUFS_SIZE 3
@@ -92,50 +91,22 @@ a Game Boy Advance emulator. */
 #define MIXED_TYPE	WAVE_TYPE | NOISE_TYPE
 #define TYPE_INDEX_MASK	0xFF
 
-/* Declares the reader's local working variables.  Must be placed at the
- * top of the block (C89 forbids mixing declarations with statements);
- * the read pointer is NOT const because BLIP_READER_ADJ_ rebinds it. */
-#define BLIP_READER_DECL( name ) \
-        const int32_t * name##_reader_buf; \
-        int32_t name##_reader_accum
-
-/* Begins reading from buffer.  Issued after BLIP_READER_DECL, after any
- * statements that compute (blip_buffer).  Name should be unique to the
- * current block. */
-#define BLIP_READER_BEGIN( name, blip_buffer ) do { \
-        name##_reader_buf = (blip_buffer).buffer_; \
-        name##_reader_accum = (blip_buffer).reader_accum_; \
-        } while (0)
-
-/* Advances to next sample*/
-#define BLIP_READER_NEXT( name, bass ) \
-        (void) (name##_reader_accum += *name##_reader_buf++ - (name##_reader_accum >> (bass)))
-
-/* Ends reading samples from buffer. The number of samples read must now be removed
-   using Blip_Buffer::remove_samples(). */
-#define BLIP_READER_END( name, blip_buffer ) \
-        (void) ((blip_buffer).reader_accum_ = name##_reader_accum)
-
-#define BLIP_READER_ADJ_( name, offset ) (name##_reader_buf += offset)
-
-#define BLIP_READER_NEXT_IDX_( name, idx ) {\
-        name##_reader_accum -= name##_reader_accum >> BLIP_READER_DEFAULT_BASS;\
-        name##_reader_accum += name##_reader_buf [(idx)];\
-}
-
-#define BLIP_READER_NEXT_RAW_IDX_( name, idx ) {\
-        name##_reader_accum -= name##_reader_accum >> BLIP_READER_DEFAULT_BASS; \
-        name##_reader_accum += *(int32_t const*) ((char const*) name##_reader_buf + (idx)); \
-}
+/* The BLIP_READER_* reader macros (DECL/BEGIN/NEXT/END/ADJ_/NEXT_IDX_/
+ * NEXT_RAW_IDX_) were folded directly into stereo_buffer_mixer_read_pairs,
+ * their only consumer.  NEXT and NEXT_RAW_IDX_ were already dead -- defined
+ * but never invoked.  The accumulator update they performed (the classic
+ * blip "bass" one-pole DC filter, accum += sample - accum>>bass) is now
+ * written out inline there. */
 
 /* Portable on all targets. The previous non-x86 form `(int16_t)in != in`
  * relied on implementation-defined narrowing semantics; modern gcc/clang
  * compile both forms to the same code on every supported target. */
-#define BLIP_CLAMP_( in ) ((in) < -0x8000 || 0x7FFF < (in))
-
-/* Clamp sample to int16_t range */
-#define BLIP_CLAMP( sample, out ) { if ( BLIP_CLAMP_( (sample) ) ) (out) = ((sample) >> 24) ^ 0x7FFF; }
-/* Macros below took an implicit `this` in their original C++ form; the C
+/* BLIP_CLAMP / BLIP_CLAMP_ were folded into stereo_buffer_mixer_read_pairs,
+ * the only place samples are clamped to int16_t range.  The portability note
+ * above still applies to the inlined form there: the comparison-based test
+ * has no implementation-defined narrowing.
+ *
+ * Macros below took an implicit `this` in their original C++ form; the C
  * port passes the struct pointer explicitly. */
 #define GB_ENV_DAC_ENABLED(self) ((self)->regs[2] & 0xF8)	/* Non-zero if DAC is enabled*/
 #define GB_NOISE_PERIOD2_INDEX(self)	((self)->regs[3] >> 4)
@@ -143,10 +114,11 @@ a Game Boy Advance emulator. */
 #define GB_NOISE_LFSR_MASK(self)	(((self)->regs[3] & 0x08) ? ~0x4040 : ~0x4000)
 #define GB_WAVE_DAC_ENABLED(self) ((self)->regs[0] & 0x80)	/* Non-zero if DAC is enabled*/
 
-#define reload_sweep_timer(self) \
-        (self)->sweep_delay = ((self)->regs [0] & PERIOD_MASK) >> 4; \
-        if ( !(self)->sweep_delay ) \
-                (self)->sweep_delay = 8;
+/* reload_sweep_timer was a multi-statement macro used in exactly two
+ * places; one (Gb_Sweep_Square_clock_sweep) had already been hand-inlined.
+ * Both are now written out inline -- a brace-less multi-statement macro
+ * like this is an `if`-dangling hazard, and there is no longer a shared
+ * definition to keep them consistent with. */
 
 #define NR10 0x60
 #define NR11 0x62
@@ -694,7 +666,10 @@ static INLINE void Gb_Sweep_Square_write_register(Gb_Sweep_Square *self, int fra
         {
                 self->sweep_freq = GB_OSC_FREQUENCY( self );
                 self->sweep_neg = false;
-                reload_sweep_timer( self );
+                /* reload sweep timer (was reload_sweep_timer macro): */
+                self->sweep_delay = (self->regs [0] & PERIOD_MASK) >> 4;
+                if ( !self->sweep_delay )
+                        self->sweep_delay = 8;
                 self->sweep_enabled = (self->regs [0] & (PERIOD_MASK | SHIFT_MASK)) != 0;
                 if ( self->regs [0] & SHIFT_MASK )
                         Gb_Sweep_Square_calc_sweep( self, false );
@@ -1728,70 +1703,86 @@ static INLINE void stereo_buffer_mixer_read_pairs( int16_t* out, int count )
 {
 	int16_t* outtemp;
 	Blip_Buffer* buf;
+	/* center buffer is bufs_buffer[2] for both passes; its read pointer
+	 * (buffer_ + mixer_samples_read) is therefore invariant across both
+	 * blocks -- mixer_samples_read is bumped once below and not touched
+	 * again here -- so it is computed a single time and shared.  The
+	 * center accumulator, however, must be re-seeded per block: block 1
+	 * mutates its working copy and only side's accum is written back, so
+	 * block 2 needs the pristine bufs_buffer[2].reader_accum_ again.
+	 *
+	 * Formerly the BLIP_READER_* macro family + BLIP_CLAMP; folded inline
+	 * here as this is their only consumer.  The per-sample accumulator
+	 * step is the classic blip one-pole DC blocker:
+	 *     accum -= accum >> 9;   (9 == old BLIP_READER_DEFAULT_BASS)
+	 *     accum += buf[offset];
+	 * and the clamp narrows the >>14 mix result to int16_t range. */
+	const int32_t* center_buf;
 	/* TODO: if caller never marks buffers as modified, uses mono*/
 	/* except that buffer isn't cleared, so caller can encounter*/
 	/* subtle problems and not realize the cause.*/
 	mixer_samples_read += count;
 	outtemp = out + count * STEREO;
+	center_buf = bufs_buffer[2].buffer_ + mixer_samples_read;
 
 	/* do left + center and right + center separately to reduce register load*/
 	buf = &bufs_buffer [2];
 	{
 		int offset;
-		BLIP_READER_DECL( side );
-		BLIP_READER_DECL( center );
+		const int32_t* side_buf;
+		int32_t side_accum;
+		int32_t center_accum;
 		--buf;
 		--outtemp;
 
-		BLIP_READER_BEGIN( side,   *buf );
-		BLIP_READER_BEGIN( center, bufs_buffer[2] );
-
-		BLIP_READER_ADJ_( side,   mixer_samples_read );
-		BLIP_READER_ADJ_( center, mixer_samples_read );
+		side_buf     = buf->buffer_ + mixer_samples_read;
+		side_accum   = buf->reader_accum_;
+		center_accum = bufs_buffer[2].reader_accum_;
 
 		offset = -count;
 		do
 		{
-			int s = (center_reader_accum + side_reader_accum) >> 14;
-			BLIP_READER_NEXT_IDX_( side,   offset );
-			BLIP_READER_NEXT_IDX_( center, offset );
-			BLIP_CLAMP( s, s );
+			int s = (center_accum + side_accum) >> 14;
+			side_accum   += side_buf   [offset] - (side_accum   >> 9);
+			center_accum += center_buf [offset] - (center_accum >> 9);
+			if ( s < -0x8000 || 0x7FFF < s )
+				s = (s >> 24) ^ 0x7FFF;
 
 			++offset; /* before write since out is decremented to slightly before end*/
 			outtemp [offset * STEREO] = (int16_t) s;
 		}while ( offset );
 
-		BLIP_READER_END( side,   *buf );
+		buf->reader_accum_ = side_accum;
 	}
 	{
 		int offset;
-		BLIP_READER_DECL( side );
-		BLIP_READER_DECL( center );
+		const int32_t* side_buf;
+		int32_t side_accum;
+		int32_t center_accum;
 		--buf;
 		--outtemp;
 
-		BLIP_READER_BEGIN( side,   *buf );
-		BLIP_READER_BEGIN( center, bufs_buffer[2] );
-
-		BLIP_READER_ADJ_( side,   mixer_samples_read );
-		BLIP_READER_ADJ_( center, mixer_samples_read );
+		side_buf     = buf->buffer_ + mixer_samples_read;
+		side_accum   = buf->reader_accum_;
+		center_accum = bufs_buffer[2].reader_accum_;
 
 		offset = -count;
 		do
 		{
-			int s = (center_reader_accum + side_reader_accum) >> 14;
-			BLIP_READER_NEXT_IDX_( side,   offset );
-			BLIP_READER_NEXT_IDX_( center, offset );
-			BLIP_CLAMP( s, s );
+			int s = (center_accum + side_accum) >> 14;
+			side_accum   += side_buf   [offset] - (side_accum   >> 9);
+			center_accum += center_buf [offset] - (center_accum >> 9);
+			if ( s < -0x8000 || 0x7FFF < s )
+				s = (s >> 24) ^ 0x7FFF;
 
 			++offset; /* before write since out is decremented to slightly before end*/
 			outtemp [offset * STEREO] = (int16_t) s;
 		}while ( offset );
 
-		BLIP_READER_END( side,   *buf );
+		buf->reader_accum_ = side_accum;
 
 		/* only end center once*/
-		BLIP_READER_END( center, bufs_buffer[2] );
+		bufs_buffer[2].reader_accum_ = center_accum;
 	}
 }
 
