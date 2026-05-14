@@ -48,11 +48,14 @@
 
 #if USE_FRAME_SKIP
 
-int fs_count = 0;
-int fs_type = 0;
-int fs_type_a = 0;
-int fs_type_b = 0;
-bool fs_draw = false;
+/* Frameskip state: used only within gba.c (SetFrameskip below is the
+ * public accessor, declared in gba.h). These were non-static, i.e.
+ * accidental global symbols. */
+static int fs_count = 0;
+static int fs_type = 0;
+static int fs_type_a = 0;
+static int fs_type_b = 0;
+static bool fs_draw = false;
 
 void SetFrameskip(int code)
 {
