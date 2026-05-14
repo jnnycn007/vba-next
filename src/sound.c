@@ -355,11 +355,6 @@ static INLINE void Blip_Synth_offset( const Blip_Synth *self, int32_t t, int del
         Blip_Synth_offset_resampled( self, t * buf->factor_ + buf->offset_, delta, buf );
 }
 
-/* Was a second, byte-identical copy of Blip_Synth_offset.  Both were already
- * INLINE so the duplicate never produced distinct codegen -- aliased to the
- * canonical name so the hot callers (Gb_*_run) keep one obvious entry point. */
-#define Blip_Synth_offset_inline Blip_Synth_offset
-
 static INLINE void Blip_Synth_volume( Blip_Synth *self, float v )
 {
 	self->delta_factor = (int)((v * 1.0) * (1L << BLIP_SAMPLE_BITS) + 0.5);
@@ -1329,7 +1324,7 @@ static void Gb_Square_run(Gb_Square *self, int32_t time, int32_t end_time)
                                 ph = (ph + 1) & 7;
                                 if ( ph == 0 || ph == duty )
                                 {
-                                        Blip_Synth_offset_inline( self->good_synth, time, delta, out );
+                                        Blip_Synth_offset( self->good_synth, time, delta, out );
                                         delta = -delta;
                                 }
                                 time += per;
@@ -1499,7 +1494,7 @@ static void Gb_Noise_run(Gb_Noise *self, int32_t time, int32_t end_time)
                                 {
                                         bits |= ~mask;
                                         delta = -delta;
-                                        Blip_Synth_offset_inline( self->med_synth, time, delta, out );
+                                        Blip_Synth_offset( self->med_synth, time, delta, out );
                                 }
                                 time += per;
                         }
@@ -1597,7 +1592,7 @@ static void Gb_Wave_run(Gb_Wave *self, int32_t time, int32_t end_time)
                                 if ( delta )
                                 {
                                         lamp = amp;
-                                        Blip_Synth_offset_inline( self->med_synth, time, delta, out );
+                                        Blip_Synth_offset( self->med_synth, time, delta, out );
                                 }
                                 time += per;
                         }
