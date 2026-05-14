@@ -1300,15 +1300,21 @@ static void Gb_Square_run(Gb_Square *self, int32_t time, int32_t end_time)
          * Nothing in this function writes regs, so read the 11-bit frequency
          * once into a plain int and let it stay in a register. */
         int const freq = GB_OSC_FREQUENCY( self );
-        /* Calc duty and phase*/
-        static unsigned char const duty_offsets [4] = { 1, 1, 3, 7 };
-        static unsigned char const duties       [4] = { 1, 2, 4, 6 };
+        /* Calc duty and phase.  The two duty tables and the two AGB
+         * adjustments that followed them (`duty_offset -= duty` and
+         * `duty = 8 - duty`) are all pure functions of the 2-bit
+         * duty_code, so the adjusted results are precomputed here:
+         *   duty_offset = duty_offsets[c] - duties[c]
+         *   duty        = 8 - duties[c]
+         * That drops a subtract and a reverse-subtract per call and
+         * removes the data dependency between the two values.
+         * duty_offset can be negative (codes 1 and 2 yield -1), hence
+         * the signed table. */
+        static signed   char const duty_offsets [4] = {  0, -1, -1,  1 };
+        static unsigned char const duties       [4] = {  7,  6,  4,  2 };
         duty_code = self->regs [1] >> 6;
         duty_offset = duty_offsets [duty_code];
         duty = duties [duty_code];
-	/* AGB uses inverted duty*/
-	duty_offset -= duty;
-	duty = 8 - duty;
         ph = (self->phase + duty_offset) & 7;
 
         /* Determine what will be generated*/
@@ -1459,8 +1465,13 @@ static void Gb_Noise_run(Gb_Noise *self, int32_t time, int32_t end_time)
         /* Determine what will be generated*/
         int vol = 0;
         Blip_Buffer* out;
-        /* hoisted decls for C89 */
-        static unsigned char const period1s [8] = { 1, 2, 4, 6, 8, 10, 12, 14 };
+        /* hoisted decls for C89.  Table is pre-multiplied by CLK_MUL so
+         * the `* CLK_MUL` that used to run on every call is gone; the
+         * factor stays visible in the initializer. */
+        static unsigned char const period1s [8] = {
+                1*CLK_MUL, 2*CLK_MUL, 4*CLK_MUL,  6*CLK_MUL,
+                8*CLK_MUL, 10*CLK_MUL, 12*CLK_MUL, 14*CLK_MUL
+        };
         int period1;
 
         out = self->output;
@@ -1489,7 +1500,7 @@ static void Gb_Noise_run(Gb_Noise *self, int32_t time, int32_t end_time)
         }
 
         /* Run timer and calculate time of next LFSR clock*/
-        period1 = period1s [self->regs [3] & 7] * CLK_MUL;
+        period1 = period1s [self->regs [3] & 7];
         {
                 int count;
                 int extra = (end_time - time) - self->delay;
