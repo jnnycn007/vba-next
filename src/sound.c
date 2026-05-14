@@ -14,6 +14,7 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA */
 #include <string.h>
 #include <limits.h>
 #include <math.h>
+#include <stddef.h>	/* offsetof -- used by the struct-prefix assertions below */
 
 #include "sound.h"
 
@@ -91,13 +92,6 @@ a Game Boy Advance emulator. */
 #define MIXED_TYPE	WAVE_TYPE | NOISE_TYPE
 #define TYPE_INDEX_MASK	0xFF
 
-/* The BLIP_READER_* reader macros (DECL/BEGIN/NEXT/END/ADJ_/NEXT_IDX_/
- * NEXT_RAW_IDX_) were folded directly into stereo_buffer_mixer_read_pairs,
- * their only consumer.  NEXT and NEXT_RAW_IDX_ were already dead -- defined
- * but never invoked.  The accumulator update they performed (the classic
- * blip "bass" one-pole DC filter, accum += sample - accum>>bass) is now
- * written out inline there. */
-
 /* Portable on all targets. The previous non-x86 form `(int16_t)in != in`
  * relied on implementation-defined narrowing semantics; modern gcc/clang
  * compile both forms to the same code on every supported target. */
@@ -155,48 +149,14 @@ a Game Boy Advance emulator. */
 struct Blip_Buffer;
 struct Blip_Synth;
 
-/* Macro-expanded "inheritance": each derived struct includes the parent's
- * field list literally at the top.  Layout is therefore identical to a
- * struct with the parent type as the first member, and casts of
- * `Gb_Env *` to `Gb_Osc *` (etc.) work as they did under C++. */
-#define GB_OSC_FIELDS \
-	struct Blip_Buffer* outputs[4];	/* NULL, right, left, center*/	\
-	struct Blip_Buffer* output;	/* where to output sound*/	\
-	uint8_t * regs;			/* osc's 5 registers*/		\
-	int mode;			/* mode_dmg, mode_cgb, mode_agb*/\
-	int dac_off_amp;		/* amplitude when DAC is off*/	\
-	int last_amp;			/* current amplitude in Blip_Buffer*/ \
-	struct Blip_Synth const* good_synth;				\
-	struct Blip_Synth const* med_synth;				\
-	int delay;			/* clocks until frequency timer expires*/ \
-	int length_ctr;			/* length counter*/		\
-	unsigned phase;			/* waveform phase (or equivalent)*/ \
-	bool enabled			/* internal enabled flag*/
-
-#define GB_ENV_FIELDS	\
-	GB_OSC_FIELDS;	\
-	int  env_delay;	\
-	int  volume;	\
-	bool env_enabled
-
-#define GB_SQUARE_FIELDS	GB_ENV_FIELDS
-
-#define GB_SWEEP_SQUARE_FIELDS	\
-	GB_SQUARE_FIELDS;	\
-	int  sweep_freq;	\
-	int  sweep_delay;	\
-	bool sweep_enabled;	\
-	bool sweep_neg
-
-#define GB_NOISE_FIELDS		\
-	GB_ENV_FIELDS;	\
-	int divider /* noise has more complex frequency divider setup*/
-
-#define GB_WAVE_FIELDS		\
-	GB_OSC_FIELDS;	\
-	int sample_buf;		/* last wave RAM byte read*/		\
-	int agb_mask;		/* 0xFF if AGB features enabled, 0 otherwise*/ \
-	uint8_t* wave_ram	/* 32 bytes (64 nybbles)*/
+/* C-style "inheritance": each derived struct repeats its parent's field
+ * list verbatim at the top, so the parent's fields occupy the same
+ * leading offsets and a `Gb_Env *` (etc.) can be cast to `Gb_Osc *`.
+ * The GB_*_FIELDS macros that used to factor this out have been folded
+ * into the struct bodies below -- the field lists are stable and the
+ * macro indirection obscured the one property that actually matters
+ * here, namely that each struct is a prefix of its "derived" structs.
+ * That prefix relationship is asserted at the end of this block. */
 
 struct Blip_Buffer
 {
@@ -218,18 +178,166 @@ struct Blip_Synth
 };
 typedef struct Blip_Synth Blip_Synth;
 
-struct Gb_Osc          { GB_OSC_FIELDS; };
+/* --- Gb_Osc: base oscillator --- */
+struct Gb_Osc
+{
+	struct Blip_Buffer* outputs[4];	/* NULL, right, left, center*/
+	struct Blip_Buffer* output;	/* where to output sound*/
+	uint8_t * regs;			/* osc's 5 registers*/
+	int mode;			/* mode_dmg, mode_cgb, mode_agb*/
+	int dac_off_amp;		/* amplitude when DAC is off*/
+	int last_amp;			/* current amplitude in Blip_Buffer*/
+	struct Blip_Synth const* good_synth;
+	struct Blip_Synth const* med_synth;
+	int delay;			/* clocks until frequency timer expires*/
+	int length_ctr;			/* length counter*/
+	unsigned phase;			/* waveform phase (or equivalent)*/
+	bool enabled;			/* internal enabled flag*/
+};
 typedef struct Gb_Osc Gb_Osc;
-struct Gb_Env          { GB_ENV_FIELDS; };
+
+/* --- Gb_Env: Gb_Osc + envelope --- */
+struct Gb_Env
+{
+	/* Gb_Osc prefix */
+	struct Blip_Buffer* outputs[4];
+	struct Blip_Buffer* output;
+	uint8_t * regs;
+	int mode;
+	int dac_off_amp;
+	int last_amp;
+	struct Blip_Synth const* good_synth;
+	struct Blip_Synth const* med_synth;
+	int delay;
+	int length_ctr;
+	unsigned phase;
+	bool enabled;
+	/* envelope */
+	int  env_delay;
+	int  volume;
+	bool env_enabled;
+};
 typedef struct Gb_Env Gb_Env;
-struct Gb_Square       { GB_SQUARE_FIELDS; };
+
+/* --- Gb_Square: identical layout to Gb_Env --- */
+struct Gb_Square
+{
+	/* Gb_Osc prefix */
+	struct Blip_Buffer* outputs[4];
+	struct Blip_Buffer* output;
+	uint8_t * regs;
+	int mode;
+	int dac_off_amp;
+	int last_amp;
+	struct Blip_Synth const* good_synth;
+	struct Blip_Synth const* med_synth;
+	int delay;
+	int length_ctr;
+	unsigned phase;
+	bool enabled;
+	/* envelope */
+	int  env_delay;
+	int  volume;
+	bool env_enabled;
+};
 typedef struct Gb_Square Gb_Square;
-struct Gb_Sweep_Square { GB_SWEEP_SQUARE_FIELDS; };
+
+/* --- Gb_Sweep_Square: Gb_Square + sweep --- */
+struct Gb_Sweep_Square
+{
+	/* Gb_Osc prefix */
+	struct Blip_Buffer* outputs[4];
+	struct Blip_Buffer* output;
+	uint8_t * regs;
+	int mode;
+	int dac_off_amp;
+	int last_amp;
+	struct Blip_Synth const* good_synth;
+	struct Blip_Synth const* med_synth;
+	int delay;
+	int length_ctr;
+	unsigned phase;
+	bool enabled;
+	/* envelope */
+	int  env_delay;
+	int  volume;
+	bool env_enabled;
+	/* sweep */
+	int  sweep_freq;
+	int  sweep_delay;
+	bool sweep_enabled;
+	bool sweep_neg;
+};
 typedef struct Gb_Sweep_Square Gb_Sweep_Square;
-struct Gb_Noise        { GB_NOISE_FIELDS; };
+
+/* --- Gb_Noise: Gb_Env + divider --- */
+struct Gb_Noise
+{
+	/* Gb_Osc prefix */
+	struct Blip_Buffer* outputs[4];
+	struct Blip_Buffer* output;
+	uint8_t * regs;
+	int mode;
+	int dac_off_amp;
+	int last_amp;
+	struct Blip_Synth const* good_synth;
+	struct Blip_Synth const* med_synth;
+	int delay;
+	int length_ctr;
+	unsigned phase;
+	bool enabled;
+	/* envelope */
+	int  env_delay;
+	int  volume;
+	bool env_enabled;
+	/* noise */
+	int divider;	/* noise has more complex frequency divider setup*/
+};
 typedef struct Gb_Noise Gb_Noise;
-struct Gb_Wave         { GB_WAVE_FIELDS; };
+
+/* --- Gb_Wave: Gb_Osc + wave RAM --- */
+struct Gb_Wave
+{
+	/* Gb_Osc prefix */
+	struct Blip_Buffer* outputs[4];
+	struct Blip_Buffer* output;
+	uint8_t * regs;
+	int mode;
+	int dac_off_amp;
+	int last_amp;
+	struct Blip_Synth const* good_synth;
+	struct Blip_Synth const* med_synth;
+	int delay;
+	int length_ctr;
+	unsigned phase;
+	bool enabled;
+	/* wave */
+	int sample_buf;		/* last wave RAM byte read*/
+	int agb_mask;		/* 0xFF if AGB features enabled, 0 otherwise*/
+	uint8_t* wave_ram;	/* 32 bytes (64 nybbles)*/
+};
 typedef struct Gb_Wave Gb_Wave;
+
+/* The cross-casts done throughout this file -- (Gb_Osc*)&square1,
+ * (Gb_Env*)self in the noise/square paths, etc. -- are valid as long as
+ * the shared leading fields sit at identical offsets in every struct
+ * that participates in a cast.  Note this is NOT the same as
+ * offsetof(derived, first_extra) == sizeof(base): a "base" struct ending
+ * in a `bool` is padded up for alignment, and the derived struct reuses
+ * that tail padding, so the first extra field lands inside it.  What the
+ * casts actually require is per-field offset agreement -- assert that
+ * directly so an edit to one field list and not the others fails the
+ * build instead of silently corrupting state. */
+typedef char gb_osc_prefix_in_env    [offsetof(struct Gb_Env,           regs)   == offsetof(struct Gb_Osc, regs)
+                                    && offsetof(struct Gb_Env,           phase)  == offsetof(struct Gb_Osc, phase)   ? 1 : -1];
+typedef char gb_osc_prefix_in_wave   [offsetof(struct Gb_Wave,          regs)   == offsetof(struct Gb_Osc, regs)
+                                    && offsetof(struct Gb_Wave,          phase)  == offsetof(struct Gb_Osc, phase)   ? 1 : -1];
+typedef char gb_square_matches_env   [sizeof(struct Gb_Square)                  == sizeof(struct Gb_Env)
+                                    && offsetof(struct Gb_Square, volume)       == offsetof(struct Gb_Env, volume)   ? 1 : -1];
+typedef char gb_env_prefix_in_sweep  [offsetof(struct Gb_Sweep_Square,  volume) == offsetof(struct Gb_Env, volume)
+                                    && offsetof(struct Gb_Sweep_Square,  regs)   == offsetof(struct Gb_Osc, regs)    ? 1 : -1];
+typedef char gb_env_prefix_in_noise  [offsetof(struct Gb_Noise,         volume) == offsetof(struct Gb_Env, volume)
+                                    && offsetof(struct Gb_Noise,         regs)   == offsetof(struct Gb_Osc, regs)    ? 1 : -1];
 
 /*============================================================
 	FORWARD DECLARATIONS
@@ -255,9 +363,11 @@ static void Gb_Noise_run(Gb_Noise *self, int32_t time, int32_t end_time);
 static int  Gb_Wave_access(const Gb_Wave *self, unsigned addr);
 static void Gb_Wave_run(Gb_Wave *self, int32_t time, int32_t end_time);
 
-static void Blip_Buffer_destroy(Blip_Buffer *self);
-static void Blip_Buffer_clear(Blip_Buffer *self);
-static const char * Blip_Buffer_set_sample_rate(Blip_Buffer *self, long new_rate, int msec);
+/* Blip_Buffer_destroy / _clear / _set_sample_rate were forward-declared
+ * here but every call site already follows their definitions, so the
+ * declarations were dead and have been removed.  Blip_Buffer_clock_rate_
+ * factor still needs its forward decl -- it has one local to the
+ * BLIP BUFFER section, where it is called once before its definition. */
 
 /*============================================================
 	RESET FREE FUNCTIONS (formerly in-class inline)
