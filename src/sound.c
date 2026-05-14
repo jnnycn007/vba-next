@@ -14,7 +14,6 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA */
 #include <string.h>
 #include <limits.h>
 #include <math.h>
-#include <stddef.h>	/* offsetof -- used by the struct-prefix assertions below */
 
 #include "sound.h"
 
@@ -29,19 +28,14 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA */
 a Game Boy Advance emulator. */
 #define GB_APU_OVERCLOCK 4
 
-#if __GNUC__ >= 4
-#define CONST_CAST( T,expr) (T)(expr)
-#else
-#define CONST_CAST( T,expr) ((T) (expr))
-#endif
-
-/* If expr yields non-NULL error string, returns it from current function, */
-/* otherwise continues normally. */
-#undef  RETURN_ERR
-#define RETURN_ERR( expr ) do {                         \
-		const char * blargg_return_err_ = (expr);               \
-		if ( blargg_return_err_ ) return blargg_return_err_;    \
-	} while ( 0 )
+/* CONST_CAST was a const-stripping cast wrapper whose two #if arms were
+ * identical (`(T)(expr)` vs `((T)(expr))` -- only redundant parens).
+ * Folded into the two call sites as plain casts.
+ *
+ * RETURN_ERR was a control-flow helper: evaluate expr, and if it yields
+ * a non-NULL error string, return it from the calling function.  Used
+ * in only two places, both folded inline so the early return is
+ * visible rather than hidden in a macro. */
 
 #define SGCNT0_H 0x82
 #define FIFOA_L 0xa0
@@ -318,27 +312,6 @@ struct Gb_Wave
 };
 typedef struct Gb_Wave Gb_Wave;
 
-/* The cross-casts done throughout this file -- (Gb_Osc*)&square1,
- * (Gb_Env*)self in the noise/square paths, etc. -- are valid as long as
- * the shared leading fields sit at identical offsets in every struct
- * that participates in a cast.  Note this is NOT the same as
- * offsetof(derived, first_extra) == sizeof(base): a "base" struct ending
- * in a `bool` is padded up for alignment, and the derived struct reuses
- * that tail padding, so the first extra field lands inside it.  What the
- * casts actually require is per-field offset agreement -- assert that
- * directly so an edit to one field list and not the others fails the
- * build instead of silently corrupting state. */
-typedef char gb_osc_prefix_in_env    [offsetof(struct Gb_Env,           regs)   == offsetof(struct Gb_Osc, regs)
-                                    && offsetof(struct Gb_Env,           phase)  == offsetof(struct Gb_Osc, phase)   ? 1 : -1];
-typedef char gb_osc_prefix_in_wave   [offsetof(struct Gb_Wave,          regs)   == offsetof(struct Gb_Osc, regs)
-                                    && offsetof(struct Gb_Wave,          phase)  == offsetof(struct Gb_Osc, phase)   ? 1 : -1];
-typedef char gb_square_matches_env   [sizeof(struct Gb_Square)                  == sizeof(struct Gb_Env)
-                                    && offsetof(struct Gb_Square, volume)       == offsetof(struct Gb_Env, volume)   ? 1 : -1];
-typedef char gb_env_prefix_in_sweep  [offsetof(struct Gb_Sweep_Square,  volume) == offsetof(struct Gb_Env, volume)
-                                    && offsetof(struct Gb_Sweep_Square,  regs)   == offsetof(struct Gb_Osc, regs)    ? 1 : -1];
-typedef char gb_env_prefix_in_noise  [offsetof(struct Gb_Noise,         volume) == offsetof(struct Gb_Env, volume)
-                                    && offsetof(struct Gb_Noise,         regs)   == offsetof(struct Gb_Osc, regs)    ? 1 : -1];
-
 /*============================================================
 	FORWARD DECLARATIONS
 ============================================================ */
@@ -360,7 +333,6 @@ static void Gb_Sweep_Square_clock_sweep(Gb_Sweep_Square *self);
 
 static void Gb_Noise_run(Gb_Noise *self, int32_t time, int32_t end_time);
 
-static int  Gb_Wave_access(const Gb_Wave *self, unsigned addr);
 static void Gb_Wave_run(Gb_Wave *self, int32_t time, int32_t end_time);
 
 /* Blip_Buffer_destroy / _clear / _set_sample_rate were forward-declared
@@ -444,33 +416,26 @@ static INLINE void Blip_Synth_volume( Blip_Synth *self, float v )
 
 static INLINE int Gb_Wave_read( const Gb_Wave *self, unsigned addr )
 {
-	int index;
-	unsigned char const * wave_bank;
+	/* Gb_Wave_access(self,addr) was just `addr & 0x0F` with self unused,
+	 * and the enabled==false branch computed the identical value -- so
+	 * the index is `addr & 0x0F` unconditionally, always in [0,15].  The
+	 * old `index < 0 ? 0xFF :` guard was therefore dead. */
+	int index = addr & 0x0F;
+	unsigned char const * wave_bank =
+		&self->wave_ram[(~self->regs[0] & BANK40_MASK) >> 2 & self->agb_mask];
 
-	if(self->enabled)
-		index = Gb_Wave_access( self, addr );
-	else
-		index = addr & 0x0F;
-
-	wave_bank = &self->wave_ram[(~self->regs[0] & BANK40_MASK) >> 2 & self->agb_mask];
-
-	return (index < 0 ? 0xFF : wave_bank[index]);
+	return wave_bank[index];
 }
 
 static INLINE void Gb_Wave_write( Gb_Wave *self, unsigned addr, int data )
 {
-	unsigned char * wave_bank;
-	int index;
+	/* See Gb_Wave_read: index is `addr & 0x0F` unconditionally, always
+	 * in [0,15], so the old `if ( index >= 0 )` guard was dead. */
+	int index = addr & 0x0F;
+	unsigned char * wave_bank =
+		&self->wave_ram[(~self->regs[0] & BANK40_MASK) >> 2 & self->agb_mask];
 
-	if(self->enabled)
-		index = Gb_Wave_access( self, addr );
-	else
-		index = addr & 0x0F;
-
-	wave_bank = &self->wave_ram[(~self->regs[0] & BANK40_MASK) >> 2 & self->agb_mask];
-
-	if ( index >= 0 )
-		wave_bank[index] = data;
+	wave_bank[index] = data;
 }
 
 /* Sized to hold one GBA frame's worth of interleaved stereo int16_t samples
@@ -1126,8 +1091,10 @@ static void gb_apu_save_state( gb_apu_state_t* out )
 
 static const char * gb_apu_load_state( gb_apu_state_t const* in )
 {
-	RETURN_ERR( gb_apu_save_load( CONST_CAST(gb_apu_state_t*,in), false));
-	gb_apu_save_load2( CONST_CAST(gb_apu_state_t*,in), false );
+	const char * err = gb_apu_save_load( (gb_apu_state_t*)in, false );
+	if ( err )
+		return err;
+	gb_apu_save_load2( (gb_apu_state_t*)in, false );
 
 	gb_apu_apply_stereo();
 	gb_apu_synth_volume( 0 );          /* suppress output for the moment*/
@@ -1228,12 +1195,6 @@ static void Gb_Sweep_Square_clock_sweep(Gb_Sweep_Square *self)
                         Gb_Sweep_Square_calc_sweep( self, false );
                 }
         }
-}
-
-static int Gb_Wave_access(const Gb_Wave *self, unsigned addr)
-{
-	(void)self;
-	return addr & 0x0F;
 }
 
 /* write_register */
@@ -1786,7 +1747,11 @@ static const char * stereo_buffer_set_sample_rate( long rate, int msec )
         {
         	int i;
         	for ( i = BUFS_SIZE; --i >= 0; )
-                RETURN_ERR( Blip_Buffer_set_sample_rate( &bufs_buffer [i], rate, msec ) );
+        	{
+        		const char * err = Blip_Buffer_set_sample_rate( &bufs_buffer [i], rate, msec );
+        		if ( err )
+        			return err;
+        	}
         }
         return 0; 
 }
