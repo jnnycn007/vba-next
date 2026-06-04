@@ -20,7 +20,10 @@ LOAD_FROM_MEMORY = 1
 # DEFAULT_THREADED_RENDERER_ENABLED flag below controls the option's
 # default value: 0 (sync) for desktops where single-thread is plenty fast,
 # 1 (async) for Vita where the worker thread is needed for headroom.
-DESKTOP_PLATFORMS := unix osx windows_x86 windows_x86_64 mingw_x86 mingw_x86_64 \
+DESKTOP_PLATFORMS := unix osx \
+                     linux_x86 linux_x86_64 linux-portable_x86 linux-portable_x86_64 \
+                     osx_x86 osx_x86_64 \
+                     windows_x86 windows_x86_64 mingw_x86 mingw_x86_64 \
                      windows_msvc2005_x86 windows_msvc2010_x86 windows_msvc2010_x64 \
                      windows_msvc2017_desktop_x86 windows_msvc2017_desktop_x64 \
                      windows_msvc2017_desktop_arm
