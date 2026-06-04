@@ -20,7 +20,7 @@ LOAD_FROM_MEMORY = 1
 # DEFAULT_THREADED_RENDERER_ENABLED flag below controls the option's
 # default value: 0 (sync) for desktops where single-thread is plenty fast,
 # 1 (async) for Vita where the worker thread is needed for headroom.
-DESKTOP_PLATFORMS := unix osx \
+DESKTOP_PLATFORMS := unix osx win \
                      linux_x86 linux_x86_64 linux-portable_x86 linux-portable_x86_64 \
                      osx_x86 osx_x86_64 \
                      windows_x86 windows_x86_64 mingw_x86 mingw_x86_64 \
@@ -100,6 +100,16 @@ ifeq ($(platform),)
 	else ifneq ($(findstring win,$(shell uname -s)),)
 		platform = win
 	endif
+endif
+
+# Re-apply the desktop-platform filter now that auto-detection above
+# has finalized $(platform).  The earlier filter at the top of this
+# file fires for explicit named platforms (mingw_x86_64, windows_msvc*,
+# etc.); this second pass catches the case where the user ran plain
+# `make` without specifying platform= and auto-detect resolved it to
+# win/unix/osx (which is what the libretro Windows buildbot does).
+ifneq (,$(filter $(platform),$(DESKTOP_PLATFORMS)))
+   USE_THREADED_RENDERER=1
 endif
 
 LIBRETRO_DIR := $(CORE_DIR)/libretro
