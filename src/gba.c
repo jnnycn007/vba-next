@@ -11541,11 +11541,14 @@ static void threaded_renderer_loop0(void* p) {
 	INIT_RENDERER_CONTEXT(renderer_idx);
 	(void)p;
 
+	/* Worker does line rendering only.  systemDrawScreen() (which calls
+	 * the libretro video_refresh callback) is driven by the main thread
+	 * after postRender() publishes vcount==159 -- video_refresh has
+	 * window-thread affinity on Windows (cross-thread SendMessageW from
+	 * vulkan_frame's SetWindowTextW title update deadlocks against the
+	 * main thread's spin-wait in postRender), and libretro's contract
+	 * already requires the callback to run on the retro_run thread. */
 	while(renderer_ctx.renderer_control == 1) {
-		if(threaded_renderer_ready) {
-			threaded_renderer_ready = 0;
-			systemDrawScreen();
-		}
 		if(renderer_ctx.renderer_state == 0) {
 			SPIN_HINT();
 			continue;
@@ -13292,15 +13295,25 @@ updateLoop:
 							/* Synchronous fallback: postRender() already advanced
 							 * threaded_renderer_idx and set renderer_state=1 on the
 							 * just-published context.  Drive the worker body inline
-							 * for that context, then service the end-of-frame
-							 * screen-draw signal that the worker thread would normally
-							 * handle. */
+							 * for that context. */
 							int idx = (threaded_renderer_idx + THREADED_RENDERER_COUNT - 1) % THREADED_RENDERER_COUNT;
 							renderer_process_line(idx);
-							if(threaded_renderer_ready) {
-								threaded_renderer_ready = 0;
-								systemDrawScreen();
-							}
+						}
+						if(threaded_renderer_ready) {
+							/* End-of-visible-frame: present from the main (retro_run)
+							 * thread.  libretro requires it, and on Windows the
+							 * frontend's title-update path (SetWindowTextW ->
+							 * SendMessageW) deadlocks if called from a worker
+							 * while the main thread is spinning in postRender.
+							 * In threaded mode the worker may still be processing
+							 * the line-159 publish, so spin-wait for renderer_state
+							 * to drain first; in sync mode the inline
+							 * renderer_process_line above already cleared it. */
+							int idx = (threaded_renderer_idx + THREADED_RENDERER_COUNT - 1) % THREADED_RENDERER_COUNT;
+							while(threaded_renderer_contexts[idx].renderer_state)
+								SPIN_HINT();
+							threaded_renderer_ready = 0;
+							systemDrawScreen();
 						}
 #else
 						bool draw_objwin = (graphics.layerEnable & 0x9000) == 0x9000;
