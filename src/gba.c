@@ -2447,7 +2447,36 @@ static void BIOS_SoftReset (void)
 
 #define BIOS_REGISTER_RAM_RESET() BIOS_RegisterRamReset(bus.reg[0].I);
 
-#define BIOS_SQRT() bus.reg[0].I = (uint32_t)sqrt((float)bus.reg[0].I);
+/* GBA BIOS Sqrt (SWI 0x08) returns the integer (floor) square root of a u32
+ * argument.  The previous (uint32_t)sqrt((float)x) form was both inaccurate
+ * and non-deterministic: casting a u32 to float (24-bit mantissa) lost
+ * precision above 2^24, so e.g. 0xFFFFFFFF produced 65536 instead of the
+ * correct 65535, and the final truncation was FPU-mode dependent.  Since the
+ * result lands in emulated register r0 -- part of savestate / netplay state --
+ * that made identical input diverge across builds and platforms.  The
+ * digit-by-digit integer routine below is bit-exact, matches hardware, and is
+ * deterministic on every target. */
+static INLINE uint32_t bios_isqrt32(uint32_t x)
+{
+   uint32_t res = 0;
+   uint32_t bit = 1UL << 30;
+   while (bit > x)
+      bit >>= 2;
+   while (bit)
+   {
+      if (x >= res + bit)
+      {
+         x   -= res + bit;
+         res  = (res >> 1) + bit;
+      }
+      else
+         res >>= 1;
+      bit >>= 2;
+   }
+   return res;
+}
+
+#define BIOS_SQRT() bus.reg[0].I = bios_isqrt32(bus.reg[0].I);
 
 #define BIOS_MIDI_KEY_2_FREQ() \
 { \

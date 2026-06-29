@@ -1727,9 +1727,18 @@ static const char * Blip_Buffer_set_sample_rate(Blip_Buffer *self, long new_rate
 
 static uint32_t Blip_Buffer_clock_rate_factor(const Blip_Buffer *self, long rate)
 {
-   float ratio = (float) self->sample_rate_ / rate;
-   int32_t factor = (int32_t) floor( ratio * (1L << BLIP_BUFFER_ACCURACY) + 0.5 );
-   return (uint32_t) factor;
+   /* factor = round( sample_rate / rate * 2^ACCURACY ), computed entirely in
+    * integer math.  The previous float form rounded sample_rate/rate to single
+    * precision *before* scaling, so for sample rates whose ratio is not exactly
+    * representable in float the result could land one LSB either side of the
+    * true value -- and which side depended on the platform FPU.  The 64-bit
+    * exact-rounding division below is deterministic everywhere and reproduces
+    * the float result bit-for-bit at every rate the core actually uses
+    * (32000/44100/48000 against the 2^24 GBA clock), while being strictly more
+    * accurate for arbitrary rates. */
+   uint64_t num = ((uint64_t) self->sample_rate_ << BLIP_BUFFER_ACCURACY)
+                + (uint64_t) (rate >> 1);
+   return (uint32_t) (num / (uint64_t) rate);
 }
 
 
