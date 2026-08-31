@@ -81,6 +81,7 @@ SOURCES_C += 	\
 		$(LIBRETRO_COMM_DIR)/file/file_path_io.c \
 		$(LIBRETRO_COMM_DIR)/streams/file_stream.c \
 		$(LIBRETRO_COMM_DIR)/string/stdstring.c \
+		$(LIBRETRO_COMM_DIR)/string/rstrtod.c \
 		$(LIBRETRO_COMM_DIR)/time/rtime.c \
 		$(LIBRETRO_COMM_DIR)/vfs/vfs_implementation.c
 OBJECTS_COND +=	\
@@ -94,6 +95,7 @@ OBJECTS_COND +=	\
 		$(LIBRETRO_COMM_DIR)/file/file_path_io.o \
 		$(LIBRETRO_COMM_DIR)/streams/file_stream.o \
 		$(LIBRETRO_COMM_DIR)/string/stdstring.o \
+		$(LIBRETRO_COMM_DIR)/string/rstrtod.o \
 		$(LIBRETRO_COMM_DIR)/time/rtime.o \
 		$(LIBRETRO_COMM_DIR)/vfs/vfs_implementation.o
 endif
